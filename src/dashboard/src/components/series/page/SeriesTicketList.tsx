@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
 import { namesOf } from "../../tickets/holds/holdWords";
+import { SeriesRepoChips, seriesChipLabels } from "./SeriesRepoChips";
 import {
   SERIES_BUCKETS, SERIES_TICKET_FILTERS, seriesBucketCounts, seriesTicketBucket, seriesTicketRows, seriesWaitsOn,
   type SeriesTicketFilter,
@@ -31,6 +32,7 @@ export function SeriesTicketList({ detail, hovered, onHover, onOpen }: Props) {
   const counts = seriesBucketCounts(detail.tickets);
   const total = detail.tickets.length;
   const rows = seriesTicketRows(detail.tickets, filter);
+  const labels = useMemo(() => seriesChipLabels(detail), [detail]); // 2026-11-27-ecf2b
   const share = (n: number) => `${total === 0 ? 0 : (100 * n) / total}%`;
   const said = [t("series.rail.merged", { merged: counts.merged, total }),
     counts.you > 0 ? t("series.rail.you", { count: counts.you }) : null,
@@ -59,17 +61,19 @@ export function SeriesTicketList({ detail, hovered, onHover, onOpen }: Props) {
         {rows.map((ticket) => {
           const state = stateOf(ticket);
           return (
-            <li key={ticket.ticketId}>
-              <button type="button" className={`sr-trow${hovered === ticket.ticketId ? " on" : ""}`} data-testid={`series-row-${ticket.ticketId}`}
-                onMouseEnter={() => onHover(ticket.ticketId)} onFocus={() => onHover(ticket.ticketId)}
-                onClick={(e) => onOpen(ticket.ticketId, e.currentTarget)} aria-haspopup="dialog">
-                <span className={`sr-tdot ${seriesTicketBucket(ticket.kind)}`} aria-hidden="true" />
-                <span className="sr-tkey">{ticket.key}</span>
-                <span className="sr-ttitle">
-                  <span className="sr-tname">{ticket.title}</span>
-                  {state && <small className="sr-tstate" data-testid={`series-row-state-${ticket.ticketId}`}>{state}</small>}
-                </span>
-              </button>
+            // 2026-11-27-ecf2b: the row's button covers it, and its chips (links to the pull requests) sit above the button.
+            <li key={ticket.ticketId} className={`sr-trow${hovered === ticket.ticketId ? " on" : ""}`} data-testid={`series-row-${ticket.ticketId}`}
+              onMouseEnter={() => onHover(ticket.ticketId)}
+              onClick={(e) => { const open = e.currentTarget.querySelector("button"); if (open) onOpen(ticket.ticketId, open); }}>
+              <button type="button" className="sr-trow-open" aria-label={`${ticket.key} ${ticket.title}${state ? `: ${state}` : ""}`}
+                aria-haspopup="dialog" onFocus={() => onHover(ticket.ticketId)} data-testid={`series-row-open-${ticket.ticketId}`} />
+              <span className={`sr-tdot ${seriesTicketBucket(ticket.kind)}`} aria-hidden="true" />
+              <span className="sr-tkey" aria-hidden="true">{ticket.key}</span>
+              <span className="sr-ttitle" aria-hidden="true">
+                <span className="sr-tname">{ticket.title}</span>
+                {state && <small className="sr-tstate" data-testid={`series-row-state-${ticket.ticketId}`}>{state}</small>}
+              </span>
+              <SeriesRepoChips ticket={ticket} labels={labels} where="row" />
             </li>
           );
         })}

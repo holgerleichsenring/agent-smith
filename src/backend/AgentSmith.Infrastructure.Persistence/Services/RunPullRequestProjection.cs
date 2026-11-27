@@ -48,7 +48,7 @@ public sealed class RunPullRequestProjection
         var prs = RunStoryJson.TryDeserialize<List<RunPullRequestView>>(run.PullRequestsJson)
             ?? new List<RunPullRequestView>();
         prs.RemoveAll(p => p.Repo == e.Repo);
-        prs.Add(new RunPullRequestView(e.Repo, e.Status, e.Url, e.Reason, e.Timestamp));
+        prs.Add(new RunPullRequestView(e.Repo, e.Status, e.Url, e.Reason, e.Timestamp, e.CarriesCode)); // 2026-11-27-ecf2b
         run.PullRequestsJson = RunStoryJson.Serialize(prs);
         await uow.SaveChangesAsync(ct);
     }

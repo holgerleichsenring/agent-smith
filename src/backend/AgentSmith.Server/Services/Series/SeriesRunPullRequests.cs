@@ -9,14 +9,17 @@ namespace AgentSmith.Server.Services.Series;
 /// newest, in the project's repo order, with the CI read on its head and a red head's first failed check.</summary>
 public sealed class SeriesRunPullRequests
 {
-    public IReadOnlyList<SeriesRunPullRequestView> Of(IEnumerable<PrReviewRecordView> records, ResolvedProject project)
+    /// <param name="recordOnly">2026-11-27-ecf2b: (run, URL) of the pull requests whose record's run said they carry only the
+    /// spec record.</param>
+    public IReadOnlyList<SeriesRunPullRequestView> Of(IEnumerable<PrReviewRecordView> records, ResolvedProject project,
+        IReadOnlySet<(string RunId, string Url)>? recordOnly = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         var repos = project.Repos.Select(r => r.Name).ToList();
         return [.. records.GroupBy(r => r.Repo, StringComparer.Ordinal)
             .Select(g => g.LastOrDefault(r => r.State is PrReviewStates.Open or PrReviewStates.Unread) ?? g.Last())
             .OrderBy(r => repos.IndexOf(r.Repo) is var at && at < 0 ? int.MaxValue : at).ThenBy(r => r.Repo, StringComparer.Ordinal)
-            .Select(View)];
+            .Select(r => View(r) with { RecordOnly = recordOnly?.Contains((r.RunId, r.Url.Trim())) == true })];
     }
 
     /// <summary>The pull request's target is known and is neither its repo's configured default branch nor 2026-11-24-f9c5c

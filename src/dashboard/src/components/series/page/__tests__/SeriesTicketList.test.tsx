@@ -40,6 +40,6 @@ describe("SeriesTicketList", () => {
     fireEvent.mouseLeave(screen.getByRole("list"));
     expect(onHover).toHaveBeenLastCalledWith(null);
     fireEvent.click(screen.getByTestId("series-row-56"));
-    expect(onOpen).toHaveBeenCalledWith("56", screen.getByTestId("series-row-56"));
+    expect(onOpen).toHaveBeenCalledWith("56", screen.getByTestId("series-row-open-56"));
   });
 });

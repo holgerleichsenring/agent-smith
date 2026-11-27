@@ -50,35 +50,39 @@ public sealed class SpecOnlyPullRequests(
         {
             var skipped = opened.FindIndex(o => o.RepoName == repoName && o.Status == OpenStatus.SkippedNoChanges);
             if (skipped < 0 || opened.Any(o => o.RepoName == repoName && o.Status == OpenStatus.Opened)) continue;
-            if (code is { AnyCode: true } && await RecordOnlyAsync(pipeline, code, repoName, ct))
+            // 2026-11-27-ecf2b: what the kept pull request carries, as its branch proves it against the base; null unproven.
+            var recordOnly = code is null ? null : await RecordOnlyAsync(pipeline, code, repoName, ct);
+            if (code is { AnyCode: true } && recordOnly == true)
             {
                 logger.LogInformation("{Repo}: the branch carries only the spec record while another repository carries code — "
                     + "its spec PR {Url} is left alone and is not the run's work", repoName, url);
                 continue;
             }
             if (repos.FirstOrDefault(r => r.Name == repoName) is { } repo) await RefreshAsync(repo, url, body, ready, ct);
-            opened[skipped] = new OpenedPullRequest(repoName, url, OpenStatus.Opened);
+            opened[skipped] = new OpenedPullRequest(repoName, url, OpenStatus.Opened, CarriesCode: !recordOnly);
             await outcomes.PublishAsync(pipeline, opened[skipped], ct);
             kept.Add(opened[skipped]);
         }
         return kept;
     }
 
-    // 2026-11-27-ecf2c: proven only by a diff against the base branch that touches nothing outside the run record.
-    private async Task<bool> RecordOnlyAsync(PipelineContext pipeline, RunCode code, string repoName, CancellationToken ct)
+    // 2026-11-27-ecf2c: proven only by a diff against the base branch that touches nothing outside the run record. True:
+    // record only; false: the branch delivers source; null: not proven either way (no base rung, no diff, no sandbox).
+    private async Task<bool?> RecordOnlyAsync(PipelineContext pipeline, RunCode code, string repoName, CancellationToken ct)
     {
-        if (!code.Sandboxes.TryGetValue(repoName, out var target)) return false;
+        if (!code.Sandboxes.TryGetValue(repoName, out var target)) return null;
         try
         {
             var diff = await delivery.ForBranchAsync(target.Sandbox, DeliveryBasis.ForSandbox(pipeline, target.Key), ct);
+            if (diff.Failed || !diff.AgainstBase) return null;
             // The record also writes .gitattributes at the root (SpecIndexWriter's merge=union lines) — record, not code.
-            return !diff.Failed && diff.AgainstBase && CitedFileIndex.FromDiff(diff.Text).Paths
+            return CitedFileIndex.FromDiff(diff.Text).Paths
                 .All(path => RunRecordPaths.IsRunRecordPath(path) || path == ProjectMetaPaths.GitAttributes);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "{Repo}: the branch's delivery could not be read; its spec PR is kept", repoName);
-            return false;
+            return null;
         }
     }
 

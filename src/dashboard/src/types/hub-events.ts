@@ -384,6 +384,8 @@ export interface PullRequestOutcomeEvent extends RunEventBase {
   status: PullRequestStatus;
   url: string | null;
   reason: string | null;
+  /** 2026-11-27-ecf2b: code (true), only the spec record (false), unknown (null). */
+  carriesCode?: boolean | null;
 }
 
 /**

@@ -21,7 +21,7 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
         ArgumentNullException.ThrowIfNull(record);
         ArgumentNullException.ThrowIfNull(facts);
         var prs = record.Tickets.Select(t => t.TicketId).Distinct(StringComparer.Ordinal)
-            .ToDictionary(id => id, id => pullRequests.Of(facts.PullRequests[id], facts.Project), StringComparer.Ordinal);
+            .ToDictionary(id => id, id => pullRequests.Of(facts.PullRequests[id], facts.Project, facts.RecordOnly), StringComparer.Ordinal);
         var ordered = record.Tickets.Select(t => new SeriesRunOrderTicket(t.TicketId, t.Key, facts.Requires.GetValueOrDefault(t.TicketId) ?? [])
         {
             HasOpenPullRequest = prs[t.TicketId].Any(SeriesRunPullRequestView.Waits),
@@ -66,5 +66,20 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
         new(ticket.TicketId, ticket.Key, ticket.Title, ticket.FollowUp, depths[ticket.TicketId], ordered.Requires,
             [.. prs.Select(p => p.Repo).Distinct(StringComparer.Ordinal)], facts.Landed.Contains(ticket.TicketId),
             facts.Attempts.GetValueOrDefault(ticket.TicketId)?.Status, prs)
-        { RunId = facts.Attempts.GetValueOrDefault(ticket.TicketId)?.RunId }; // 2026-11-23-f562
+        {
+            RunId = facts.Attempts.GetValueOrDefault(ticket.TicketId)?.RunId, // 2026-11-23-f562
+            LaneRepo = LaneOf(facts.SpecRepos.GetValueOrDefault(ticket.TicketId) ?? [], prs), // 2026-11-27-ecf2b
+        };
+
+    /// <summary>2026-11-27-ecf2b: the repository a ticket is drawn on — its spec's, the one whose pull request carries
+    /// the code first; a ticket without specs on its pull requests'.</summary>
+    internal static string? LaneOf(IReadOnlyList<string> specRepos, IReadOnlyList<SeriesRunPullRequestView> prs)
+    {
+        bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        bool Code(string repo) => prs.Any(p => Same(p.Repo, repo) && !p.RecordOnly);
+        // The pull request's spelling of a spec repository, so the lane is the one its pull requests are drawn under.
+        string Named(string repo) => prs.FirstOrDefault(p => Same(p.Repo, repo))?.Repo ?? repo;
+        var spec = specRepos.FirstOrDefault(Code) ?? specRepos.FirstOrDefault();
+        return spec is not null ? Named(spec) : prs.FirstOrDefault(p => !p.RecordOnly)?.Repo ?? prs.FirstOrDefault()?.Repo;
+    }
 }

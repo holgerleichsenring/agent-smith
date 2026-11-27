@@ -27,6 +27,9 @@ public sealed record SeriesRunPullRequestView(
     /// series' own review mode, which <see cref="ApprovedBy"/> serves.</summary>
     public bool ApprovalRequired { get; init; }
 
+    /// <summary>2026-11-27-ecf2b: the run that named it said it carries only the spec record (spec, done index, decisions).</summary>
+    public bool RecordOnly { get; init; }
+
     /// <summary>The pull request waits for a merge: open, or opened and not read by the host yet.</summary>
     public static bool Waits(SeriesRunPullRequestView pullRequest)
     {

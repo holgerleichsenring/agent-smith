@@ -56,6 +56,8 @@ export interface SeriesRunPullRequest {
   mergeSaid?: SeriesMergeSaid | null;
   /** 2026-11-26-5201f: the host's merge rules still need a person's approval on it. */
   approvalRequired?: boolean;
+  /** 2026-11-27-ecf2b: the run that named it said it carries only the spec record; absent or false otherwise. */
+  recordOnly?: boolean;
 }
 
 /** 2026-11-25-9992a: a ticket's one kind on every series surface, computed on the server (SeriesTicketState) — the Overview's
@@ -91,6 +93,9 @@ export interface SeriesRunTicket {
   costUsd: number;
   /** 2026-11-26-5201e: where the ticket opens in its tracker (its newest attempt's fetch); absent or null when unknown. */
   webUrl?: string | null;
+  /** 2026-11-27-ecf2b: the repository the graph draws it on — its spec's, the one carrying code first; absent from an
+   *  older server, null with neither specs nor pull requests. */
+  laneRepo?: string | null;
   /** 2026-11-25-9992e: the series master's newest act on the ticket, from its act log; null when it never acted on it. */
   lastAct?: SeriesTicketLastAct | null;
 }

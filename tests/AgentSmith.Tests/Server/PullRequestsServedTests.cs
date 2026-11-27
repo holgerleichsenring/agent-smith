@@ -71,6 +71,25 @@ public sealed class PullRequestsServedTests : IDisposable
             "\"pullRequests\":[{\"repo\":\"api\",\"url\":\"https://git/pr/1\",\"status\":\"opened\",\"isDraft\":false}]");
     }
 
+    // 2026-11-27-ecf2b: what an opened pull request carries is kept on the run's outcome — code, record only, unknown.
+    [Fact]
+    public async Task Apply_AnOutcomeCarryingCode_StoresIt()
+    {
+        const string runId = "2026-11-27T10-00-00-0009";
+        await ApplyAsync(
+            new RunStartedEvent(runId, "ticket", "feature", ["api", "web", "docs"], T, "claude", "7"),
+            new PullRequestOutcomeEvent(runId, "api", "opened", T.AddMinutes(1), "https://git/pr/api", null, true),
+            new PullRequestOutcomeEvent(runId, "web", "opened", T.AddMinutes(2), "https://git/pr/web", null, false),
+            new PullRequestOutcomeEvent(runId, "docs", "opened", T.AddMinutes(3), "https://git/pr/docs"));
+
+        var run = await NewStore().GetRunDetailAsync(runId, CancellationToken.None);
+
+        var stored = System.Text.Json.JsonSerializer.Deserialize<List<AgentSmith.Contracts.Runs.RunPullRequestView>>(run!.PullRequestsJson!,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+        stored.ToDictionary(p => p.Repo, p => p.CarriesCode).Should().BeEquivalentTo(
+            new Dictionary<string, bool?> { ["api"] = true, ["web"] = false, ["docs"] = null });
+    }
+
     // p0347 spec test: PullRequests_MultiRepoRun_KeepsEveryRepoPr
     [Fact]
     public async Task PullRequests_MultiRepoRun_KeepsEveryRepoPr()

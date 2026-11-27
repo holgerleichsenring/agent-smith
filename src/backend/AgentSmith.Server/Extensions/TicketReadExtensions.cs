@@ -85,6 +85,7 @@ internal static class TicketReadExtensions
         services.TryAddTransient<Services.Series.SeriesRunPullRequests>();
         services.TryAddTransient<Services.Series.SeriesRunTickets>();
         services.TryAddScoped<Services.Series.SeriesRunProjectReads>();
+        services.TryAddScoped<Services.Series.SeriesRunLaneReads>(); // 2026-11-27-ecf2b
         return services;
     }
 }

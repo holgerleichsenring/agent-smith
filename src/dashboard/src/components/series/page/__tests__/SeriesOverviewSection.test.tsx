@@ -86,7 +86,7 @@ describe("SeriesOverviewSection", () => {
     render(<SeriesRunPage id="sr-1" />);
 
     const node = await screen.findByTestId("series-node-50");
-    const pr = screen.getByTestId("series-links-pr-50");
+    const pr = screen.getByTestId("series-node-chip-server-50");
     const tracker = screen.getByTestId("series-links-tracker-50");
     expect(pr).toHaveAttribute("href", "https://git.test/server/pull/9937");
     expect(tracker).toHaveAttribute("href", "https://tracker.test/items/50");
@@ -101,7 +101,7 @@ describe("SeriesOverviewSection", () => {
     const inDetails = within(details).getByTestId("series-details-tracker-50");
     expect(inDetails).toHaveAttribute("href", "https://tracker.test/items/50");
     expect(inDetails).toHaveAttribute("target", "_blank");
-    fireEvent.mouseDown(screen.getByTestId("series-links-pr-50"));
+    fireEvent.mouseDown(screen.getByTestId("series-node-chip-server-50"));
     expect(screen.getByTestId("series-details-50")).toBeInTheDocument(); // a node's own link leaves its details open
   });
 
@@ -112,7 +112,8 @@ describe("SeriesOverviewSection", () => {
     expect(kinds["series-node-50"]).toBe("now");
     expect(kinds["series-node-51"]).toBe("needed");
     expect(kinds["series-node-61"]).toBe("question");
-    expect(screen.getByTestId("series-graph-legend").querySelectorAll("span")).toHaveLength(10);
+    expect(screen.getByTestId("series-graph-legend").querySelectorAll("i.sr-dot")).toHaveLength(10);
+    expect(screen.getByTestId("series-legend-chips")).toHaveTextContent("PR with code");
     expect(screen.getByTestId("series-edge-50>51")).toHaveClass("needed");
     expect(screen.getByTestId("series-edge-50>61")).not.toHaveClass("needed");
   });
@@ -276,13 +277,13 @@ describe("SeriesOverviewSection", () => {
     expect(screen.getByTestId("series-node-56")).toHaveClass("dim"); // the open row keeps its course lit
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByTestId("series-details-59")).toBeNull();
-    expect(screen.getByTestId("series-row-59")).toHaveFocus();
+    expect(screen.getByTestId("series-row-open-59")).toHaveFocus();
   });
 
   it("RailRow_ClickedTwice_ClosesItsDetails", async () => {
     render(<SeriesRunPage id="sr-1" />);
     fireEvent.click(await screen.findByTestId("series-row-59"));
-    fireEvent.mouseDown(screen.getByTestId("series-row-59"));
+    fireEvent.mouseDown(screen.getByTestId("series-row-open-59"));
     fireEvent.click(screen.getByTestId("series-row-59"));
 
     expect(screen.queryByTestId("series-details-59")).toBeNull();

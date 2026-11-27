@@ -109,7 +109,7 @@ public sealed class SpecOnlyPullRequestsTests
         var kept = await _sut.KeepAsync(TwoRepoPipeline(), Repos, WorkerCodeClientSkipped(), "body", true, CancellationToken.None,
             Code(new BranchSandbox(Source)));
 
-        kept.Should().Equal(new OpenedPullRequest("sample-client", ClientUrl, OpenStatus.Opened));
+        kept.Should().Equal(new OpenedPullRequest("sample-client", ClientUrl, OpenStatus.Opened, CarriesCode: true));
         _provider.Verify(p => p.MarkPullRequestReadyAsync(ClientUrl, It.IsAny<CancellationToken>()), Times.Once);
     }
 

@@ -15,7 +15,7 @@ namespace AgentSmith.Server.Services.Series;
 /// </summary>
 public sealed class SeriesRunProjectReads(
     ITicketRequirementStore requirements, ITicketLandingStore landings, PrReviewRecordRepository records,
-    IPreviousAttemptReader attempts)
+    IPreviousAttemptReader attempts, SeriesRunLaneReads lanes)
 {
     public async Task<SeriesRunProjectFacts> ReadAsync(ResolvedProject project, IReadOnlyList<SeriesTicket> tickets, CancellationToken ct)
     {
@@ -31,10 +31,20 @@ public sealed class SeriesRunProjectReads(
         var landed = found.Select(l => l.TicketId).ToHashSet(StringComparer.Ordinal);
         var prs = (await records.ByTicketsAsync(project.Name, ids, ct)).ToLookup(r => r.TicketId, StringComparer.Ordinal);
         var newest = await attempts.LatestEndsAsync(project.Name, ids, ct);
+        // 2026-11-27-ecf2b: which pull requests carry only the spec record, and where each newest attempt's specs sit.
+        var recordOnly = await lanes.RecordOnlyAsync([.. prs.SelectMany(g => g).Select(r => r.RunId).Distinct(StringComparer.Ordinal)], ct);
+        // A ticket's runs: its newest attempt and the runs its pull requests name; its specs are the newest of them with a cut.
+        var runsOf = ids.ToDictionary(id => id, id => (IReadOnlyList<string>)[.. prs[id].Select(r => r.RunId)
+            .Append(newest.GetValueOrDefault(id)?.RunId ?? string.Empty).Where(r => r.Length > 0).Distinct(StringComparer.Ordinal)
+            .OrderByDescending(r => r, StringComparer.Ordinal)], StringComparer.Ordinal);
+        var specRepos = await lanes.SpecReposAsync([.. runsOf.Values.SelectMany(r => r).Distinct(StringComparer.Ordinal)], ct);
         return new SeriesRunProjectFacts(project, requires, landed, prs, newest)
         {
             Edges = edges, // 2026-11-25-9992a: and when each landed
             LandedAt = found.GroupBy(l => l.TicketId, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Min(l => l.LandedAt), StringComparer.Ordinal),
+            RecordOnly = recordOnly,
+            SpecRepos = runsOf.Select(t => (t.Key, Run: t.Value.FirstOrDefault(specRepos.ContainsKey))).Where(t => t.Run is not null)
+                .ToDictionary(t => t.Key, t => specRepos[t.Run!], StringComparer.Ordinal),
         };
     }
 

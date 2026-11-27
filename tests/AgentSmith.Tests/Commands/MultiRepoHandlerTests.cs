@@ -131,6 +131,22 @@ public sealed class MultiRepoHandlerTests
         opened.Should().ContainSingle(o => o.RepoName == "clean" && o.Status == OpenStatus.SkippedNoChanges);
     }
 
+    // 2026-11-27-ecf2b: the opened outcome says the pull request carries code; the skipped one says nothing.
+    [Fact]
+    public async Task CommitAndPR_CodeInOneRepo_RecordsCarriesCodeOnItsOutcome()
+    {
+        var harness = new CommitAndPRHarness();
+        harness.AddRepo("changed");
+        harness.AddRepo("clean");
+        harness.SimulateNoChangesFor("clean");
+
+        await harness.RunAsync();
+
+        var opened = harness.Pipeline.Get<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests);
+        opened.Single(o => o.RepoName == "changed").CarriesCode.Should().BeTrue();
+        opened.Single(o => o.RepoName == "clean").CarriesCode.Should().BeNull();
+    }
+
     [Fact]
     public async Task CommitAndPR_PublishesOpenedPullRequests_ListInPipelineContext()
     {

@@ -10,12 +10,14 @@ namespace AgentSmith.Contracts.Runs;
 /// <see cref="Url"/> is the created PR URL (opened only); <see cref="Reason"/> the
 /// failure reason (failed only); <see cref="OpenedAt"/> the outcome timestamp.
 /// </summary>
+/// <param name="CarriesCode">2026-11-27-ecf2b: the outcome's — code (true), only the spec record (false), unknown (null).</param>
 public sealed record RunPullRequestView(
     string Repo,
     string Status,
     string? Url,
     string? Reason,
-    DateTimeOffset OpenedAt);
+    DateTimeOffset OpenedAt,
+    bool? CarriesCode = null);
 
 /// <summary>
 /// p0347: one flattened row of the Pull Requests page (GET /api/pull-requests) —

@@ -200,9 +200,23 @@
 .mock-tickets .sr-filter-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .mock-tickets .sr-trows { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; list-style: none; margin: 0; padding: 4px 0 12px; }
 .mock-tickets .sr-trows-none { padding: 8px 16px; font-size: 12.5px; color: var(--ink-3); }
-.mock-tickets .sr-trow { width: 100%; box-sizing: border-box; display: grid; grid-template-columns: 8px 56px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 14px 6px 13px; border: 0; border-left: 3px solid transparent; background: none; font: inherit; text-align: left; color: var(--ink); cursor: pointer; }
+.mock-tickets .sr-trow { position: relative; box-sizing: border-box; display: grid; grid-template-columns: 8px 56px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 14px 6px 13px; border-left: 3px solid transparent; color: var(--ink); cursor: pointer; }
 .mock-tickets .sr-trow:hover, .mock-tickets .sr-trow.on { background: var(--panel-2); border-left-color: var(--ink); }
-.mock-tickets .sr-trow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* 2026-11-27-ecf2b: the row's button covers it; the chips (links) sit above it. */
+.mock-tickets .sr-trow-open { position: absolute; inset: 0; z-index: 1; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; }
+.mock-tickets .sr-trow-open:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.mock-tickets .sr-trow .sr-chips { position: relative; z-index: 2; }
+/* 2026-11-27-ecf2b: a chip per pull request — filled when it carries code, outlined when it carries only the spec record. */
+.mock-tickets .sr-chips { display: inline-flex; gap: 3px; flex-shrink: 0; }
+.mock-tickets .sr-chip { display: inline-block; min-width: 9px; padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; font: 600 10px/15px var(--mono); color: var(--ink-3); text-align: center; text-decoration: none; background: transparent; }
+.mock-tickets .sr-chip.code { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.mock-tickets a.sr-chip:hover { border-color: var(--accent); }
+.mock-tickets a.sr-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mock-tickets .sr-node-links a.sr-chip, .mock-tickets .sr-node-links a.sr-chip:hover, .mock-tickets .sr-node-links a.sr-chip:focus-visible { text-decoration: none; }
+.mock-tickets .sr-node-links a.sr-chip { color: var(--ink-3); }
+.mock-tickets .sr-node-links a.sr-chip.code { color: var(--bg); }
+.mock-tickets .sr-legend-chips { display: inline-flex; align-items: center; gap: 5px; }
+.mock-tickets .sr-legend-chips b.sr-chip { font-weight: 600; }
 .mock-tickets .sr-tdot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
 .mock-tickets .sr-tdot.merged { background: var(--ok); }
 .mock-tickets .sr-tdot.moving { background: var(--run); }

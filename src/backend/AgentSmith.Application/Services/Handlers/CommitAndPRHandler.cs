@@ -141,7 +141,7 @@ public sealed class CommitAndPRHandler(
                 var (result, body) = await OpenOneAsync(
                     context, sandbox, repo, isDraft,
                     failureReason, shortfall, progress, cancellationToken);
-                outcome = result;
+                outcome = result with { CarriesCode = result.Status == OpenStatus.Opened && hasCode ? true : null }; // ecf2b: code proven
                 if (body is not null) bodies[repo.Name] = body;
             }
             opened.Add(outcome);

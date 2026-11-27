@@ -4,6 +4,8 @@ import type { SeriesRunDetail, SeriesRunEdge, SeriesRunTicket } from "@/types/se
 // repo order, then one for tickets without a pull request yet; one column per depth, the order work can happen. A ticket
 // in more than one repo sits in its first and names the others. Within one lane and column tickets stack in series order.
 // 2026-11-23-f562: the graph is the Overview's; edges run orthogonally with slightly rounded corners, no curves.
+// 2026-11-27-ecf2b: a ticket sits on its lane repo (the server's: its spec's, the one carrying code first) — on its first
+// pull request's repo only from a server that does not say; its pull requests are chips on the node, no "+ repos" text.
 
 export const NODE_W = 150;
 export const NODE_H = 46;
@@ -22,8 +24,6 @@ export interface SeriesLane {
 export interface SeriesNode {
   ticket: SeriesRunTicket;
   lane: string | null;
-  /** The ticket's other repos, drawn as a mark. */
-  alsoIn: string[];
   x: number;
   y: number;
 }
@@ -42,7 +42,7 @@ export interface SeriesOrderLayout {
 }
 
 export function seriesOrderLayout(detail: SeriesRunDetail): SeriesOrderLayout {
-  const laneOf = (t: SeriesRunTicket): string | null => t.repos[0] ?? null;
+  const laneOf = (t: SeriesRunTicket): string | null => (t.laneRepo !== undefined ? t.laneRepo : t.repos[0] ?? null);
   const used = new Set<string | null>(detail.tickets.map(laneOf));
   const repos: (string | null)[] = [...detail.repos.filter((r) => used.has(r)), ...[...used].filter((r) => r !== null && !detail.repos.includes(r))];
   if (used.has(null)) repos.push(null);
@@ -64,7 +64,7 @@ export function seriesOrderLayout(detail: SeriesRunDetail): SeriesOrderLayout {
   });
   const top = new Map(lanes.map((l) => [l.repo, l.top]));
   const nodes = detail.tickets.map((ticket) => ({
-    ticket, lane: laneOf(ticket), alsoIn: ticket.repos.slice(1),
+    ticket, lane: laneOf(ticket),
     x: LEFT + ticket.depth * COLUMN_W, y: (top.get(laneOf(ticket)) ?? 0) + LANE_HEAD + (slot.get(ticket.ticketId) ?? 0) * ROW_H,
   }));
   const columns = Math.max(0, ...detail.tickets.map((t) => t.depth)) + 1;

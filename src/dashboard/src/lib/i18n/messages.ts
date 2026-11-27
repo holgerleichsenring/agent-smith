@@ -952,7 +952,6 @@ export const coreMessages = {
     en: { one: "1 earlier message — show it", other: "{count} earlier messages — show more" },
     de: { one: "1 frühere Nachricht — zeigen", other: "{count} frühere Nachrichten — mehr zeigen" },
   },
-  "series.node.openPr": { en: "Open PR #{number} of {key} on the host", de: "PR #{number} von {key} beim Host öffnen" },
   "series.node.openTracker": { en: "Open {key} in the tracker", de: "{key} im Tracker öffnen" },
   "series.details.start": { en: "Start", de: "Starten" },
   "series.details.starting": { en: "Starting…", de: "Startet…" },
@@ -1024,7 +1023,12 @@ export const coreMessages = {
     de: "Zeig auf ein Ticket, um seinen Weg im Graphen zu sehen; klick es an, um zu sehen, wo es steht.",
   },
   "series.graph.noRepo": { en: "No pull request yet", de: "Noch kein Pull Request" },
-  "series.graph.alsoIn": { en: "+ {repos}", de: "+ {repos}" },
+  // 2026-11-27-ecf2b: a chip per pull request on a node and a row.
+  "series.chip.code": { en: "code", de: "Code" },
+  "series.chip.record": { en: "spec record only", de: "nur Spec-Eintrag" },
+  "series.chip.title": { en: "{repo} PR #{number} · {what}", de: "{repo} PR #{number} · {what}" },
+  "series.legend.code": { en: "PR with code", de: "PR mit Code" },
+  "series.legend.record": { en: "spec record only", de: "nur Spec-Eintrag" },
   "series.graph.hide": { en: "Hide graph", de: "Graph ausblenden" },
   "series.graph.show": { en: "Show graph", de: "Graph zeigen" },
   // 2026-11-26-f511b: the divider between the graph and the chat.

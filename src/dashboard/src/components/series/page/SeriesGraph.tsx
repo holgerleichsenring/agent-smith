@@ -4,7 +4,8 @@ import { Fragment, useEffect, useMemo, useRef } from "react";
 import { useT } from "@/hooks/useT";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
 import { seriesTicketBadges, type SeriesBadge } from "./seriesCiState";
-import { SERIES_NODE_KINDS, seriesNeededChain, waitingPullRequests } from "./seriesNodeKind";
+import { SERIES_NODE_KINDS, seriesNeededChain } from "./seriesNodeKind";
+import { SeriesRepoChips, seriesChipLabels } from "./SeriesRepoChips";
 import { NODE_H, NODE_W, seriesNodeId, seriesNodeLinksId, seriesOrderLayout } from "./seriesOrderLayout";
 
 // 2026-11-23-f562: the Overview's order graph — repo lanes, depth columns, every ticket in ONE colour by its hold
@@ -57,6 +58,9 @@ export function SeriesGraph({ detail, lit, hovered = null, openId, onNode, onClo
   const t = useT();
   const layout = useMemo(() => seriesOrderLayout(detail), [detail]);
   const chain = useMemo(() => seriesNeededChain(detail), [detail]);
+  const labels = useMemo(() => seriesChipLabels(detail), [detail]);
+  // 2026-11-27-ecf2b: the legend's two sample chips carry the series' own first labels, one letter when it has only one repo.
+  const legend = [Object.values(labels)[0] ?? "A", Object.values(labels)[1] ?? Object.values(labels)[0] ?? "A"];
   const on = (id: string) => !lit || lit.has(id);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -88,9 +92,8 @@ export function SeriesGraph({ detail, lit, hovered = null, openId, onNode, onClo
               );
             })}
           </svg>
-          {layout.nodes.map(({ ticket, alsoIn, x, y }) => {
+          {layout.nodes.map(({ ticket, x, y }) => {
             const kind = ticket.kind;
-            const pr = waitingPullRequests(ticket.pullRequests)[0] ?? (ticket.landed ? ticket.pullRequests[0] : undefined);
             const working = isWorkedOn(detail, ticket);
             const marks = seriesTicketBadges(ticket);
             const said = [t(`series.kind.${kind}`), working ? t("series.graph.working") : null, ...marks.map((m) => t(`series.badge.${m}`))];
@@ -103,23 +106,22 @@ export function SeriesGraph({ detail, lit, hovered = null, openId, onNode, onClo
                 aria-expanded={openId === ticket.ticketId} onClick={(e) => { e.stopPropagation(); onNode(ticket.ticketId, e.currentTarget); }}
                 data-testid={`series-node-${ticket.ticketId}`} data-working={working || undefined}>
                 <span className="sr-node-id">
-                  <span>{ticket.key}{alsoIn.length > 0 ? ` ${t("series.graph.alsoIn", { repos: alsoIn.join(" + ") })}` : ""}</span>
+                  <span>{ticket.key}</span>
                   {/* the links row's room, held so the key ends in an ellipsis before it as it did */}
                   <span className="sr-node-marks sr-node-room" aria-hidden="true">
                     {marks.map((mark) => <i key={mark} className="sr-mark" />)}
-                    {pr && <span>{t("series.merge.pr", { number: pr.number })}</span>}
+                    <SeriesRepoChips ticket={ticket} labels={labels} still />
                     {ticket.webUrl && <span>↗</span>}
                   </span>
                 </span>
                 <span className="sr-node-name">{ticket.title}</span>
               </button>
               {/* 2026-11-26-5201e: the node's marks and its links — the pull request and the tracker, each in a new tab — sit
-                  over the node's key row, beside its button rather than inside it. */}
+                  over the node's key row, beside its button rather than inside it. 2026-11-27-ecf2b: a chip per pull request. */}
               <span id={seriesNodeLinksId(ticket.ticketId)} className={`sr-node-links${dim}`} style={{ left: x, top: y, width: NODE_W }} data-testid={`series-links-${ticket.ticketId}`}>
                 {marks.map((mark) => <i key={mark} className={`sr-mark ${MARK_TONE[mark]}`} title={t(`series.badge.${mark}`)}
                   data-testid={`series-mark-${mark}-${ticket.ticketId}`} />)}
-                {pr && <a href={pr.url} target="_blank" rel="noreferrer" aria-label={t("series.node.openPr", { number: pr.number, key: ticket.key })}
-                  data-testid={`series-links-pr-${ticket.ticketId}`}>{t("series.merge.pr", { number: pr.number })}</a>}
+                <SeriesRepoChips ticket={ticket} labels={labels} />
                 {ticket.webUrl && <a href={ticket.webUrl} target="_blank" rel="noreferrer" aria-label={t("series.node.openTracker", { key: ticket.key })}
                   title={t("series.node.openTracker", { key: ticket.key })} data-testid={`series-links-tracker-${ticket.ticketId}`}>↗</a>}
               </span>
@@ -131,6 +133,9 @@ export function SeriesGraph({ detail, lit, hovered = null, openId, onNode, onClo
       {/* 2026-11-26-b186: the legend under the graph, so a bounded overview shows the graph first */}
       <div className="sr-legend" data-testid="series-graph-legend">
         {SERIES_NODE_KINDS.map((kind) => <span key={kind}><i className={`sr-dot ${kind}`} />{t(`series.kind.${kind}`)}</span>)}
+        <span className="sr-legend-chips" data-testid="series-legend-chips">
+          <b className="sr-chip code">{legend[0]}</b>{t("series.legend.code")} · <b className="sr-chip">{legend[1]}</b>{t("series.legend.record")}
+        </span>
       </div>
     </section>
   );
