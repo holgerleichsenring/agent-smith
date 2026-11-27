@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.233.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.0...v0.233.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* **series:** a led ticket's PR merge, conflict and draft are the master's, not Needs you; a settled no-CI head wakes the master (2026-11-27-e451) ([8028883](https://github.com/holgerleichsenring/agent-smith/commit/80288839afdd79017f9cc23ee9c3541a5d1e4306))
+* **series:** a led ticket's PR merge, conflict and draft are the master's, not Needs you; a settled no-CI head wakes the master (2026-11-27-e451) ([1601adc](https://github.com/holgerleichsenring/agent-smith/commit/1601adc533c665e5f3a6557328bf1285e36a93e8))
+
 ## [0.233.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.232.0...v0.233.0) (2026-11-27)
 
 
