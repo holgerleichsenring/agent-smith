@@ -30,6 +30,8 @@ namespace AgentSmith.Application.Services.Spawning;
 /// 2026-09-21-77d6: the decision is three ways, not two — start, REFUSE, defer. A ticket the
 /// claim would refuse outright is refused instead of queued; queuing it mints a waiting run the
 /// pump then drops, and the next poll mints another.
+///
+/// 2026-11-27-3532a: a trigger of a code ticket enters its series instead (<see cref="SeriesLedSpawn"/>).
 /// </summary>
 public sealed class SpawnPipelineRunsUseCase(
     ITicketClaimService claimService,
@@ -44,8 +46,9 @@ public sealed class SpawnPipelineRunsUseCase(
     IUnmovedTicketStore unmovedTickets, // 2026-09-21-77d6: what the claim would refuse
     IActiveRunLease leases, // 2026-10-08-e8b9e: a live run is answered, not queued behind
     ILogger<SpawnPipelineRunsUseCase> logger, IPreviousAttemptReader previousAttempts,
-    Claim.UnmetTicketRequirements requirements) : ISpawnPipelineRunsUseCase
+    Claim.UnmetTicketRequirements requirements, Contracts.Series.ISeriesTicketEntry? seriesEntry = null) : ISpawnPipelineRunsUseCase
 {
+    private readonly SeriesLedSpawn _led = new(seriesEntry, leases, capacityQueue, logger); // 2026-11-27-3532a
     private readonly SpawnLeaseDeferral _deferral = new(
         new CapacityDeferral(capacityQueue, capacityBudget, approvedSets, runListNudge, logger),
         unmovedTickets, leases, TimeProvider.System, logger, previousAttempts, requirements);
@@ -59,7 +62,8 @@ public sealed class SpawnPipelineRunsUseCase(
         CancellationToken ct,
         Dictionary<string, string>? planAnswers = null)
     {
-        ValidateForSpawn(project, envelope);
+        SpawnEnvelopeCheck.Validate(project, envelope);
+        if (await _led.LedAsync(project, pipelineName, envelope, planAnswers, ct) is { } led) return led; // 3532a: its master starts it
         var probe = SpawnRequestBuilder.BuildRequest(project, pipelineName, envelope, matchedTrigger, planAnswers, existingRunId: null);
         if (await new Claim.RequiresUnmetGate(requirements, previousAttempts).RefusalAsync(probe, config, ct) is { } held)
         {
@@ -87,17 +91,6 @@ public sealed class SpawnPipelineRunsUseCase(
         // instead of queued — the pump claims only its head and an unclaimable head blocks the FIFO.
         return await _deferral.DeferAsync(
             config, project, pipelineName, envelope, matchedTrigger, planAnswers, footprint, head, runId, admission, ct);
-    }
-
-    private static void ValidateForSpawn(ResolvedProject project, IncomingTicketEnvelope envelope)
-    {
-        if (string.IsNullOrEmpty(envelope.TicketId))
-            throw new ArgumentException("envelope.TicketId is required for spawn.", nameof(envelope));
-        if (string.IsNullOrEmpty(envelope.Platform))
-            throw new ArgumentException("envelope.Platform is required for spawn.", nameof(envelope));
-        if (project.Repos.Count == 0)
-            throw new InvalidOperationException(
-                $"Project '{project.Name}' has no repos; cannot spawn pipeline runs.");
     }
 
     // p0355: reconcile-then-admit. BEFORE reserving, reap corpse sandbox pods (a crashed

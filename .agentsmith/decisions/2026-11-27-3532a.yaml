@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-3532a
+
+decisions:
+  - category: Architecture
+    chose: "One master per ticket: every ticket is a series (a series of one included), so a master always starts it; spec:approved and every other tag carry no meaning for start, claim or run decisions on a ticket a series holds (they may still be written for display)"
+    over: "Labels and the trigger status deciding whether a series ticket is claimed (the 5f6e trigger-label workaround)"
+    reason: "decider: operator. A ticket that no label routed was never started; one owner of the start removes the second truth."
+  - category: Architecture
+    chose: "Outside entry: a ticket tagged from outside becomes a series of one or reaches the series that holds it; the tracker trigger only opens or finds the series and wakes its master, it starts no run. SeriesOfOne stays the one opener"
+    over: "The trigger claiming a code ticket through the funnel; a second opener for triggered tickets"
+    reason: "decider: operator. No second path: the opener a code run, a filing of one and a pull-request read already use."
+  - category: Architecture
+    chose: "The master decides only which of ITS tickets start; start_ticket enqueues through the same run-start path (ChatTicketRunLauncher, ReworkStartKind.Series: requirement gate, FIFO capacity queue, reservation, claim with lease) and answers started, queued with its place and reason, or refused with why"
+    over: "A master-owned queue or priority; the 'start' run that tagged, moved and then claimed through the label route"
+    reason: "decider: operator. The framework queues runs exactly as before, FIFO across all masters and projects."
+  - category: Architecture
+    chose: "add_ticket's spec counts as approved under the series' plan approval: filed as a SpecOutcome with the series' conversation and principal, scope repos from the spec's repos:, its own requires dropped from the draft and the stored yaml (edges come from the tool arguments); the tool takes no title, the ticket and the master's fact carry the spec's"
+    over: "add_ticket filing a FollowUp from a title and a body, whose run derives its own spec"
+    reason: "decider: operator. The run carries an approved set like every filed series ticket; an invalid spec returns the schema error and files nothing."
+  - category: Architecture
+    chose: "The trigger's refusal is ClaimResult.Rejected with a new ClaimRejectionReason.LedBySeries; it replaces the trigger's claim of a code ticket (a poller or webhook spawn of the code pipeline that is not by name and carries no plan answers). TrackerPoller does not count it as a spawn"
+    over: "A new ClaimOutcome member; claiming and then handing over"
+    reason: "decider: claude. Every reader of a ClaimResult already handles Rejected; a new outcome would touch them all. The trigger path it replaces is named here, as the no-second-path rule asks."
+  - category: Implementation
+    chose: "Kept through the funnel as before: plan answers for a parked run, a ticket with a lease, a queue entry no start by name put there (so a backstop head with no context is still claimed), non-code pipelines, starts by name, and any process with no series store or no SeriesOfOne (DB-free). A queue entry a start by name or a resume put there answers LedBySeries, and the upsert keeps the first context"
+    over: "Every queued ticket through the funnel; the upsert storing the newest context"
+    reason: "decider: claude. Review finding: a re-poll of a ticket whose series' start waits for room was claimed with the trigger's envelope, or its by-name context was replaced, so the pump dropped it for its status, the claim refused it or the gate read the stamp. The pump reads the approved set at its claim instead (IQueueHeadClaim). A store failure in the entry is logged and rethrown: falling back to the funnel would start a run its master did not start."
+  - category: Implementation
+    chose: "The entry (SeriesTicketEntry) is a singleton that opens its own scope; it records one Prerequisite-kind wake with once-key start:{series}:{ticket}:{latest attempt's run id, or none} ('waits for start_ticket', or 'its run worked it already, retry_ticket runs it again', which covers StatusBackGate's re-dispatch and a not-a-rework keyword comment through ReworkFallbackSpawn)"
+    over: "A new wake kind; an hourly re-wake; a hard-coded limit"
+    reason: "decider: claude. The funnel is resolved from the root by PollerFactory and the singleton webhook dispatcher while SeriesOfOne is scoped; a once-key makes a re-poll wake the master once and adds no limit. The attempt in the key (review finding) lets a re-trigger after a failed attempt in a still-active series reach the master again."
+  - category: Scope
+    chose: "Stop bar stays: a trigger does not reopen a ticket whose newest series was stopped; it claims nothing and says a person starts it (Retry, or Start on its series node)"
+    over: "Opening a new series of one on every trigger after a stop"
+    reason: "decider: claude. A poll cannot tell a person's tag from a re-poll, and a budget stop must hold."
+  - category: Implementation
+    chose: "SeriesMembership.WriteAsync opens or joins, records each ticket's start wake on that series, and only then ends an active series of one that holds a filed ticket (a trigger opened it in the filing window) as done, not stopped; the master's own add_ticket addition gets no wake. SeriesRunRepository.ForTicketAsync keeps its order by the identity column (insertion order)"
+    over: "Stopping the absorbed series before the membership is written; ordering ForTicketAsync by StartedAt"
+    reason: "decider: claude. Tickets are created stamped before membership is written; a webhook that sends no event must still reach the master, and the ticket is never left without a holder. Review finding: a Stopped absorbed series can be the newest series of the ticket (when the filing joins an older series), so the stop bar blocked every later trigger; a handover is no stop, so it ends as done. Reordering by StartedAt would not help there (the joined series started earlier). The master filed its addition itself, so a wake would only cost a beat."
+  - category: Implementation
+    chose: "FiledTicketSpecGate ignores the approved-set stamp for a series-started run (pipeline.IsSeriesAutoStart()); the approval record decides"
+    over: "Reading the series store from the run"
+    reason: "decider: claude, under the operator's ruling that a tag means nothing for a series-held ticket. The run reads no series store; the server read the record when it started the run through the funnel. Residual risk, stated plainly: a series-started ticket that carries the stamp but whose record is missing (a filing that broke between creating the ticket and storing its record, with no edges for the incomplete-filing hold to catch) derives its own spec instead of parking."
+  - category: Implementation
+    chose: "The pump claims its head with the approved set read at the claim (IQueueHeadClaim / QueueHeadClaim over ApprovedSpecSetCarrier), extracted so the baselined pump shrinks; the upsert keeps the first context"
+    over: "Reading the set only at enqueue; the upsert storing the newest context (built first, dropped after review)"
+    reason: "decider: claude. A set approved while the ticket waited must reach its run, without letting a later enqueue replace the context a start by name stored."
+  - category: Scope
+    chose: "The 5f6e trigger-label workaround goes: FiledWorkTriggerLabel, the filedFromText parameters of FiledWorkTagger, FiledWorkMove, StartTicketRequest and TicketStartRun; FiledFromTextAsync stays for FiledCompletelyAsync"
+    over: "Keeping it unused"
+    reason: "decider: claude. Its only reader was WaitingTicketStart's 'start' run, which is gone."
+  - category: TradeOff
+    chose: "A ticket triggered in a series whose approver lacks runs.control is not started by anything: the trigger only wakes the master, and the master's start_ticket is refused, so it waits until a person acts on that refusal"
+    over: "Letting the trigger claim it as before"
+    reason: "decider: claude. Stated plainly as the consequence of one master per ticket: a series whose approver may not start runs starts none, from any side."
+  - category: Implementation
+    chose: "series-master.md changes two existing lines and adds none: the starts line names filed and triggered tickets, and add_ticket's line says it files from a spec"
+    over: "One line only, leaving 'from a title and a body' in the prompt"
+    reason: "decider: claude. The old add_ticket wording is wrong once it takes a spec."

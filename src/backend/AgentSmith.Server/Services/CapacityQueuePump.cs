@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -33,9 +32,11 @@ public sealed class CapacityQueuePump(
     ResumeRunLauncher resumeLauncher,
     IConfigurationLoader configLoader,
     string configPath,
-    ILogger<CapacityQueuePump> logger, CapacityQueueHead? heads = null) // 2026-11-26-a12ec: a held head is set aside
+    ILogger<CapacityQueuePump> logger, CapacityQueueHead? heads = null, // 2026-11-26-a12ec: a held head is set aside
+    AgentSmith.Server.Contracts.IQueueHeadClaim? claims = null) // 2026-11-27-3532a: the head is claimed with the approved set read at its claim
 {
     private readonly CapacityQueueHead _heads = heads ?? new(capacityBudget, queue);
+    private readonly AgentSmith.Server.Contracts.IQueueHeadClaim _claims = claims ?? new QueueHeadClaim();
     private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(15);
 
     public async Task RunAsync(CancellationToken ct)
@@ -68,7 +69,7 @@ public sealed class CapacityQueuePump(
         }
         var config = configLoader.LoadConfig(configPath);
         // 2026-11-26-a12ec: read before the backstop return — no poll relaunches a held ticket, so its entry blocked the queue.
-        if (await _heads.HeldAsync(head, ToClaimRequest(head), config, ct) is { } held) { await drop.RefusedAsync(head, held, ct); return; }
+        if (await _heads.HeldAsync(head, QueueHeadClaim.Stored(head), config, ct) is { } held) { await drop.RefusedAsync(head, held, ct); return; }
         if (head.InitialContextJson is null) return; // TOCTOU-backstop entry — poller launches it
         if (!config.Projects.TryGetValue(head.Project, out var project))
         {
@@ -77,7 +78,7 @@ public sealed class CapacityQueuePump(
         }
         // p0327: a resume skips the trigger-status re-validation (the ticket sits in its WORKING
         // status mid-run), and so does a run a person named in chat, which no status routed.
-        if (!head.IsResume && !IsRequestedByName(head) && !await IsStillTriggeredAsync(project, head, ct))
+        if (!head.IsResume && !QueueHeadClaim.IsRequestedByName(head) && !await IsStillTriggeredAsync(project, head, ct))
         {
             await drop.DropAsync(head, "ticket left its trigger statuses", ct);
             return;
@@ -99,7 +100,7 @@ public sealed class CapacityQueuePump(
             return;
         }
 
-        var result = await claimService.ClaimAsync(ToClaimRequest(head), config, ct);
+        var result = await claimService.ClaimAsync(await _claims.AtClaimAsync(head, project, ct), config, ct);
         if (result.Outcome == ClaimOutcome.Claimed) await queue.RemoveAsync(head.Project, head.TicketId, ct);
         else if (head.ReservedRunId is not null) await capacityBudget.ReleaseAsync(head.ReservedRunId, ct);
         // c1a7: a rejection is permanent, and this pump looks only at the head — it must not stay (1b72a: a pause's is marked).
@@ -120,16 +121,4 @@ public sealed class CapacityQueuePump(
         return trigger.TriggerStatuses.Count == 0
             || trigger.TriggerStatuses.Contains(ticket.Status, StringComparer.OrdinalIgnoreCase);
     }
-
-    private static ClaimRequest ToClaimRequest(CapacityQueueEntry head) => new(
-        head.Platform, head.Project, new TicketId(head.TicketId), head.Pipeline,
-        InitialContext: Deserialize<Dictionary<string, object>>(head.InitialContextJson),
-        PlanAnswers: Deserialize<Dictionary<string, string>>(head.PlanAnswersJson),
-        ExistingRunId: head.ReservedRunId);
-
-    private static bool IsRequestedByName(CapacityQueueEntry head) => Deserialize<Dictionary<string, object>>(head.InitialContextJson).IsRequestedByName();
-
-    // Same JSON round-trip as the Redis job queue, so context values reach the pipeline alike.
-    private static T? Deserialize<T>(string? json) where T : class =>
-        json is null ? null : JsonSerializer.Deserialize<T>(json);
 }

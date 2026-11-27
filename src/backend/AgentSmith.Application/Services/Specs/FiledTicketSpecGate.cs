@@ -52,9 +52,11 @@ public sealed class FiledTicketSpecGate(ILogger<FiledTicketSpecGate> logger)
     /// <summary>The park, or null when this ticket may derive its own spec.</summary>
     /// <param name="vocabulary">The ticket's own tracker's label names: a renamed stamp holds the
     /// ticket exactly as the default one does.</param>
+    /// <param name="seriesStarted">2026-11-27-3532a: the run was started by its series (SeriesAutoStart), so the server read the
+    /// approval record when it started it: the record decides, never the stamp.</param>
     public SpecHandback? MissingSet(
         Ticket ticket, TicketKey key, SpecApprovalRecord? record, SpecSetBranchState state,
-        TicketLabelVocabulary vocabulary)
+        TicketLabelVocabulary vocabulary, bool seriesStarted = false)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         if (record is { TicketText: true }) return null; // 2026-10-14-dbcel: a ticket text derives, whatever the stamp
@@ -62,7 +64,7 @@ public sealed class FiledTicketSpecGate(ILogger<FiledTicketSpecGate> logger)
         // 2026-09-25-3c7aa: the RECORD or the stamp. A record is the durable half — a label can be
         // taken off a board by anyone — and the stamp is still read because a run in a process that
         // binds the in-memory store is handed no record at all.
-        if (record is null && !FiledTicketLabels.CarriesApprovedSet(labels, vocabulary)) return null;
+        if (record is null && (seriesStarted || !FiledTicketLabels.CarriesApprovedSet(labels, vocabulary))) return null;
         if (FiledTicketLabels.ParentId(labels) is { } parent)
         {
             logger.LogInformation(

@@ -85,10 +85,10 @@ public sealed class SeriesMasterActLogTests
     [Fact]
     public async Task AnAddedTicket_IsTheActsTicket()
     {
-        _edits.Setup(e => e.AddTicketAsync(It.IsAny<SeriesRunRecord>(), "Index", "add it", It.IsAny<IReadOnlyList<string>>(),
+        _edits.Setup(e => e.AddTicketAsync(It.IsAny<SeriesRunRecord>(), "add it", It.IsAny<IReadOnlyList<string>>(),
             It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(new SeriesCutAnswer("Filed SCRUM-46.", true, "46", "SCRUM-46"));
 
-        await JudgeAsync("add_ticket", """{"title":"Index","body":"add it","requiredBy":["SCRUM-43"],"reason":"43 needs it"}""");
+        await JudgeAsync("add_ticket", """{"spec":"add it","requiredBy":["SCRUM-43"],"reason":"43 needs it"}""");
 
         SeriesTicketLastAct.Of(_store.Records["sr-1"].Acts, "46").Should().Be(new SeriesTicketLastAct("added SCRUM-46", "43 needs it", SeriesRecords.T));
     }

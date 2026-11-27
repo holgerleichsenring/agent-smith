@@ -22,8 +22,8 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// 2026-11-17-e061b: a dependent held by its requirement starts once the requirement lands — through the REAL server
-/// composition, ONE 'start' run with a run id tags it, and the poller's route then spawns its coding run (the spawn is
-/// the harness boundary, as the tracker is). The run list shows the 'start' run with its step.
+/// composition, its coding run is spawned (the spawn is the harness boundary, as the tracker is).
+/// 2026-11-27-3532a: straight through the run-start path, marked as its series' start — no 'start' run tags or moves it.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class StartActCompositionTests
@@ -32,7 +32,7 @@ public sealed class StartActCompositionTests
     private static readonly DateTimeOffset Noon = new(2026, 11, 17, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task StartTicket_TheHeldDependentOfALandedTicket_StartsInAStartRunAndSpawnsItsRun()
+    public async Task StartTicket_TheHeldDependentOfALandedTicket_SpawnsItsRunWithNoStartRun()
     {
         var (tracker, events, spawn) = (new ActTracker(), new ActRunEvents(), new Mock<ISpawnPipelineRunsUseCase>());
         spawn.Setup(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(), It.IsAny<string>(),
@@ -57,13 +57,11 @@ public sealed class StartActCompositionTests
         var said = await sp.GetRequiredService<AgentSmith.Contracts.Series.ISeriesTicketActs>().StartAsync(Project, "2", default);
 
         said.Should().Be(new AgentSmith.Contracts.Series.SeriesStart(AgentSmith.Contracts.Series.SeriesStartKind.Started, "Ticket 2 started: run run-2.", "run-2"));
-        events.Started.Select(e => e.Pipeline).Should().Equal(PipelinePresets.FileName, PipelinePresets.StartName);
-        events.Started.Last().RunId.Should().NotBeNullOrEmpty();
+        events.Started.Select(e => e.Pipeline).Should().Equal(PipelinePresets.FileName);
         spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.Is<ResolvedProject>(p => p.Name == Project),
-            It.IsAny<string>(), It.Is<IncomingTicketEnvelope>(e => e.TicketId == "2"), It.IsAny<WebhookTriggerConfig>(),
+            PipelinePresets.CodeName, It.Is<IncomingTicketEnvelope>(e => e.TicketId == "2" && e.RequestedByName && e.SeriesAutoStart),
+            It.IsAny<WebhookTriggerConfig>(),
             It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()), Times.Once);
-        var listed = await events.ListedRunsAsync(harness.Services);
-        listed.Single(r => r.Pipeline == PipelinePresets.StartName).Steps.Select(s => s.CommandName).Should().Contain(CommandNames.StartTicket);
     }
 
     private static TicketGraphOutcome List() => new([Ticket("api", []), Ticket("ui", ["api"])]);

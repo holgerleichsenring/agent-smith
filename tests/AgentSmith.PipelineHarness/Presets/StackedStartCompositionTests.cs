@@ -64,7 +64,9 @@ public sealed class StackedStartCompositionTests
         // 2026-11-25-96aea: the green branch wakes the series master holding the dependent; nothing starts by itself
         var store = sp.GetRequiredService<AgentSmith.Contracts.Series.ISeriesRunStore>();
         var series = (await store.ActiveAsync(default)).Should().ContainSingle().Subject;
-        series.Wakes.Should().ContainSingle(w => w.TicketId == "2" && w.Kind == AgentSmith.Contracts.Series.SeriesWakeKinds.Prerequisite,
+        // 2026-11-27-3532a: beside the filing's own start wakes (once-key start:…)
+        series.Wakes.Should().ContainSingle(w => w.TicketId == "2" && w.Kind == AgentSmith.Contracts.Series.SeriesWakeKinds.Prerequisite
+            && !w.Once!.StartsWith("start:", StringComparison.Ordinal),
             "the prerequisite's green branch is the master's to act on");
         nudges.Should().NotContain(n => n.Origin == ReworkNudgeOrigin.RequirementsMet);
         events.Started.Select(e => e.Pipeline).Should().Equal(PipelinePresets.FileName);

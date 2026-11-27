@@ -28,6 +28,7 @@ public static class SeriesRunExtensions
         services.AddScoped<SeriesMergeNextAct>(); // 2026-11-23-31dce: the series page's merge
         services.AddScoped<SeriesTicketCi>().AddScoped<ISeriesPullRequestActs, SeriesPullRequestActs>(); // 2026-11-25-9992e: the master's
         services.AddScoped<SeriesRequirementLinks>().AddScoped<ISeriesEditActs, SeriesEditActs>(); // 2026-11-25-9992f: the master's cut
+        services.AddScoped<SeriesAddedSpec>(); // 2026-11-27-3532a: add_ticket files a spec
         services.TryAddScoped<SeriesRunProjectReads>();
         services.AddTransient<SeriesRunHolds>(); // 2026-11-23-31dcg
         services.AddTransient<SeriesRunChangesReader>(); // 2026-11-23-31dcj: read when Changed in this series opens
