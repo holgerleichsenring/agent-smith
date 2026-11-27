@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.231.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.230.0...v0.231.0) (2026-11-27)
+
+
+### Features
+
+* **ci:** a red CI comes with its evidence, for the series master and for the run (2026-11-26-49d3a) ([4f2227c](https://github.com/holgerleichsenring/agent-smith/commit/4f2227ccbb555820027d8b343e3599afb90ec815))
+* red CI evidence for the master and the run; feed credentials follow added sources (2026-11-26-49d3) ([a302a0f](https://github.com/holgerleichsenring/agent-smith/commit/a302a0f98a6452f6fba2d748367e23499ad3e44f))
+* **registry:** feed credentials follow the repo's NuGet and npm sources during a run (2026-11-26-49d3b) ([71a21e7](https://github.com/holgerleichsenring/agent-smith/commit/71a21e701167b8bfb87a2209f050230422110eb0))
+* **spec:** revise_spec corrects the spec's repos while it is worked (2026-11-27-6625) ([174572b](https://github.com/holgerleichsenring/agent-smith/commit/174572ba2b798f5152238b33190223f89a6791bf))
+* **spec:** revise_spec corrects the spec's repos while it is worked (2026-11-27-6625) ([d3f2fb0](https://github.com/holgerleichsenring/agent-smith/commit/d3f2fb0379d7bee61eca458a16a0f7df96742873))
+
 ## [0.230.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.229.0...v0.230.0) (2026-11-26)
 
 
