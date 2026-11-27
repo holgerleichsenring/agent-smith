@@ -30,6 +30,9 @@ internal sealed class SeriesWakeBeatRig
 
     private readonly Mock<ISeriesConversation> _conversation = new();
 
+    /// <summary>2026-11-27-ecf2e: the series' conversation, for a test that binds a ticket's.</summary>
+    public Mock<ISeriesConversation> Conversation => _conversation;
+
     public SeriesWakeBeatRig()
     {
         _conversation.Setup(c => c.AddressedAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))

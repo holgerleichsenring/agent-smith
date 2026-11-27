@@ -69,6 +69,33 @@ public sealed class SeriesRunPullRequestsTests
         _pullRequests.Of([record], Project).Single().ApprovedBy.Should().Equal("dana", "lee");
     }
 
+    // 2026-11-27-ecf2b: a pull request whose run said it carries only the spec record is marked so; the others are not.
+    [Fact]
+    public void Of_ARecordWhoseRunSaysNoCode_IsRecordOnly()
+    {
+        var web = Record("2", PrReviewStates.Open) with { Repo = "web", Url = "https://github.com/o/web/pull/2" };
+
+        var shown = _pullRequests.Of([Record("1", PrReviewStates.Open), web], Project,
+            new HashSet<(string, string)> { ("run", "https://github.com/o/web/pull/2"), ("older-run", "https://github.com/o/api/pull/1") });
+
+        shown.Select(p => (p.Repo, p.RecordOnly)).Should().Equal(("api", false), ("web", true));
+    }
+
+    // 2026-11-27-ecf2b: the lane is the spec's repo — the one whose pull request carries code first — not the first PR's.
+    [Fact]
+    public void Of_SpecInTheThirdRepoAndAPullRequestInTheFirst_LanesOnTheThird()
+    {
+        SeriesRunPullRequestView Pr(string repo, bool recordOnly) =>
+            new(repo, "1", $"u-{repo}", PrReviewStates.Open, null, null, null, null) { RecordOnly = recordOnly };
+        IReadOnlyList<SeriesRunPullRequestView> prs = [Pr("worker", true), Pr("client", true), Pr("server", false)];
+
+        SeriesRunTickets.LaneOf(["server"], prs).Should().Be("server");
+        SeriesRunTickets.LaneOf(["client", "server"], prs).Should().Be("server", "the spec repo whose pull request carries code");
+        SeriesRunTickets.LaneOf(["client"], [Pr("worker", true)]).Should().Be("client", "no code yet: the spec's own repo");
+        SeriesRunTickets.LaneOf([], prs).Should().Be("server", "without specs: the first pull request carrying code");
+        SeriesRunTickets.LaneOf([], []).Should().BeNull();
+    }
+
     private static PrReviewEntryView Entry(string author, string decision, bool standing, bool ours = false) =>
         new($"h-{author}", PrReviewEntryKinds.Decision, decision, standing, author, true, ours, false, false, null, null, null, null,
             string.Empty, false, DateTimeOffset.UnixEpoch);

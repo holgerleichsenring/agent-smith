@@ -15,7 +15,7 @@ const CASES: TicketHoldCase[] = [
   "image_untrusted", "bootstrap_missing", "preflight", "question", "question_plan", "question_environment", "handback", "readiness_unknown", "infrastructure", "interrupted",
   "criteria_unmet", "failed", "shortfall", "text_edited", "merge_next", "starts_on_merge", "working", "model_wait", "queued", "resuming",
   "restarting", "merge_after", "retarget", "prerequisite", "merge_ready", "ci_failed", "ci_running",
-  "ci_not_started", "pr_conflict", "refreshing", "refresh_refused", "approval_needed", "pr_draft",
+  "ci_not_started", "pr_conflict", "refreshing", "refresh_refused", "approval_needed", "pr_draft", "start_refused",
 ];
 
 describe("holdWords", () => {

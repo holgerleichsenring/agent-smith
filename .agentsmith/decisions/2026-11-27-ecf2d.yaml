@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-ecf2d
+
+decisions:
+  - category: Architecture
+    chose: "The series check reads a merged ticket's specs where it landed (the series branch, else each repository's default branch) once its work branch gives no set; a merged ticket's unreadable work branch is no error"
+    over: "Keeping merged work branches until the series check ran; dropping every unread line of a landed ticket"
+    reason: "decider: operator, 2026-11-27 — 'read from what landed, or skip what is gone, so a fully merged series ends with a clean success message; an unreadable branch of a ticket that merged is not an error'. Reading the landed branch keeps the ticket's criteria in the check; skipping alone would drop them silently."
+  - category: Implementation
+    chose: "Per repository: the ticket branch while it reads, else the landed branch"
+    over: "Reading every repository of the ticket on the landed branch"
+    reason: "decider: claude, from the diff review — after 2026-11-27-ecf2c a repository whose branch carried only the spec record keeps its branch and gets no pull request, so its sub-series is never on the landed branch; one failing member makes the whole set unreadable (SeriesJoin)."
+  - category: Implementation
+    chose: "Landed means a stored landing of kind merged, read through a scope from ITicketLandingStore; no store, a failing store or a by-hand landing names the ticket as before"
+    over: "Trusting that the check only starts once every ticket landed; skipping any landing kind"
+    reason: "decider: claude, from the spec and diff reviews — check_series can start the check before every ticket landed (SeriesProgress.CheckAsync has no guard), and a ticket landed by hand merged nothing, so its specs are not where it landed. The series pipeline runs in the server, where the store is registered."
+  - category: Scope
+    chose: "Only the series check's reader changes; the ticket page, text-edit notice, approved-set divergence and the unread rows of the series changes endpoint keep reading the work branch"
+    over: "Changing every reader of TicketBranchSeries"
+    reason: "decider: claude — the operator's report is the final message; the other readers show a ticket's live branch, and no dashboard surface draws the changes endpoint's unread rows. A follow-up if they show up."

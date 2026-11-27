@@ -103,7 +103,7 @@ internal sealed class RepoCommitFixture
             factory.Object, new Mock<ITicketProviderFactory>().Object, gitOps, new SecretPatternScanner(), new PullRequestOutcomePublisher(Events),
             new TicketLifecycle(), new SandboxTargets(),
             new FailedRunPersistence(new WipCommitMessage()),
-            new SpecOnlyPullRequests(factory.Object, new PullRequestOutcomePublisher(Events), NullLogger<SpecOnlyPullRequests>.Instance),
+            new SpecOnlyPullRequests(factory.Object, new PullRequestOutcomePublisher(Events), TestGit.Delivery, NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(new UnverifiedWorkReverter(gitOps, NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create()),

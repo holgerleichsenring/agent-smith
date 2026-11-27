@@ -28,21 +28,47 @@ public sealed class SeriesSpecPullRequestTests
                 It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()))
             .ReturnsAsync((Repository r, string _, string _, CancellationToken _, PullRequestTicket? _, bool _, BranchName? _) => $"{r.RemoteUrl}/pull/1");
 
+    // 2026-11-27-ecf2c: over several repositories none is created at derivation — which will carry code is not known yet;
+    // an open one is still found and listed.
     [Fact]
-    public async Task SpecPullRequestOpener_TwoSeriesRepos_OpensTwoDraftPrs()
+    public async Task SpecPullRequestOpener_TwoSeriesRepos_FindsButCreatesNone()
     {
+        _provider.Setup(p => p.FindOpenPullRequestAsync(
+                It.Is<Repository>(r => r.RemoteUrl == Client.Url), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("https://x/client.git/pull/4");
         var set = SeriesPerRepoWriteTests.Set(("a", "Server"), ("b", "Client"));
 
         var urls = await Opener().OpenAsync(Pipeline(), new SeriesPlacement(set, [Server, Client], Server),
             new SeriesScope([Server, Client], null, [], null), CancellationToken.None);
 
-        urls.Should().BeEquivalentTo(new Dictionary<string, string>
-        {
-            ["Server"] = "https://x/server.git/pull/1", ["Client"] = "https://x/client.git/pull/1",
-        });
+        urls.Should().BeEquivalentTo(new Dictionary<string, string> { ["Client"] = "https://x/client.git/pull/4" });
+        _provider.Verify(p => p.CreatePullRequestAsync(It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SpecPullRequestOpener_TwoMembersWithSpecsInOne_CreatesThatDraftOnly()
+    {
+        var set = SeriesPerRepoWriteTests.Set(("a", "Server"));
+
+        var urls = await Opener().OpenAsync(Pipeline(), new SeriesPlacement(set, [Server, Client], Server),
+            new SeriesScope([Server, Client], null, [], null), CancellationToken.None);
+
+        urls.Should().BeEquivalentTo(new Dictionary<string, string> { ["Server"] = "https://x/server.git/pull/1" });
+    }
+
+    [Fact]
+    public async Task SpecPullRequestOpener_OneSeriesRepo_CreatesTheDraft()
+    {
+        var set = SeriesPerRepoWriteTests.Set(("a", "Server"));
+
+        var urls = await Opener().OpenAsync(Pipeline(), new SeriesPlacement(set, [Server], Server),
+            new SeriesScope([Server, Client], null, [], null), CancellationToken.None);
+
+        urls.Should().BeEquivalentTo(new Dictionary<string, string> { ["Server"] = "https://x/server.git/pull/1" });
         _provider.Verify(p => p.CreatePullRequestAsync(It.IsAny<Repository>(), It.IsAny<string>(),
             It.Is<string>(body => body.Contains(SpecPrBody.SiblingMarker)), It.IsAny<CancellationToken>(),
-            It.IsAny<PullRequestTicket?>(), true, It.IsAny<BranchName?>()), Times.Exactly(2));
+            It.IsAny<PullRequestTicket?>(), true, It.IsAny<BranchName?>()), Times.Once);
     }
 
     [Fact]

@@ -228,7 +228,7 @@ public sealed class PullRequestTargetTests
         new(sourceFactory, NoTickets().Object, GitOps(), new SecretPatternScanner(),
             new PullRequestOutcomePublisher(EventTestStubs.NoOp), new TicketLifecycle(), new SandboxTargets(),
             new FailedRunPersistence(new WipCommitMessage()),
-            new SpecOnlyPullRequests(sourceFactory, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<SpecOnlyPullRequests>.Instance),
+            new SpecOnlyPullRequests(sourceFactory, new PullRequestOutcomePublisher(EventTestStubs.NoOp), TestGit.Delivery, NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
                 new UnverifiedWorkReverter(GitOps(), NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),

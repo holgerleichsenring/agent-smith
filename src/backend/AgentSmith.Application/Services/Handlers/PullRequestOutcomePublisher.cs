@@ -22,7 +22,7 @@ public sealed class PullRequestOutcomePublisher(IEventPublisher events)
             return;
         await events.PublishAsync(
             new PullRequestOutcomeEvent(runId!, outcome.RepoName, PullRequestOutcomeText.Status(outcome.Status),
-                DateTimeOffset.UtcNow, outcome.Url, outcome.Reason),
+                DateTimeOffset.UtcNow, outcome.Url, outcome.Reason, outcome.CarriesCode),
             ct);
     }
 }

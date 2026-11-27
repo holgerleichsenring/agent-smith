@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-ecf2c
+goal: "A repository whose ticket branch carries only the spec record gets no pull request while another repository of the run carries code; open ones are left alone."
+
+applies_to: "default (SpecPullRequestOpener, SpecOnlyPullRequests, CommitAndPRHandler, DeliveryDiff)"
+
+requires: [2026-11-27-6625]
+
+facts:
+  - claim: "At derivation a draft pull request is created in every repository whose sub-series holds a spec, before any code exists, and published as the run's opened outcome."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPullRequestOpener.cs:35-40,67-69,91-101"
+  - claim: "CommitAndPR opens a pull request only where code changed (one record pull request in the first repository when none did and the run did not fail); SpecOnlyPullRequests then turns every skipped series repository with a spec pull request into an opened outcome, refreshes its body and marks it ready."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:98,130-157; src/backend/AgentSmith.Application/Services/Handlers/SpecOnlyPullRequests.cs:32-75"
+  - claim: "DeliveryDiff diffs a branch against its base rungs first, then the run's start, then HEAD, and reports only the HEAD-less fall-through as failed."
+    evidence: "src/backend/AgentSmith.Application/Services/DeliveryDiff.cs:44-66,82-86; src/backend/AgentSmith.Application/Services/DeliveryDiffCandidates.cs:16-37"
+  - claim: "A spec's record (done file, done.md line, manifest, decisions) is written into the one repository the spec is placed in and pushed at once, the planned file leaving the same repository; the server keeps a copy as SpecRecordedEvent."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/WriteSpecRecordHandler.cs:40-65; src/backend/AgentSmith.Application/Services/SpecExecution/SpecDoneRecorder.cs:56-75; src/backend/AgentSmith.Application/Services/SpecExecution/SeriesRecordCommit.cs:22-38; src/backend/AgentSmith.Application/Services/SpecExecution/SpecRecordPublisher.cs:19-27"
+  - claim: "The source providers have no call that closes a pull request."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs"
+
+scope:
+  in: |
+    Derivation creates the draft spec pull request only when the placement's specs sit in one repository; over several it only finds
+    an existing one (still recorded and listed), so CommitAndPR opens a repository's pull request where code is. This
+    changes what a parked multi-repository run lists (no pull request until code exists) and the ticket comment's links.
+    At the end, while some repository of the run carries code, SpecOnlyPullRequests keeps a skipped repository's spec pull
+    request only when that repository's ticket branch delivers source against a base-branch rung (DeliveryDiff, which now
+    says whether its comparison was a base rung; the root .gitattributes the record writes counts as record); a diff that
+    fell back to the run start or HEAD, or failed, keeps it.
+    A record-only one is left alone: no body refresh, no ready mark, not the run's outcome; the repository stays
+    no_changes. A run with no code anywhere keeps the spec pull requests earlier runs opened and opens the record pull
+    request in the first repository, as today; a failed one without code opens none. The record is written where it is
+    today (the spec's own repository): it stays on that repository's work branch and on the server.
+  out: "Moving a spec's record into another repository (the done file, planned file, manifest and pointer sha are per repository, and a later spec's code is not known when an earlier one records); closing a record-only pull request an earlier run opened (no provider can close one)."
+
+steps:
+  - id: opener
+    action: "SpecPullRequestOpener: createIfMissing only when at most one member holds specs; SeriesSpecPullRequestTests' two-repo case becomes find-only."
+  - id: diff
+    action: "DeliveryDiff.DiffResult gains AgainstBase: the comparison ran against origin/<base> or <base>."
+  - id: keep
+    action: "SpecOnlyPullRequests requires DeliveryDiff; KeepAsync takes from CommitAndPR whether any repository carries code and each repository's sandbox key and sandbox; with code elsewhere it keeps only a branch that carries source or is not proven record-only, and logs the ones it leaves. The six test constructions pass TestGit.Delivery."
+  - id: tests
+    action: "xunit: opener over two members finds but creates none, over one creates; KeepAsync with code elsewhere leaves a record-only branch's PR and keeps one carrying source or diffed only against HEAD; without code anywhere both are kept."
+
+tests:
+  - "SpecPullRequestOpener_TwoSeriesRepos_FindsButCreatesNone"
+  - "SpecPullRequestOpener_OneSeriesRepo_CreatesTheDraft"
+  - "SpecPullRequestOpener_TwoMembersWithSpecsInOne_CreatesThatDraftOnly"
+  - "KeepAsync_CodeElsewhereAndARecordOnlyBranch_LeavesItsPullRequestAlone"
+  - "KeepAsync_CodeElsewhereAndABranchCarryingSource_KeepsIt"
+  - "KeepAsync_CodeElsewhereAndNoBaseRung_KeepsIt"
+  - "KeepAsync_NoCodeAnywhere_KeepsBothAsBefore"
+
+done:
+  - "A run over two repositories with code in one keeps no pull request in the other, neither refreshing nor promoting it (test)."
+  - "A branch carrying code from an earlier run keeps its spec pull request as the run's work (test)."
+  - "Derivation over two repositories creates no draft pull request (test)."
+  - "dotnet build and the affected tests are green."

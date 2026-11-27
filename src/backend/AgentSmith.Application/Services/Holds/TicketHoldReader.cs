@@ -24,7 +24,7 @@ public sealed class TicketHoldReader
         ArgumentNullException.ThrowIfNull(facts);
         if (facts.Finished) return null;
         // 2026-11-27-3532b: a series-led ticket's parked question is its master's, whatever else its facts say
-        return TicketHoldEscalations.Of(TicketQuestionHold.Master(facts), facts) ?? Admin(facts) ?? (TicketSeriesWait.TakenUp(facts) ? null : Decide(facts)) ?? Plan(facts) ?? Merge(facts) ?? TicketHoldEscalations.Of(Nobody(facts), facts);
+        return TicketHoldEscalations.Of(TicketQuestionHold.Master(facts), facts) ?? Admin(facts) ?? (TicketSeriesWait.TakenUp(facts) ? null : Decide(facts)) ?? TicketSeriesWait.StartRefused(facts) ?? Plan(facts) ?? Merge(facts) ?? TicketHoldEscalations.Of(Nobody(facts), facts);
     }
 
     /// <summary>A precondition stopped the newest attempt — an image, a bootstrap or another configured precondition — or

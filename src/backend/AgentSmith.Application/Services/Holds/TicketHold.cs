@@ -114,5 +114,5 @@ public static class TicketHoldCases
     public const string Restarting = "restarting";
     public const string MergeAfter = "merge_after";
     public const string Retarget = "retarget";
-    public const string Prerequisite = "prerequisite";
+    public const string Prerequisite = "prerequisite", StartRefused = "start_refused"; // ecf2e: a refused series start; a person starts it
 }

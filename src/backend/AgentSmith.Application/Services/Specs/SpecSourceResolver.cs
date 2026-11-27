@@ -107,6 +107,13 @@ public sealed class SpecSourceResolver(
         if (filedGate.MissingSet(ticket, new TicketKey(key), record, branch.State, vocabulary, pipeline.IsSeriesAutoStart()) is { } missing)
             return new Decision(SpecSource.Approved, null, false, Cause: cause, Handback: missing);
 
+        // 2026-11-27-ecf2e (operator): a stamped ticket its series started without a stored approved set writes its own
+        // spec, as before — and its report says so.
+        if (record is null && pipeline.IsSeriesAutoStart() && SpecDialog.FiledTicketLabels.CarriesApprovedSet(ticket.Labels ?? [], vocabulary))
+        {
+            logger.LogInformation("Ticket {Key}: no stored approved spec; it writes its own from the ticket", key);
+            pipeline.Set(ContextKeys.SpecWithoutApprovedSet, true);
+        }
         return new Decision(SpecSource.Derived, null, NeedsModel: true, Cause: cause);
     }
 }

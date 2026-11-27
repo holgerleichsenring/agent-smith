@@ -141,7 +141,7 @@ public sealed class CommitAndPRHandler(
                 var (result, body) = await OpenOneAsync(
                     context, sandbox, repo, isDraft,
                     failureReason, shortfall, progress, cancellationToken);
-                outcome = result;
+                outcome = result with { CarriesCode = result.Status == OpenStatus.Opened && hasCode ? true : null }; // ecf2b: code proven
                 if (body is not null) bodies[repo.Name] = body;
             }
             opened.Add(outcome);
@@ -154,8 +154,10 @@ public sealed class CommitAndPRHandler(
             await outcomes.PublishAsync(context.Pipeline, outcome, cancellationToken);
         }
 
-        await KeepSpecPullRequestsAsync(
-            context, opened, bodies, banners.For(failureReason, shortfall, isDraft, progress), !isDraft && !failed, progress, shortfall, cancellationToken);
+        var code = new SpecOnlyPullRequests.RunCode(anyCode, stagedRepos.DistinctBy(s => s.Repo.Name).ToDictionary(
+            s => s.Repo.Name, s => (s.Key, s.Sandbox), StringComparer.OrdinalIgnoreCase)); // ecf2c
+        await KeepSpecPullRequestsAsync(context, opened, bodies, banners.For(failureReason, shortfall, isDraft, progress),
+            !isDraft && !failed, progress, shortfall, code, cancellationToken);
 
         context.Pipeline.Set<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests, opened);
         context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.OpenedPullRequestBodies, bodies);
@@ -221,13 +223,13 @@ public sealed class CommitAndPRHandler(
 
     // 2026-10-12-3a36c, generalised by 2026-10-12-f5f7e: every series repository without code keeps
     // the spec PR opened at derivation as an 'opened' outcome with the run's body, ready only when
-    // the run is — on green and failed runs alike.
+    // the run is — on green and failed runs alike. 2026-11-27-ecf2c: not a record-only branch while code is elsewhere.
     private async Task KeepSpecPullRequestsAsync(
         CommitAndPRContext context, List<OpenedPullRequest> opened, Dictionary<string, string> bodies, string banner,
-        bool ready, SpecSequenceProgress? progress, RunShortfall? shortfall, CancellationToken ct)
+        bool ready, SpecSequenceProgress? progress, RunShortfall? shortfall, SpecOnlyPullRequests.RunCode code, CancellationToken ct)
     {
         var body = CodePullRequestBody.Compose(context, banner, progress, shortfall);
-        foreach (var kept in await specOnlyPrs.KeepAsync(context.Pipeline, context.Configs, opened, body, ready, ct))
+        foreach (var kept in await specOnlyPrs.KeepAsync(context.Pipeline, context.Configs, opened, body, ready, ct, code))
             bodies[kept.RepoName] = body;
     }
 

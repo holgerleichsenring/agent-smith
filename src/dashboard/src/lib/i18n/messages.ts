@@ -952,7 +952,6 @@ export const coreMessages = {
     en: { one: "1 earlier message — show it", other: "{count} earlier messages — show more" },
     de: { one: "1 frühere Nachricht — zeigen", other: "{count} frühere Nachrichten — mehr zeigen" },
   },
-  "series.node.openPr": { en: "Open PR #{number} of {key} on the host", de: "PR #{number} von {key} beim Host öffnen" },
   "series.node.openTracker": { en: "Open {key} in the tracker", de: "{key} im Tracker öffnen" },
   "series.details.start": { en: "Start", de: "Starten" },
   "series.details.starting": { en: "Starting…", de: "Startet…" },
@@ -999,10 +998,28 @@ export const coreMessages = {
   "series.kind.waiting": { en: "waiting / not started", de: "wartet / nicht gestartet" },
   "series.kind.merged": { en: "merged", de: "gemergt" },
   "series.graph.title": { en: "Order of the tickets", de: "Reihenfolge der Tickets" },
-  "series.graph.from": { en: "Show course from", de: "Verlauf ab" },
-  "series.graph.all": { en: { one: "all (1 ticket)", other: "all ({count} tickets)" }, de: { one: "alle (1 Ticket)", other: "alle ({count} Tickets)" } },
+  // 2026-11-27-ecf2a: the ticket list in the series' rail.
+  "series.rail.tickets": { en: "Tickets of the series", de: "Tickets der Serie" },
+  "series.rail.merged": { en: "{merged} of {total} merged", de: "{merged} von {total} gemergt" },
+  "series.rail.you": { en: { one: "1 needs you", other: "{count} need you" }, de: { one: "1 braucht dich", other: "{count} brauchen dich" } },
+  "series.rail.waiting": { en: { one: "1 waiting", other: "{count} waiting" }, de: { one: "1 wartet", other: "{count} warten" } },
+  "series.rail.filter": { en: "Show tickets", de: "Tickets zeigen" },
+  "series.rail.open": { en: "Open", de: "Offen" },
+  "series.rail.all": { en: "All", de: "Alle" },
+  "series.rail.mergedOnly": { en: "Merged", de: "Gemergt" },
+  "series.rail.none": { en: "No ticket here.", de: "Hier ist kein Ticket." },
+  "series.rail.waitsOn": { en: "waits on {keys}", de: "wartet auf {keys}" },
+  "series.rail.hint": {
+    en: "Point at a ticket to light its path in the graph; click it to see where it stands.",
+    de: "Zeig auf ein Ticket, um seinen Weg im Graphen zu sehen; klick es an, um zu sehen, wo es steht.",
+  },
   "series.graph.noRepo": { en: "No pull request yet", de: "Noch kein Pull Request" },
-  "series.graph.alsoIn": { en: "+ {repos}", de: "+ {repos}" },
+  // 2026-11-27-ecf2b: a chip per pull request on a node and a row.
+  "series.chip.code": { en: "code", de: "Code" },
+  "series.chip.record": { en: "spec record only", de: "nur Spec-Eintrag" },
+  "series.chip.title": { en: "{repo} PR #{number} · {what}", de: "{repo} PR #{number} · {what}" },
+  "series.legend.code": { en: "PR with code", de: "PR mit Code" },
+  "series.legend.record": { en: "spec record only", de: "nur Spec-Eintrag" },
   "series.graph.hide": { en: "Hide graph", de: "Graph ausblenden" },
   "series.graph.show": { en: "Show graph", de: "Graph zeigen" },
   // 2026-11-26-f511b: the divider between the graph and the chat.
@@ -1117,6 +1134,12 @@ export const coreMessages = {
   },
   "hold.title.pr_draft": { en: "Your move: the pull request is still a draft", de: "Du bist dran: der Pull Request ist noch ein Entwurf" },
   "hold.title.approval_needed": { en: "Your move: the pull request needs your approval", de: "Du bist dran: der Pull Request braucht deine Freigabe" },
+  // 2026-11-27-ecf2e: the series master may not start the ticket — the series' approver lacked runs.control when it was filed.
+  "hold.sentence.start_refused": {
+    en: "Not started: its series may not start runs, because the person who approved it could not start runs then. Start it yourself from the series page.",
+    de: "Nicht gestartet: seine Serie darf keine Läufe starten, weil die Person, die sie freigegeben hat, damals keine Läufe starten durfte. Starte es selbst auf der Seite der Serie.",
+  },
+  "hold.title.start_refused": { en: "Your move: start this ticket", de: "Du bist dran: starte dieses Ticket" },
   // 2026-11-24-6811a: the host says the pull request conflicts with its base; nothing merges it until that is resolved.
   "hold.sentence.pr_conflict": {
     en: "Its pull request conflicts with its base branch, so it cannot merge. Resolve the conflict on the branch, or rework the ticket.",

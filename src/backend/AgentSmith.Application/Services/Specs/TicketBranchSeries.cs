@@ -21,27 +21,65 @@ public sealed class TicketBranchSeries(
     SeriesComposer composer,
     ILogger<TicketBranchSeries> logger)
 {
-    public async Task<SpecSetOnBranch> ReadAsync(
-        ResolvedProject project, TicketKey ticket, TicketId ticketId, CancellationToken cancellationToken)
+    public Task<SpecSetOnBranch> ReadAsync(
+        ResolvedProject project, TicketKey ticket, TicketId ticketId, CancellationToken cancellationToken) =>
+        ReadOnAsync(project, ticket, ticketId, landedOn: null, cancellationToken);
+
+    /// <summary>
+    /// 2026-11-27-ecf2d: the set of a ticket that landed. Cleanup deletes a merged work branch, so each repository is read
+    /// on the ticket branch while that branch still reads, else where the ticket landed — <paramref name="seriesBranch"/>
+    /// when the series has one, else the repository's default branch (configured, else the host's). A repository whose
+    /// branch carried only the spec record kept its branch and got no pull request, so it is read there.
+    /// </summary>
+    public Task<SpecSetOnBranch> ReadLandedAsync(
+        ResolvedProject project, TicketKey ticket, TicketId ticketId, string? seriesBranch, CancellationToken cancellationToken) =>
+        ReadOnAsync(project, ticket, ticketId, new Landed(seriesBranch), cancellationToken);
+
+    private sealed record Landed(string? SeriesBranch);
+
+    private async Task<SpecSetOnBranch> ReadOnAsync(
+        ResolvedProject project, TicketKey ticket, TicketId ticketId, Landed? landedOn, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(project);
         var pointer = await pointers.GetAsync(project.Name, ticket.Value, cancellationToken);
         if (pointer is null) return SpecSetOnBranch.Nothing;
         var branch = TicketBranchNamer.Compose(ticketId);
         // 2026-11-23-1e76a: the repositories side by side, in the pointer's order.
-        var reads = await Task.WhenAll(RepoNames(pointer).Select(name => ReadAsync(project, name, pointer, ticket, branch, cancellationToken)));
+        var reads = await Task.WhenAll(RepoNames(pointer).Select(name =>
+            ReadAsync(project, name, pointer, ticket, branch, landedOn, cancellationToken)));
         return composer.Compose(ticket, pointer.CarryingRepo, reads);
     }
 
     private async Task<SubSeriesRead> ReadAsync(
-        ResolvedProject project, string name, SpecSetPointer pointer, TicketKey ticket, BranchName branch,
+        ResolvedProject project, string name, SpecSetPointer pointer, TicketKey ticket, BranchName branch, Landed? landedOn,
         CancellationToken ct)
     {
         var repo = project.Repos.FirstOrDefault(r => string.Equals(r.Name, name, StringComparison.Ordinal));
         if (repo is null) return new SubSeriesRead(name, SubSeriesState.NotCheckedOut);
+        var source = sources.Create(repo);
+        var read = await TryReadAsync(source, name, pointer, ticket, branch, ct);
+        if (landedOn is null || read.State == SubSeriesState.Found) return read;
+        // 2026-11-27-ecf2d: the ticket branch is gone (a host throws, or answers nothing) — read where the ticket landed.
+        BranchName landed;
         try
         {
-            var read = await subSeries.ReadAsync(new BranchFiles(sources.Create(repo), branch), name, ticket, ct);
+            landed = new BranchName(landedOn.SeriesBranch
+                ?? (string.IsNullOrWhiteSpace(repo.DefaultBranch) ? (await source.GetDefaultBranchAsync(ct)).Value : repo.DefaultBranch));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "The default branch of {Repo} could not be named for ticket {Ticket}", name, ticket.Value);
+            return SubSeriesRead.Failed(name, $"the default branch could not be named ({ex.Message.Split('\n', 2)[0].Trim()})");
+        }
+        return await TryReadAsync(source, name, pointer, ticket, landed, ct);
+    }
+
+    private async Task<SubSeriesRead> TryReadAsync(
+        ISourceProvider source, string name, SpecSetPointer pointer, TicketKey ticket, BranchName branch, CancellationToken ct)
+    {
+        try
+        {
+            var read = await subSeries.ReadAsync(new BranchFiles(source, branch), name, ticket, ct);
             return read.State == SubSeriesState.Found
                 ? read with { Sha = pointer.ShaByRepo.GetValueOrDefault(name) ?? string.Empty }
                 : read;

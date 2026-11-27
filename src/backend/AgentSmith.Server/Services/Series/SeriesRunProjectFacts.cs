@@ -18,6 +18,13 @@ public sealed record SeriesRunProjectFacts(
     public IReadOnlyDictionary<string, IReadOnlyList<TicketRequirementEdge>> Edges { get; init; } =
         new Dictionary<string, IReadOnlyList<TicketRequirementEdge>>(StringComparer.Ordinal);
 
+    /// <summary>2026-11-27-ecf2b: (run, URL) of the pull requests whose record's run said they carry only the spec record.</summary>
+    public IReadOnlySet<(string RunId, string Url)> RecordOnly { get; init; } = new HashSet<(string, string)>();
+
+    /// <summary>2026-11-27-ecf2b: by ticket id, the repositories its newest attempt's specs are placed in, in spec order.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> SpecRepos { get; init; } =
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+
     /// <summary>2026-11-25-9992a: when each landed ticket landed, by ticket id.</summary>
     public IReadOnlyDictionary<string, DateTimeOffset> LandedAt { get; init; } = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
 }

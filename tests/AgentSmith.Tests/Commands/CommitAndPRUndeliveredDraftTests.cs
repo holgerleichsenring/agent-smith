@@ -132,7 +132,7 @@ public sealed class CommitAndPRUndeliveredDraftTests
         return new CommitAndPRHandler(sources, tickets.Object, gitOps, new SecretPatternScanner(),
             new PullRequestOutcomePublisher(EventTestStubs.NoOp), new TicketLifecycle(), new SandboxTargets(),
             new FailedRunPersistence(new WipCommitMessage()),
-            new SpecOnlyPullRequests(sources, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<SpecOnlyPullRequests>.Instance, requeue),
+            new SpecOnlyPullRequests(sources, new PullRequestOutcomePublisher(EventTestStubs.NoOp), TestGit.Delivery, NullLogger<SpecOnlyPullRequests>.Instance, requeue),
             new ShortfallDelivery(new UnverifiedWorkReverter(gitOps, NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(TestRunResultChanges.Create()), Structure.StructureGateFixture.Publisher(),

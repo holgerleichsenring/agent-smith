@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Series;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets;
+using AgentSmith.Tests.Series;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Tickets.Holds;
@@ -37,6 +38,32 @@ public sealed class TicketSeriesWaitTests
         (hold.Addressee, hold.Case).Should().Be((TicketHoldAddressees.Nobody, TicketHoldCases.Prerequisite));
         hold.Names.Should().Equal("#19668");
         _reader.Of(Draft())!.Case.Should().Be(TicketHoldCases.PrDraft, "with its requirements landed the draft is a person's step");
+    }
+
+    // 2026-11-27-ecf2e (operator): a start the master was refused (the approver may not start runs) is a person's step on a
+    // never-run ticket that waits on nothing else; it opens the series, whose page starts it.
+    [Fact]
+    public void Of_ANeverRunTicketWhoseStartWasRefused_IsAPersonsStep()
+    {
+        var refused = new TicketHoldFacts("shop", "19701") { SeriesId = "sr-1", SeriesStartRefusedAt = T };
+
+        var hold = _reader.Of(refused)!;
+
+        (hold.Addressee, hold.Case).Should().Be((TicketHoldAddressees.Decide, TicketHoldCases.StartRefused));
+        hold.Act.Should().Be(new TicketHoldAct(TicketHoldActs.Series, "sr-1"));
+        (_reader.Of(refused with { SeriesUnlanded = ["#19671"] })?.Case).Should().NotBe(TicketHoldCases.StartRefused, "it waits on another first");
+        (_reader.Of(refused with { HeadStatus = RunStatuses.Running, HeadRunId = "r-1" })?.Case).Should().NotBe(TicketHoldCases.StartRefused);
+    }
+
+    [Fact]
+    public void StartRefusedAt_OnlyForASeriesThatMayStartNoRuns()
+    {
+        var acts = new List<SeriesAct> { new(T, "start_ticket", "19701", "start_ticket", "its turn") };
+        var record = SeriesRecords.Running(mayStartRuns: false) with { Acts = acts };
+
+        TicketSeriesWait.StartRefusedAt(record, "19701").Should().Be(T);
+        TicketSeriesWait.StartRefusedAt(record with { MayStartRuns = true }, "19701").Should().BeNull();
+        TicketSeriesWait.StartRefusedAt(record, "19702").Should().BeNull();
     }
 
     [Fact]

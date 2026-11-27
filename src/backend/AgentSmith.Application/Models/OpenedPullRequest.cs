@@ -6,11 +6,14 @@ namespace AgentSmith.Application.Models;
 /// PATCH pass can read the list and update each opened PR's body with the
 /// sibling URL list.
 /// </summary>
+/// <param name="CarriesCode">2026-11-27-ecf2b: the pull request carries code (true) or only the spec record (false);
+/// null when the run could not tell.</param>
 public sealed record OpenedPullRequest(
     string RepoName,
     string? Url,
     OpenStatus Status,
-    string? Reason = null);
+    string? Reason = null,
+    bool? CarriesCode = null);
 
 public enum OpenStatus
 {

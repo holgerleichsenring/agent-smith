@@ -85,6 +85,7 @@ public sealed class SeriesRunRepository(IServiceScopeFactory scopeFactory) : ISe
             if (row is null) return null;
             var changed = change(Record(row)) with { Version = row.Version + 1 };
             (row.State, row.ContentJson, row.Version) = (changed.State, JsonSerializer.Serialize(changed), changed.Version);
+            row.SessionId = changed.Conversation; // 2026-11-27-ecf2e: a series of one takes its ticket's conversation later
             try
             {
                 await unitOfWork.SaveChangesAsync(cancellationToken);

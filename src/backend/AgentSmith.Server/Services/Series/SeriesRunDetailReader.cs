@@ -80,10 +80,11 @@ public sealed class SeriesRunDetailReader(
             : [.. shown.Select(t => t.RunId is { } run && records.GetValueOrDefault(run)?.WebUrl is { Length: > 0 } url ? t with { WebUrl = url } : t)];
     }
 
-    // The repos the series' tickets have pull requests in, in the project's repo order.
+    // The repos the series' tickets have pull requests in, in the project's repo order — 2026-11-27-ecf2b: and the lanes they
+    // are drawn on, so a spec's repo without a pull request yet takes its place among them.
     private static IReadOnlyList<string> Repos(ResolvedProject project, IReadOnlyList<SeriesRunTicketView> tickets)
     {
-        var touched = tickets.SelectMany(t => t.Repos).ToHashSet(StringComparer.Ordinal);
+        var touched = tickets.SelectMany(t => t.LaneRepo is { } lane ? [.. t.Repos, lane] : t.Repos).ToHashSet(StringComparer.Ordinal);
         var configured = project.Repos.Select(r => r.Name).ToList();
         return [.. configured.Where(touched.Contains), .. touched.Except(configured).Order(StringComparer.Ordinal)];
     }

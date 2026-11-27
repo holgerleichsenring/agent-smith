@@ -23,6 +23,7 @@ public sealed class ReadSeriesHandler(
         var record = await store.GetAsync(id!, cancellationToken);
         if (record is null) return CommandResult.Fail($"Series run {id} does not exist.");
         if (!record.IsActive) return CommandResult.Ok($"Series run {id} is {record.State}; this beat has nothing to do.");
+        record = await TicketConversationAsync(context, record, cancellationToken);
         var beat = new SeriesBeat(record, await facts.ReadAsync(record, cancellationToken), clock.GetUtcNow())
         {
             Actor = context.Project.ActorName, // 2026-11-25-9992h
@@ -39,6 +40,16 @@ public sealed class ReadSeriesHandler(
         context.Pipeline.Set(ContextKeys.SeriesBeat, beat);
         return CommandResult.Ok($"Series run {id}: {beat.Facts.Count(f => f.Landed)} of {beat.Facts.Count} landed"
             + (beat.Reasons.Count == 0 ? string.Empty : $"; to judge: {string.Join("; ", beat.Reasons)}"));
+    }
+
+    // 2026-11-27-ecf2e (operator): a series of one talks in its ticket's conversation — the ticket page's chat — once one is
+    // bound to the ticket; the master asks there and the operator answers there.
+    private async Task<SeriesRunRecord> TicketConversationAsync(ReadSeriesContext context, SeriesRunRecord record, CancellationToken ct)
+    {
+        if (record is not { IsOne: true, Conversation: "" } || record.Tickets.Count == 0) return record;
+        if (await conversation.TicketConversationAsync(context.Project, record.Tickets[0].TicketId, ct) is not { Length: > 0 } talk)
+            return record;
+        return await store.UpdateAsync(record.Id, r => r with { Conversation = talk }, ct) ?? record with { Conversation = talk };
     }
 
     // 2026-11-25-96aec: the events that need a decision go to the master once they settled, or at once when the beat has a

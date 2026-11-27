@@ -32,6 +32,7 @@ public static class SeriesRunExtensions
         services.AddScoped<SeriesAddedSpec>(); // 2026-11-27-3532a: add_ticket files a spec
         services.AddScoped<ISeriesSpecRetirement, SeriesSpecRetirement>(); // 2026-11-27-3532d: a ticket's spec retired
         services.TryAddScoped<SeriesRunProjectReads>();
+        services.TryAddScoped<SeriesRunLaneReads>(); // 2026-11-27-ecf2b
         services.AddTransient<SeriesRunHolds>(); // 2026-11-23-31dcg
         services.AddTransient<SeriesRunChangesReader>(); // 2026-11-23-31dcj: read when Changed in this series opens
         services.AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();

@@ -25,8 +25,17 @@ public static class MasterReportAccount
         var followUps = pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var spec) && spec is not null
             ? Reports.MasterReportFacts.FollowUps(pipeline, spec.SpecId) : null;
         return new SpecAccount(string.Join(", ", repoKeys), [], FollowUps: followUps,
-            Report: report?.Report ?? before?.Report);
+            Report: WithoutApprovedSet(pipeline, report?.Report ?? before?.Report));
     }
+
+    /// <summary>2026-11-27-ecf2e: the line a report opens with when its run wrote its own spec for want of a stored approved
+    /// set.</summary>
+    public const string NoApprovedSetLine = "No stored approved spec; wrote its own from the ticket.";
+
+    // Only onto a report the master wrote: a missing report stays missing.
+    private static string? WithoutApprovedSet(PipelineContext pipeline, string? report) =>
+        report is not null && pipeline.TryGet<bool>(ContextKeys.SpecWithoutApprovedSet, out var without) && without
+            ? $"{NoApprovedSetLine}\n\n{report}" : report;
 
     /// <summary>Why the spec cannot be called delivered for want of a report — it has done lines and no pass of its
     /// master ended on one — or null when a report exists or nothing was asked.</summary>

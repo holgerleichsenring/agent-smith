@@ -35,4 +35,9 @@ internal static class DeliveryDiffCandidates
     /// </summary>
     public static string? BaseRefOf(string[] against) =>
         against is ["HEAD"] ? null : against[0];
+
+    /// <summary>2026-11-27-ecf2c: the comparison is one of the two base-branch rungs.</summary>
+    public static bool IsBaseRung(string[] against, string? baseBranch) =>
+        !string.IsNullOrWhiteSpace(baseBranch) && against is [var only]
+        && (only == $"origin/{baseBranch}" || only == baseBranch);
 }

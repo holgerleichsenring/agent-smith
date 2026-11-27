@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-ecf2b
+goal: "A series ticket's node sits on the lane of its spec's repository; node and row show a chip per pull request, filled for code, outlined for a spec-record-only one."
+
+applies_to: "default (PullRequestOutcomeEvent, CommitAndPRHandler, SpecOnlyPullRequests, SeriesRunLaneReads, SeriesRunProjectReads, SeriesRunPullRequests, SeriesRunTickets) and dashboard (seriesOrderLayout, SeriesGraph, SeriesTicketList)"
+
+requires: [2026-11-27-ecf2a, 2026-11-27-ecf2c]
+
+facts:
+  - claim: "A ticket's repos are its pull requests' repos in the project's repo order, and the graph puts the node on the first."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunTickets.cs:64-68; src/backend/AgentSmith.Server/Services/Series/SeriesRunPullRequests.cs:12-20; src/dashboard/src/components/series/page/seriesOrderLayout.ts:44-45,66-67"
+  - claim: "Each attempt's published cut stores its specs with the repositories they are placed in."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecCutEntry.cs:12-17; src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesCuts.cs:31-35"
+  - claim: "CommitAndPR knows per repository whether the run's work carries code; SpecOnlyPullRequests (ecf2c) knows it per kept branch."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:83-87,130-155"
+  - claim: "A PR outcome is stored per repo on the run as RunPullRequestView JSON (no migration), and a pull-request record names the newest code run naming it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:44-54; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/NamedPullRequestReader.cs:27-37"
+  - claim: "CarryingRepo already names the repository filing wrote the branch into."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:27-37"
+
+scope:
+  in: |
+    The commit step records on each opened outcome whether the pull request carries code: CarriesCode on
+    PullRequestOutcomeEvent and RunPullRequestView (true for this run's code or a kept branch proven to carry source, false
+    for a kept branch proven record-only against its base, null when unproven and for older runs); the TS hub mirror
+    follows. The series page reads each record's own run's PullRequestsJson in one query and marks
+    SeriesRunPullRequestView.RecordOnly when CarriesCode is false there. SeriesRunTicketView.LaneRepo: of the ticket's runs
+    (newest attempt and its pull requests' runs) the newest cut with specs, the first spec repository whose pull request
+    carries code, else the first spec repository; without a cut, the first pull request carrying code, else the first
+    pull request's repo; the series' repos include lane repos. The graph lays a node on
+    laneRepo (else repos[0], else the no-PR lane) and drops the "+ repos" text; node and list row show one chip per pull
+    request (a short repo label unique within the series), a link to the PR in a new tab, filled unless record-only, its
+    title naming the repo and which. The legend explains both. Older pull requests carry no fact and are drawn filled.
+  out: "Reading changed files from the host; a column or migration; inferring record-only for older runs from the event trail."
+
+steps:
+  - id: event
+    action: "PullRequestOutcomeEvent and RunPullRequestView gain bool? CarriesCode; OpenedPullRequest carries it; PullRequestOutcomePublisher and RunPullRequestProjection pass it; hub-events.ts follows."
+  - id: source
+    action: "CommitAndPR sets true for a repository with code, else null; SpecOnlyPullRequests sets it from its branch verdict against the base (null unproven)."
+  - id: reads
+    action: "SeriesRunLaneReads reads the records' runs' PullRequestsJson as (run, URL) and the tickets' runs' cuts (one query each); SeriesRunProjectReads puts them into SeriesRunProjectFacts."
+  - id: views
+    action: "SeriesRunPullRequests.Of marks RecordOnly; SeriesRunTickets sets LaneRepo; TS types follow."
+  - id: dashboard
+    action: "seriesOrderLayout uses laneRepo; seriesRepoChips gives labels; SeriesGraph and SeriesTicketList draw the chips; a legend line; i18n en/de."
+  - id: tests
+    action: "xunit: projection keeps CarriesCode; CommitAndPR records it; RecordOnly and LaneRepo from facts. vitest: lane, unique chip labels, filled vs outline."
+
+tests:
+  - "Apply_AnOutcomeCarryingCode_StoresIt"
+  - "CommitAndPR_CodeInOneRepo_RecordsCarriesCodeOnItsOutcome"
+  - "Of_ARecordWhoseRunSaysNoCode_IsRecordOnly"
+  - "Of_SpecInTheThirdRepoAndAPullRequestInTheFirst_LanesOnTheThird"
+  - "RecordOnlyAsync_NamesThePullRequestsWhoseRunSaidNoCode"
+  - "SpecReposAsync_TheLatestCutWithSpecs_InSpecOrder"
+  - "seriesOrderLayout puts a node on its lane repo"
+  - "repo chips are unique within the series and outline a record-only pull request"
+
+done:
+  - "A ticket whose spec is placed in the project's third repo and which has a record-only PR in the first is drawn on the third repo's lane (test)."
+  - "A record-only PR's chip is outlined and a code PR's chip filled, each linking to its PR (test)."
+  - "dotnet build, the affected xunit classes, pnpm test and pnpm build are green."

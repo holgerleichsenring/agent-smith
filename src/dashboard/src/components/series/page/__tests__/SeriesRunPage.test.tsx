@@ -243,7 +243,10 @@ describe("SeriesRunPage", () => {
     const chat = await screen.findByTestId("series-chat");
     expect(chat.querySelector("h2")).toBeNull();
     expect(screen.queryByText(/The series tells you here/)).toBeNull();
-    expect(screen.getByTestId("series-title").parentElement).toContainElement(screen.getByTestId("series-status-line"));
+    // 2026-11-27-ecf2a: the name is the rail's heading; the main column's top row is the status line.
+    expect(screen.getByTestId("series-section-bar")).toContainElement(screen.getByTestId("series-title"));
+    expect(screen.getByTestId("series-title").tagName).toBe("H1");
+    expect(screen.getByTestId("series-status-line").parentElement).toHaveClass("sr-heading");
   });
 
   it("SeriesPage_UnknownSeries_SaysSo", async () => {

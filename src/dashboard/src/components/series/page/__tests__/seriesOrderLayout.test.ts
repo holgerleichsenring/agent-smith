@@ -28,10 +28,24 @@ describe("seriesOrderLayout", () => {
     expect(node("2").x).toBe(node("3").x);
     expect(node("1").x).toBeLessThan(node("2").x);
     expect(node("2").lane).toBe("server");
-    expect(node("2").alsoIn).toEqual(["worker"]);
     expect(node("2").y).toBeLessThan(node("3").y);
     expect(node("4").lane).toBeNull();
     expect(layout.lines.map((l) => `${l.edge.requiredTicketId}>${l.edge.ticketId}`), "9 is not drawn").toEqual(["1>2", "1>3", "3>4"]);
+  });
+
+  // 2026-11-27-ecf2b: a ticket with pull requests in three repos sits on its spec's repo, not its first pull request's.
+  it("SeriesOrderLayout_ALaneRepo_PutsTheNodeThere_NotOnItsFirstPullRequestsRepo", () => {
+    const detail = seriesDetail({
+      repos: ["worker", "client", "server"],
+      tickets: [seriesTicket({ ticketId: "1", repos: ["worker", "client", "server"], laneRepo: "server" }),
+        seriesTicket({ ticketId: "2", repos: ["worker"], laneRepo: null })],
+      edges: [],
+    });
+
+    const layout = seriesOrderLayout(detail);
+
+    expect(layout.nodes.map((n) => n.lane)).toEqual(["server", null]);
+    expect(layout.lanes.map((l) => l.repo)).toEqual(["server", null]);
   });
 
   it("SeriesOrderLayout_TwoTicketsInOneLaneAndColumn_StackInSeriesOrder", () => {

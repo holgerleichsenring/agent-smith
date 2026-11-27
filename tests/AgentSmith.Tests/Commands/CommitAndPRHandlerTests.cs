@@ -66,7 +66,7 @@ public partial class CommitAndPRHandlerTests
             new SecretPatternScanner(),
             new PullRequestOutcomePublisher(_events),
             new TicketLifecycle(), new SandboxTargets(), new FailedRunPersistence(new WipCommitMessage()),
-            new SpecOnlyPullRequests(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(_events), NullLogger<SpecOnlyPullRequests>.Instance),
+            new SpecOnlyPullRequests(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(_events), TestGit.Delivery, NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
                 new UnverifiedWorkReverter(
                     new SandboxGitOperations(AgentSmith.Tests.TestSupport.TestPushers.Plain(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),

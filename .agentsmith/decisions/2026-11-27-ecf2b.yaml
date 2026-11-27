@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-ecf2b
+
+decisions:
+  - category: Architecture
+    chose: "One node per ticket on the lane of its spec's repository (the spec repository whose pull request carries code first), and a chip per pull request on the node and the rail row, filled for code and outlined for a spec-record-only pull request, each linking to its pull request"
+    over: "The node on its first pull request's repository with '+ repos' text"
+    reason: "decider: operator, 2026-11-27 — approved mock ('exactly like this'); #19701, a Server change, was drawn under BackgroundWorker because its first pull request in project order was the worker's record-only one."
+  - category: Architecture
+    chose: "The commit step records CarriesCode (true / false / null) on PullRequestOutcomeEvent and Runs.PullRequestsJson; it says true only for proven code (this run's code, or a kept branch whose diff against the base carries source) and false only for a branch proven record-only against the base"
+    over: "Reading each pull request's changed files from the host; inferring it from the run trail (a no_changes outcome before the kept spec pull request); this run's staged changes alone"
+    reason: "decider: claude, from the spec and diff reviews — no stored fact said it; a host read per pull request per page is not cheap; the trail flips on a rework run that changes only another repository and inverts after 2026-11-27-ecf2c; a reused branch with earlier code is not record-only because this run added none. JSON on the run row needs no migration."
+  - category: TradeOff
+    chose: "Pull requests from runs before this change carry no fact and are drawn filled"
+    over: "Backfilling older runs from their event trails"
+    reason: "decider: claude — the trail is pruned after 90 days and misreads rework runs; a filled chip for an unknown claims nothing an outline would wrongly deny. The lane still moves for older tickets, from their cuts' spec repositories."
+  - category: Implementation
+    chose: "Lane: of the ticket's runs (newest attempt and the runs its pull requests name), the newest cut with specs gives the spec repositories; the first whose pull request carries code, else the first; without a cut, the first pull request carrying code, else the first. The series' lane list includes lane repositories without a pull request"
+    over: "The approval's or pointer's CarryingRepo (the repository filing wrote the branch into); the newest attempt's cut only"
+    reason: "decider: claude, from the reviews — CarryingRepo names the filing's branch repository, not the code's; a newest attempt that only handed back has no cut of its own. Named LaneRepo to stay apart from CarryingRepo."
+  - category: Implementation
+    chose: "A pull request is judged by its own record's run: (run, URL) pairs from that run's stored outcome"
+    over: "Every record run's outcomes merged by URL"
+    reason: "decider: claude, from the diff review — an older run naming the same URL with a stale flag would otherwise mark it."
+  - category: Implementation
+    chose: "The rail row's button covers the row and the chips sit above it; chip labels are the shortest unique prefix of each repository name's last part (S, C, W)"
+    over: "Links inside the row's button; full repository names"
+    reason: "decider: claude — an anchor inside a button is invalid and swallows clicks; the mock's one-letter chips fit a 150px node."

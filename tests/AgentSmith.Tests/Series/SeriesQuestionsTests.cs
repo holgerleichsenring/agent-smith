@@ -102,11 +102,23 @@ public sealed class SeriesQuestionsTests
     [Fact]
     public async Task SeriesOfOne_ParkedQuestion_IsNoReason_ItsTicketPageAnswersIt()
     {
-        var one = SeriesRecords.Running() with { Tickets = [SeriesRecords.Ticket("52")] };
+        // 2026-11-27-ecf2e: only while it has no conversation; with its ticket's, its master leads the question.
+        var one = SeriesRecords.Running(conversation: "") with { Tickets = [SeriesRecords.Ticket("52")] };
 
         var beat = await BeatAsync(null, SeriesRecords.T, [Parked("52", "Which branch?", "target")], one);
 
         beat.Reasons.Should().BeEmpty();
+    }
+
+    // 2026-11-27-ecf2e (operator): a series of one talking in its ticket's conversation leads its run's question there.
+    [Fact]
+    public async Task SeriesOfOne_WithItsTicketsConversation_ParkedQuestion_IsAReason()
+    {
+        var one = SeriesRecords.Running() with { Tickets = [SeriesRecords.Ticket("52")] };
+
+        var beat = await BeatAsync(null, SeriesRecords.T, [Parked("52", "Which branch?", "target")], one);
+
+        beat.Reasons.Should().ContainSingle().Which.Should().Contain("Which branch?");
     }
 
     [Fact]

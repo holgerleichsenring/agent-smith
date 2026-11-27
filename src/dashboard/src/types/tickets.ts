@@ -181,7 +181,9 @@ export type TicketHoldCase =
   | "approval_needed"
   /** 2026-11-26-5201f: an open pull request is still a draft — the host asks nobody to approve it */
   | "pr_draft"
-  | "working" | "model_wait" | "queued" | "resuming" | "restarting" | "merge_after" | "retarget" | "prerequisite";
+  | "working" | "model_wait" | "queued" | "resuming" | "restarting" | "merge_after" | "retarget" | "prerequisite"
+  /** 2026-11-27-ecf2e: the series master was refused starting it — its approver may not start runs; a person starts it */
+  | "start_refused";
 
 /** 2026-11-23-31dcg: the one act of a hold; the target is a run id (retry), a series id (merge, series), a path
  *  (settings) or the project (init) (TicketHoldActs). 2026-11-23-31dch: a conversation with a series id is that series'.

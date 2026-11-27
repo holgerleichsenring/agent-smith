@@ -33,6 +33,11 @@ public sealed record SeriesRunTicketView(
     /// <summary>2026-11-25-9992j: what every run of the ticket cost, from the fact — the page's ticket details show it.</summary>
     public decimal CostUsd { get; init; }
 
+    /// <summary>2026-11-27-ecf2b: the repository the series page draws the ticket on — the first of its specs' repositories
+    /// whose pull request carries code, else its first spec's; without specs the first pull request carrying code, else the
+    /// first; null with neither.</summary>
+    public string? LaneRepo { get; init; }
+
     /// <summary>2026-11-26-5201e: where the ticket opens in its tracker, as the ticket list reads it; null when it has none.</summary>
     public string? WebUrl { get; init; }
 

@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-ecf2e
+goal: "A series of one talks in its ticket's conversation, a start refused for want of runs.control shows as a person's step, and a self-written spec says so in the run's report."
+
+applies_to: "default (ReadSeriesHandler, SeriesRunRepository, SeriesLeads, SpecDialogRunDivert, TicketHoldSeriesRead, TicketHoldReader, SpecSourceResolver, MasterReportAccount) and dashboard (hold words)"
+
+requires: [2026-11-27-3532e]
+
+facts:
+  - claim: "A series of one takes its ticket's conversation only when it is opened; a filing of one and an opened series pass none, and the store writes the conversation column only on open."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesOfOne.cs:24; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SeriesRunRepository.cs:24,86-87"
+  - claim: "The ticket's conversation is the newest spec-dialog session bound to the ticket key."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesConversation.cs:20-26"
+  - claim: "A series of one never leads its run's questions, and the master's ask is refused without a conversation."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesLeads.cs:15; src/backend/AgentSmith.Application/Services/Series/SeriesAskTool.cs:33-34"
+  - claim: "A message in a ticket-bound conversation goes to the ticket's running attempt; only an unbound conversation reaches a series."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/RunMessages/SpecDialogRunDivert.cs:30-34"
+  - claim: "start_ticket refuses when the series' approver lacks runs.control and logs the call as a start_ticket act; no hold shows it."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesActTools.cs:66-67; src/backend/AgentSmith.Application/Services/Series/SeriesActedFunction.cs:33-39"
+  - claim: "A series-started run whose ticket has no stored approval record derives its own spec, whatever the stamp, without saying so."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledTicketSpecGate.cs:67; src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:107-110"
+  - claim: "The spec's account report is the master's report and is shown on the run page and in the spec record."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/MasterReportAccount.cs:20-29; src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:68-75"
+
+scope:
+  in: |
+    (1) A series of one without a conversation takes its ticket's conversation at its next beat; the store keeps the
+    conversation column in step on every update; a series of one with a conversation leads its run's questions, so the
+    master asks there as a chat message and the run page no longer answers it (one question, one place); a message in a
+    ticket-bound conversation with no running attempt goes to the
+    conversation's active series only while its question waits — any other message keeps its turn. (2) A never-run ticket of a series whose approver lacks runs.control and whose master
+    tried start_ticket holds as a person's step, case start_refused (act: the series), so the series' Needs-you strip and
+    the tickets page show it, unless it waits on another ticket first; the start stays refused, a person starts it. (3) The tool cap stays lifted for the series master only (no change).
+    (4) A series-started run with a stamp and no stored approved set records that, and the spec's report opens with
+    "No stored approved spec; wrote its own from the ticket." when the master wrote one. (5) A stopped series is not reopened by a trigger (no change).
+  out: "Opening a ticket conversation that does not exist yet; granting runs.control from the page."
+
+steps:
+  - id: conversation
+    action: "ReadSeriesHandler binds a series of one to its ticket's conversation when it has none; SeriesRunRepository.UpdateAsync writes SessionId; SeriesLeads lets a series of one with a conversation lead; SpecDialogRunDivert sends a ticket conversation's message to its active series while its question waits and no attempt runs."
+  - id: refusal
+    action: "TicketHoldSeriesWait gains StartRefusedAt (approver may not start runs and a start_ticket act names the ticket); TicketHoldFacts.SeriesStartRefusedAt; TicketSeriesWait.StartRefused, after Decide in TicketHoldReader.Of, holds a never-run ticket with it as start_refused; hold words en/de."
+  - id: report
+    action: "SpecSourceResolver sets ContextKeys.SpecWithoutApprovedSet for a stamped series start with no record; MasterReportAccount.For opens the report with the line."
+  - id: tests
+    action: "xunit for each; vitest for the hold sentence."
+
+tests:
+  - "Read_ASeriesOfOneWithoutConversation_TakesItsTicketsConversation"
+  - "Update_AChangedConversation_MovesTheConversationColumn"
+  - "Questions_ASeriesOfOneWithAConversation_Leads"
+  - "Router_ASeriesOfOneWaitsOnItsQuestion_TheAnswerGoesToTheSeries"
+  - "Router_ASeriesOfOneWithNoQuestion_LeavesTheTicketChatItsTurn"
+  - "SeriesOfOne_WithItsTicketsConversation_ParkedQuestion_IsAReason"
+  - "StartRefusedAt_OnlyForASeriesThatMayStartNoRuns"
+  - "Of_ANeverRunTicketWhoseStartWasRefused_IsAPersonsStep"
+  - "For_ASpecWrittenWithoutAStoredApprovedSet_SaysSoFirst"
+
+done:
+  - "A series of one with no conversation asks in its ticket's conversation at its next beat (test)."
+  - "A refused start shows as a person's step in the series' Needs-you strip and on the tickets page (test)."
+  - "A self-written spec's report opens with the line (test)."
+  - "dotnet build, the affected tests, pnpm test and pnpm build are green."
