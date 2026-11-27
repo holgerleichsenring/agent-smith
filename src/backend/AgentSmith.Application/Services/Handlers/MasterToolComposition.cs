@@ -48,8 +48,9 @@ public sealed partial class MasterToolComposition(
     private readonly ILogger _logger = logger;
     // Children share the master's filesystem and base surface, never spawn_agents. A design turn fans out under its
     // own count and child ceiling and is kept off the escalation valve (a writable sandbox) and the ledger.
-    // 2026-11-18-9c1cd: at most 20 tools per master, one per job, and the set fixed for the run or conversation — a
-    // merged tool (MergedTools, MergedDialogTools) is offered on every turn and answers why when a part cannot act.
+    // 2026-11-18-9c1cd: at most 20 tools per master composed here (the series master is outside it, 2026-11-27-3532c),
+    // one per job, and the set fixed for the run or conversation — a merged tool (MergedTools, MergedDialogTools) is
+    // offered on every turn and answers why when a part cannot act.
     public IList<AITool> Compose(
         bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, MasterRecordTools records, IToolHost human,
         WriteContextYamlToolHost writeContextYaml,

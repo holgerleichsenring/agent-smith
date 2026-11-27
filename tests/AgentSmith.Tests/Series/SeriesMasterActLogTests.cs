@@ -13,7 +13,8 @@ using Moq;
 namespace AgentSmith.Tests.Series;
 
 /// <summary>2026-11-25-9992e: every act of the series master leaves a SeriesAct with its ticket and reason on the record; a CI
-/// read is logged but keeps the beat a looking one; the master's surface stays within the house cap of 20 tools.</summary>
+/// read is logged but keeps the beat a looking one; the master's surface offers each tool once. 2026-11-27-3532c: it is outside
+/// the 2026-11-18-9c1cd cap of 20 tools (the operator: no counts, no caps).</summary>
 public sealed class SeriesMasterActLogTests
 {
     private readonly InMemorySeriesRunStore _store = new();
@@ -108,7 +109,7 @@ public sealed class SeriesMasterActLogTests
     }
 
     [Fact]
-    public async Task TheMastersSurface_IsAtMostTwentyTools()
+    public async Task TheMastersSurface_OffersEachToolOnce()
     {
         var reads = new Mock<ISeriesRecordReads>();
         reads.Setup(r => r.Tools()).Returns([.. new[] { "read_run", "read_llm_calls", "read_run_events" }
@@ -116,7 +117,7 @@ public sealed class SeriesMasterActLogTests
 
         await JudgeAsync(null, records: reads.Object);
 
-        _tools.Select(t => t.Name).Should().OnlyHaveUniqueItems().And.HaveCountLessThanOrEqualTo(20)
+        _tools.Select(t => t.Name).Should().OnlyHaveUniqueItems()
             .And.Contain(["merge_pull_request", "refresh_branch", "retarget_pull_request", "ci", "add_ticket", "link_tickets"])
             .And.NotContain("propose_recut", "2026-11-25-9992f: the master re-cuts the series itself");
     }
