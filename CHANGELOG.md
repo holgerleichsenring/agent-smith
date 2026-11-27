@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.232.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.231.0...v0.232.0) (2026-11-27)
+
+
+### Features
+
+* **series:** a series ticket is started only by its master, straight through the run-start funnel (2026-11-27-3532a) ([cfe6eb3](https://github.com/holgerleichsenring/agent-smith/commit/cfe6eb399c4cd95db63e6f91ab66e4580d3873c9))
+* **series:** a series ticket's run asks its series master, never the operator (2026-11-27-3532b) ([c01c767](https://github.com/holgerleichsenring/agent-smith/commit/c01c76724f3506ea542b351d2927204702aab87e))
+* **series:** the master's question is a plain chat message with quick replies (2026-11-27-3532e) ([bb02f7a](https://github.com/holgerleichsenring/agent-smith/commit/bb02f7aa642c6bff8516c10c61fc6a4ee50c9b67))
+* **series:** the series master leads its tickets — direct start, run questions, source reads, spec retirement (2026-11-27-3532) ([4270384](https://github.com/holgerleichsenring/agent-smith/commit/4270384199afe21165f82f37986defa084facd43))
+* **series:** the series master reads its repositories, specs and uploads (2026-11-27-3532c) ([4a3c5f9](https://github.com/holgerleichsenring/agent-smith/commit/4a3c5f9e1556c28d30564178c9d2c25cab3dbedd))
+* **spec:** retire an undelivered spec and write its replacement (2026-11-27-3532d) ([af4ffe9](https://github.com/holgerleichsenring/agent-smith/commit/af4ffe9c56b057968a88f83f2a351f20fa87f437))
+
 ## [0.231.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.230.0...v0.231.0) (2026-11-27)
 
 
