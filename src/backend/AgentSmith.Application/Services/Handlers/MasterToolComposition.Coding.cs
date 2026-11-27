@@ -29,9 +29,11 @@ public sealed partial class MasterToolComposition
         if (MergedTools.Named(references, "render_reference") is { } render)
             master = [.. master, MergedTools.RenderReference(render, MergedTools.Named(references, "compare_reference"))];
         // p0331 ensure_repo_sandbox, p0341 update_progress; a spec's master only: revise_spec. 2026-11-22-96c8a: no
-        // closing tool — the master ends on its report.
-        return [.. master, .. _ensure.Create(pipeline, fs, _logger).GetTools(null, null),
-            .. progress.GetTools(null, null), .. records.ReviseSpec?.GetTools(null, null) ?? []];
+        // closing tool — the master ends on its report. 2026-11-27-6625: revise_spec brings a repository in through it.
+        var ensure = _ensure.Create(pipeline, fs, _logger);
+        var revise = records.ReviseSpec?.JoiningThrough(ensure.EnsureRepoSandbox);
+        return [.. master, .. ensure.GetTools(null, null),
+            .. progress.GetTools(null, null), .. revise?.GetTools(null, null) ?? []];
     }
 
     private const string RememberDescription =

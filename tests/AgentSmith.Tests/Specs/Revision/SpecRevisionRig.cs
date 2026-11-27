@@ -45,11 +45,13 @@ internal sealed class SpecRevisionRig
     public static string RevisedYaml => CutRevisionFixtures.With(Criterion, Revised);
 
     public MasterSpecRevision Revision() =>
-        new(new SpecRevisionGate(Git()), Text(), new SpecRevisionWriter(new SpecReviewRevision(Loop.Publisher.Object),
+        new(new SpecRevisionGate(Git()), Text(), new SpecRepoJoin(new AgentSmith.Application.Services.Handlers.SandboxTargets()),
+            new SpecRevisionWriter(new SpecReviewRevision(Loop.Publisher.Object),
             Decisions.Object, Progress.Object, NullLogger<SpecRevisionWriter>.Instance));
 
-    public Task<string> ReviseAsync(string yaml, string reason = "the operator asked for a retry") =>
-        Revision().ReviseAsync(Pipeline, yaml, reason, CancellationToken.None);
+    public Task<string> ReviseAsync(
+        string yaml, string reason = "the operator asked for a retry", Func<string, CancellationToken, Task<string>>? ensure = null) =>
+        Revision().ReviseAsync(Pipeline, yaml, reason, CancellationToken.None, ensure);
 
     public static SpecRevisionText Text() => new(new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader());
 

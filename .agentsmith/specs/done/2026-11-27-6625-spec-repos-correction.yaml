@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-6625
+goal: "revise_spec may move the spec it works to another repository, repos and applies_to, until the spec is done; the repository joins the workspace and its writes pass the guard."
+
+applies_to: "default (SpecIdentityRule, SpecRevisionText, MasterSpecRevision, SpecRepoJoin, SpecRevisionWriter, ReviseSpecToolHost)"
+
+requires: [2026-11-17-ec48a]
+
+facts:
+  - claim: "A revision may not change spec, requires, repos or applies_to; the read keeps the current spec's placed repositories."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Revision/SpecRevisionText.cs:22-26; src/backend/AgentSmith.Application/Services/Specs/Review/SpecIdentityRule.cs:22-24"
+  - claim: "The one in-run revision publisher keeps each replaced spec's placed repositories, and placement writes a spec into the run repository it names."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewRevision.cs:41-44; src/backend/AgentSmith.Application/Services/Specs/SeriesRepos.cs:24-28,46-57"
+  - claim: "The write guard reads the current spec's repos from the pipeline on every call."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/Sanity/ToolResultSanityWrapper.cs:16-21; src/backend/AgentSmith.Application/Services/Loop/Sanity/ToolResultSanityScopeReader.cs:19-22"
+  - claim: "A written revision becomes CurrentSpec from the published set's member."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Revision/SpecCriteriaReset.cs:15-21"
+  - claim: "ensure_repo_sandbox brings a configured repository into the run (Repos, sandbox, checkout, restart with its toolchain) and is built beside revise_spec on the coding master."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs:65-100; src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.Coding.cs:33-34"
+  - claim: "A spec is marked executed when it is recorded done."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecDoneRecorder.cs:62-63"
+
+scope:
+  in: |
+    While the current spec is not in SpecSet.Executed, a revision may change its repos and applies_to (id and requires stay).
+    A repository the revision names that the current spec did not is brought in first through ensure_repo_sandbox's own
+    path; one that cannot join refuses the revision with ensure's answer. The writer places the spec into the revised
+    repository, CurrentSpec carries it, so the write guard and the spec's checks follow. The reply names the new repository.
+    Tool description and coding-agent-master skill say the repos can be corrected while the spec is worked.
+  out: "Removing the spec copy, work or draft spec pull request the wrong repository already holds (the reply tells the master; a later spec if it recurs); moving a done spec."
+
+steps:
+  - id: rule
+    action: "SpecIdentityRule.Holds and SpecRevisionText.Read take mayMoveRepos; with it only spec and requires must hold, and the draft keeps the repos its yaml names."
+  - id: bring-in
+    action: "SpecRepoJoin: every repository the revision newly names that has no sandbox goes through ensure_repo_sandbox; joined is read from ContextKeys.Repos and SandboxTargets, never from the answer text; one that did not join refuses with the answer."
+  - id: write
+    action: "SpecRevisionWriter sets the set member's repos to the revised ones before publishing, beside the stand-in change and rolled back with it; the reply names the repository when it moved and says the old repository's copy and work stay. A revised yaml naming no repos keeps the current ones."
+  - id: wire
+    action: "MasterToolComposition.Coding creates the ensure host once and hands its EnsureRepoSandbox to ReviseSpecToolHost.JoiningThrough; the description states the capability."
+  - id: skill
+    action: "coding-agent-master SKILL.md: the repos can be corrected while the spec is worked; release agent-smith-skills and pin it."
+
+tests:
+  - "Revise_SelfWrittenSpecNamesTheWrongRepository_MovesItAndItsWritesPass"
+  - "Revise_ANewRepositoryThatCannotJoin_WritesNothing"
+  - "Revise_ToTwoRepositories_IsRefusedBeforeAnyJoins"
+  - "Revise_MovedButTheBranchRefusedTheWrite_PutsTheCarrierBack"
+  - "Revise_AnExecutedSpecsRepos_IsRefused"
+  - "Read_ReposMovedWhileMayMove_IsTheDraftWithTheNewRepositories"
+  - "Holds_ReposAndAppliesToMovedWhileMayMove_HoldsButIdStillBinds"
+
+done:
+  - "A spec naming repo A revised to repo B is placed in B, B is brought in, and a write_file into B passes the guard while A is refused (test)."
+  - "A revision moving the repos of an executed spec is refused; id and requires stay immutable (test)."
+  - "dotnet build and the affected tests are green."
