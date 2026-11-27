@@ -2,7 +2,7 @@ import { translator } from "@/lib/i18n/translate";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
-import type { TicketAttempt } from "@/types/tickets";
+import type { TicketAttempt, TicketHold as RunTicketHold } from "@/types/tickets";
 
 // 2026-11-17-6d9ea: the Now block follows the agent from the hub's events, asks the question while waiting, and once
 // the run has ended says how, with its acts: pull requests, Retry unchanged, the ticket, why.
@@ -37,7 +37,7 @@ const decision = (chose: string, timestamp: string): RunEvent =>
 const attempt = { number: 2, runId: "r1", status: "failed", finishedAt: "2026-10-13T07:00:00Z", handedBack: false,
   endedOnInfrastructure: false } as unknown as TicketAttempt;
 const reread = vi.fn();
-const ticket = { label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 2, of: 2, attempt, newest: true, latest: attempt, move: null, reread };
+const ticket = { label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 2, of: 2, attempt, newest: true, latest: attempt, move: null, hold: null, reread };
 const third = { ...attempt, number: 3, runId: "r3", status: "running", finishedAt: null } as unknown as TicketAttempt;
 const ended = () => snap({ status: "failed", finishedAt: "2026-10-13T07:00:00Z" });
 
@@ -66,6 +66,35 @@ describe("RunNow", () => {
     render(<RunNow runId="r1" snapshot={snap({ status: "waiting_for_input", pendingQuestion: question })} events={[]} steps={[]} ticket={null} />);
     expect(screen.getByTestId("run-now-label")).toHaveTextContent("Waiting for your answer");
     expect(within(screen.getByTestId("run-question")).getByTestId("pending-question-card")).toHaveTextContent("Keep the outbox?");
+  });
+
+  // 2026-11-27-3532e: a series-led question is its series master's — shown read-only, linking to the series chat, from the
+  // run's own read before any ticket read; a series of one's question (a hold answered on the ticket) keeps its answer form.
+  const parked = { questionId: "q", type: "FreeText", text: "Keep the outbox?", context: null, choices: [], defaultAnswer: null,
+    askedAt: "2026-10-13T06:10:00Z", answerDeadlineAt: "2026-10-14T06:10:00Z" };
+
+  it("RunNow_SeriesLedQuestion_IsReadOnly_WithALinkToTheSeries_BeforeTheTicketRead", () => {
+    render(<RunNow runId="r1" snapshot={snap({ status: "waiting_for_input", pendingQuestion: { ...parked, seriesId: "sr-1" } })}
+      events={[]} steps={[]} ticket={null} />);
+    expect(screen.getByTestId("run-now-label")).toHaveTextContent("Its series master has the question");
+    expect(screen.getByTestId("run-question-text")).toHaveTextContent("Keep the outbox?");
+    expect(screen.getByTestId("run-question-series")).toHaveAttribute("href", expect.stringContaining("sr-1"));
+    expect(screen.queryByTestId("pending-question-card")).toBeNull();
+  });
+
+  it("RunNow_SeriesLedHold_WithoutSeriesOnTheRead_IsReadOnlyToo", () => {
+    const hold = { addressee: "nobody", case: "question", act: { kind: "conversation", target: "sr-1" }, since: null } as unknown as RunTicketHold;
+    render(<RunNow runId="r1" snapshot={snap({ status: "waiting_for_input", pendingQuestion: parked })} events={[]} steps={[]}
+      ticket={{ ...ticket, hold }} />);
+    expect(screen.getByTestId("run-question-series")).toHaveAttribute("href", expect.stringContaining("sr-1"));
+  });
+
+  it("RunNow_SeriesOfOneQuestion_KeepsItsAnswerForm", () => {
+    const hold = { addressee: "decide", case: "question", act: { kind: "answer", target: null }, since: null } as unknown as RunTicketHold;
+    render(<RunNow runId="r1" snapshot={snap({ status: "waiting_for_input", pendingQuestion: parked })} events={[]} steps={[]}
+      ticket={{ ...ticket, hold }} />);
+    expect(screen.getByTestId("run-now-label")).toHaveTextContent("Waiting for your answer");
+    expect(within(screen.getByTestId("run-question")).getByTestId("pending-question-card")).toBeInTheDocument();
   });
 
   it("RunNow_StoppedNewestAttempt_OffersRetryAndTheTicket", async () => {

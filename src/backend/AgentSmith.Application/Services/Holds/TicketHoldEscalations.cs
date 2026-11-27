@@ -14,7 +14,8 @@ public static class TicketHoldEscalations
     /// pipeline (or a lost read), the same "something outside the run is wrong"; 2026-11-23-0219: so is a build that never started.</summary>
     public static bool Escalating(string @case) =>
         @case is TicketHoldCases.ModelWait or TicketHoldCases.Queued or TicketHoldCases.Resuming or TicketHoldCases.Restarting
-            or TicketHoldCases.CiRunning or TicketHoldCases.CiNotStarted;
+            or TicketHoldCases.CiRunning or TicketHoldCases.CiNotStarted
+            or TicketHoldCases.Question; // 2026-11-27-3532b: a run question its series master holds (a nobody hold) too
 
     /// <summary>A nobody hold whose escalating wait has lasted longer than the configured minutes is the admin's, its case
     /// still the wait's and its escalation naming the value and the key; any other hold, a wait with no since, a read with

@@ -18,7 +18,24 @@ public sealed class HeldSandboxRegister(
     public void Hold(HeldSandbox held)
     {
         ArgumentNullException.ThrowIfNull(held);
-        lock (_gate) _entries[held.Key] = new Entry(held, DateTimeOffset.UtcNow);
+        HeldSandbox? displaced = null;
+        lock (_gate)
+        {
+            if (_entries.TryGetValue(held.Key, out var entry) && !ReferenceEquals(entry.Held.Sandbox, held.Sandbox))
+                displaced = entry.Held;
+            _entries[held.Key] = new Entry(held, DateTimeOffset.UtcNow);
+        }
+        if (displaced is not null) Displace(displaced);
+    }
+
+    // 2026-11-27-3532c: two holders of one key (a series beat and a design turn reading the same upload) each kept their own
+    // sandbox; the one put back last stays held and the one it displaced is removed, never orphaned. OneAsync logs and
+    // swallows a failed removal, so it runs on without being awaited by the sync Hold.
+    private void Displace(HeldSandbox displaced)
+    {
+        logger.LogWarning("Held sandbox {Key} of conversation {Conversation} was displaced by another hold of its key; removing it",
+            displaced.Key, displaced.ConversationId);
+        _ = _removal.OneAsync(displaced, CancellationToken.None);
     }
 
     public async Task<IHoldableSandbox?> TakeAsync(string key, CancellationToken cancellationToken)

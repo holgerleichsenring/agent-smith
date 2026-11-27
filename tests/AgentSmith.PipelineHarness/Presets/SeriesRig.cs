@@ -44,6 +44,11 @@ internal sealed class SeriesRig(DateTimeOffset start)
             _facts[id] = t => Base(t) with { LatestStatus = status, LatestFinished = finished, OpenedPullRequest = prOpened,
                 LatestRunId = $"run-{id}", FirstStartedAt = start, CostUsd = 4m };
 
+        // 2026-11-27-3532b: the ticket's newest run parked on a question, as SeriesParkedQuestion reads its checkpoint.
+        public void Park(string id, string runId, AgentSmith.Contracts.Dialogue.DialogQuestion question) =>
+            _facts[id] = t => Base(t) with { LatestStatus = RunStatuses.WaitingForInput, LatestFinished = false, LatestRunId = runId,
+                FirstStartedAt = start, PendingQuestion = question, DialogueJobId = runId };
+
         public void Land(string id) => _facts[id] = t => Base(t) with
         {
             LatestStatus = RunStatuses.Success, LatestFinished = true, LandedAt = start.AddHours(3), FirstStartedAt = start, CostUsd = 6m,

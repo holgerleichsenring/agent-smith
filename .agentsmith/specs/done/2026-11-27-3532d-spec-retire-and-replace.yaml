@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-3532d
+goal: "A coding master, or the series master for a ticket of its series, can retire an undelivered spec, keeping its record, and write its replacement under a new id that later specs then require."
+
+applies_to: "default (SpecSupersession, SpecRetirement, revise_spec, SpecSequenceProgress, SeriesJoinOrder, SeriesEditList, ContinuationMerge, SeriesSpecTools, series-master.md) + dashboard (spec state words)"
+
+requires: [2026-11-27-6625]
+
+facts:
+  - claim: "A spec is delivered once it is in SpecSet.Executed; the run builds and a correction may re-cut only UnexecutedTail. The set already carries one series-wide id list beside its specs, StandIns."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:44-49,75-78"
+  - claim: "revise_spec binds spec and requires even while repos may move, and its refusal says a change to those is a new spec in the series; no in-run path writes one."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecIdentityRule.cs:25-27; src/backend/AgentSmith.Application/Services/Specs/Revision/SpecRevisionText.cs:30-35; src/backend/AgentSmith.Application/Services/Specs/Revision/ReviseSpecToolHost.cs:21-29"
+  - claim: "The master's writer changes the set in the pipeline before the one in-run publisher writes it, and puts set and carrying repository back when the branch refuses; the publisher only replaces specs by id."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Revision/SpecRevisionWriter.cs:28-45; src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewRevision.cs:25-44"
+  - claim: "Member ids are minted from the series base as the next free letter past every taken id; the done/ files of every run repository and the stored executed ids are taken; the letters run a..z."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesIdFactory.cs:31-46; src/backend/AgentSmith.Application/Services/Specs/SeriesTakenIds.cs:17-31; src/backend/AgentSmith.Contracts/Models/Configuration/SeriesConfig.cs:15"
+  - claim: "SpecSequence splices one block per spec up front, each step labelled with that spec's id; record and verify read CurrentSpec, not the label, and a written revision becomes CurrentSpec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:42-48; src/backend/AgentSmith.Application/Services/SpecExecution/WriteSpecRecordHandler.cs:37-41; src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:184; src/backend/AgentSmith.Application/Services/Specs/Revision/SpecCriteriaReset.cs:15-21"
+  - claim: "The progress table is seeded from the set, With changes only rows it holds, and IsPartial stays true while any row is not Done, which keeps the pull request unmergeable."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSequenceProgress.cs:16-21,38-48"
+  - claim: "The branch set is read back from the spec files (done/ means executed) and the manifest; the writer renders only UnexecutedTail into planned/ and every other series file there is removed as stale."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesComposer.cs:44-54; src/backend/AgentSmith.Application/Services/Specs/SubSeriesFiles.cs:49; src/backend/AgentSmith.Application/Services/Specs/SeriesFiles.cs:22-35; src/backend/AgentSmith.Application/Services/Specs/SeriesStaleFiles.cs:32-39"
+  - claim: "The spec schema has no supersedes key; this repository's own records use supersedes (a list of ids) on the replacement and superseded_by on the retired spec."
+    evidence: ".agentsmith/spec.schema.json:11-81; .agentsmith/specs/done/p0158-multi-repo-unified-run.yaml:15; .agentsmith/specs/done/p0390-derive-specification.yaml:3-4"
+  - claim: "A worked ticket's series is edited for its next attempt through SeriesEditAct: SeriesEditList applies recut, drop and append, TicketContinuation decides the ids (an appended spec is minted the next free member), ApprovedSpecSetRecorder records it, and the next attempt merges it with ContinuationMerge, which puts appended specs after the kept ones."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesEditAct.cs:24-57; src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesEditList.cs:15-34; src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesContinuationIds.cs:38-45; src/backend/AgentSmith.Application/Services/Specs/ContinuationMerge.cs:50; src/backend/AgentSmith.Application/Services/Specs/ApprovedContinuation.cs:27-31"
+  - claim: "The series cap counts every spec that is not executed and not dropped, in the edit's decision and again at the merge."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesContinuationIds.cs:52-57; src/backend/AgentSmith.Application/Services/Specs/ApprovedContinuation.cs:28-31"
+  - claim: "SeriesEditAct records nothing while a run of the ticket waits on a question."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesEditAct.cs:39-40"
+  - claim: "The series master changes its cut through SeriesEditTools (add_ticket, link_tickets) over ISeriesEditActs, gated on the approver's runs.control, and its prompt describes them."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesEditTools.cs:15-19,56-57; src/backend/AgentSmith.Contracts/Series/ISeriesEditActs.cs:9-19; src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:88; src/backend/AgentSmith.Application/Prompts/Resources/series-master.md:48-52"
+  - claim: "A spec's state is projected as a word the dashboard maps to a pill, and the pull request table and the shortfall render each state."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSpecProjection.cs:90-99; src/dashboard/src/components/tickets/detail/specWords.ts:11-18; src/backend/AgentSmith.Server/Services/Tickets/TicketRunRecordVerdicts.cs:17; src/backend/AgentSmith.Application/Services/Specs/SpecStatusTable.cs:55-60; src/backend/AgentSmith.Application/Services/Specs/ShortfallSection.cs:41"
+
+scope:
+  in: |
+    The record of a retirement is the replacement's `supersedes: [<retired id>]` (schema key, SpecDraft.Supersedes);
+    SpecSupersession reads it off the members. UnexecutedTail leaves a retired spec out; ExecutedHead passes one the
+    replacement ran after and never ends on one; SpecSet.Planned keeps its yaml in specs/planned/. It settles as
+    SpecRunState.Superseded (IsPartial, the shortfall and the series cap leave it out) and its rows say superseded.
+    The multi-repository join puts a replacement behind the spec it supersedes; series criteria, verification and the
+    approved-set region leave retired specs out.
+    Coding master: revise_spec(retire: true) retires the spec it builds (not executed) for spec_yaml: SpecRetirement mints
+    the first free member id (set ids, executed ids, SpecTakenIds; refused past z), stamps spec and supersedes, keeps the
+    retired spec's label, companion and segments, re-links later requires; a new repository joins as in 6625. One
+    revision ("retired in run <id>: ..."); the replacement becomes CurrentSpec, the retired accounts are dropped, the
+    rows supersede, and the steps ahead are restamped with the replacement's id.
+    Series master: retire_spec(ticket, spec, yaml, reason) records an appended spec superseding the retired one through
+    SeriesEditAct; SeriesEditList places it behind the retired spec and re-cuts what required it; ContinuationMerge
+    places it at the next attempt and discards it when the retired spec ran meanwhile.
+    Skill text: coding-agent-master 3.7.0 and series-master.md state the capability and the ask-or-decide hint.
+  out: "Retiring an executed spec; retiring another spec than the one the coding master builds; retiring without a replacement in a run; removing a retired spec's file or work; any new limit."
+
+steps:
+  - id: schema
+    action: "spec.schema.json gains supersedes; SpecDraftReader reads it; SpecSupersession derives Retired, Planned and the supersession order; SpecSet's tail and head read them."
+  - id: progress
+    action: "SpecRunState.Superseded, settled in IsPartial, StoppedAtChunk and RunShortfall; ForSet seeds it; Superseding puts the replacement's row behind the retired one; SpecSequence publishes it for retired specs."
+  - id: retirement
+    action: "SpecRetirement and SpecSupersedesLine build the replacement and the set; SpecRevisionWriter.RetireAsync publishes, rolls back, drops the accounts and records; MasterSpecRevision and revise_spec take retire."
+  - id: restamp
+    action: "SpecBlockRestamp gives the steps ahead of a retired spec the replacement's id before each step."
+  - id: join
+    action: "SeriesJoinOrder orders by id then by supersession and skips retired specs in the prefix check; SeriesFiles, SeriesStaleFiles and the mock writers keep a retired spec's files."
+  - id: series-edit
+    action: "SeriesEditList places an appended replacement and re-cuts later requires; SeriesContinuationIds and ApprovedContinuation leave retired specs out of the cap; ContinuationMerge places replacements, discards a raced one and rewrites moved ids into re-cut specs."
+  - id: series-master
+    action: "ISeriesSpecRetirement / SeriesSpecRetirement through SeriesEditAct; SeriesSpecTools offers retire_spec; series-master.md and edit_series describe it."
+  - id: states
+    action: "superseded in RunSpecProjection (terminal), SpecStatusTable, ShortfallSection, SeriesStripReader, TicketSeriesCuts, ConversationSeriesRead and the dashboard words."
+  - id: skill
+    action: "coding-agent-master 3.7.0 released as skills v5.47.0 and pinned."
+
+tests:
+  - "Harness_TheMasterRetiresItsSpec_TheReplacementIsBuiltAndRecordedAndTheRetiredOneKept"
+  - "Retire_TheCurrentSpec_MintsTheNextFreeIdAndRelinksLaterRequires"
+  - "Retire_AReplacementRequiringTheRetiredSpec_IsRefused"
+  - "Retire_AnExecutedSpec_IsRefused"
+  - "Retire_TheBranchRefusedTheWrite_PutsTheSetBack"
+  - "Retire_PastTheLastMemberLetter_IsRefusedNamingTheLetters"
+  - "Retire_TheRetiredSpecsAccounts_AreDropped"
+  - "Of_AReplacementInAnotherRepository_StandsBehindTheRetiredSpecAndTheExecutedPrefixHolds"
+  - "StandIns_ReDerivedAfterARetirement_KeepWhatRanAndTheRetirement"
+  - "Checkpoint_ARetiredSetRoundTrips_WithItsSupersedes"
+  - "SpecStateChanged_Superseded_IsAnEndedRowThatSaysSuperseded"
+  - "SeriesCriteria_ARetiredSpec_IsLeftOut"
+  - "Merge_ARetiredSpecRanSinceTheApproval_DiscardsTheReplacementAndRelinksBack"
+  - "Merge_ASpecARunRetiredMeanwhile_DiscardsTheApprovalsReplacement"
+  - "Merge_AReMintedReplacement_IsWhatTheReCutSpecRequires"
+  - "Edit_DroppingAReplacementWhileItsRetiredSpecStays_IsRefused"
+  - "Markdown_ARetiredSpec_IsTaggedSupersededAndListsNoOpenCriteria"
+  - "Edit_RetireAnUnstartedSpec_RecordsTheReplacementAfterItAndRelinks"
+  - "NextAttempt_ARetiredSpec_IsKeptAndItsReplacementRunsInItsPlace"
+  - "RetireSpec_TheSeriesMaster_RecordsThroughTheTicketsSeriesEdit"
+
+done:
+  - "Through the real composition, a coding master that retires its spec ends green: the replacement is recorded in done/, the retired yaml stays in planned/, the later spec requires the replacement and the progress table shows the retired one superseded (test)."
+  - "A retirement of an executed spec, or a replacement requiring the retired id, is refused and writes nothing (test)."
+  - "The series master's retirement is recorded through SeriesEditAct and the ticket's next attempt reads the retired spec kept and its replacement in its place (test)."
+  - "dotnet build, the full suite and the dashboard tests are green; coding-agent-master 3.7.0 (skills v5.47.0) and series-master.md state the capability."

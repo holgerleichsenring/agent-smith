@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-3532b
+goal: "A series ticket's run asks its series master, never the operator: the master answers it with tell_ticket or asks the operator itself, and one question has one place."
+
+applies_to: "default (Application series beat questions, act tools and holds; Server ticket acts, answer endpoint and resume sweep)"
+
+requires: [2026-11-17-0207c, 2026-11-23-31dch, 2026-11-25-e94ea]
+
+facts:
+  - claim: "A parked member run's question is relayed verbatim into the series chat and kept as the series' question record, never given as a reason, so the master is not judged for it; an environment question is not relayed; a series of one relays nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesQuestions.cs:72-86,97-98,74 and src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:44"
+  - claim: "A ticket parking changes the table, so a beat runs; the parked run's dialogue job id and checkpoint question id are on the beat's facts."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesTicketState.cs:48,57, src/backend/AgentSmith.Application/Services/Series/SeriesBeatDue.cs:21, src/backend/AgentSmith.Server/Services/Series/SeriesParkedQuestion.cs:12-22"
+  - claim: "An answer reaches a parked run through IDialogueAnswerInbox keyed by job and question id, first answer wins; the resume sweep and MasterAnswerIntake take it from there, matching by id or text, free text accepted."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IDialogueAnswerInbox.cs:6-15, src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:45-72, src/backend/AgentSmith.Application/Services/Triage/MasterAnswerIntake.cs:24-56"
+  - claim: "Besides the inbox writers, the sweeper answers a run itself: an Azure DevOps comment after the ask, and the question's default at its deadline."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:70-72,86-108, src/backend/AgentSmith.Server/Services/Lifecycle/ParkedTicketDialogue.cs:31-48"
+  - claim: "tell_ticket writes into the ticket's conversation and never reaches a parked run's inbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesActTools.cs:80-85, src/backend/AgentSmith.Server/Services/Series/SeriesTicketMessage.cs:19-40"
+  - claim: "In an active series (not a series of one) a target or plan question's hold routes to the conversation, an environment question's to the admin with an answer box; the dashboard answer endpoint takes any run's answer."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketQuestionHold.cs:15-49, src/backend/AgentSmith.Server/Services/Tickets/Holds/TicketHoldSeriesRead.cs:60, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:49-69"
+  - claim: "Most series of one have no conversation, and the master's ask_human needs one."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMembership.cs:36, src/backend/AgentSmith.Application/Services/Series/SeriesOfOne.cs:24, src/backend/AgentSmith.Application/Services/Series/SeriesAskTool.cs:30-31"
+
+scope:
+  in: |
+    A ticket is series-led when the newest series that holds it leads its run questions (SeriesLeads): active, not a series
+    of one, and a master that can act (its loop has not failed since it last judged, its budget is not spent). A series of
+    one has no channel to its operator but the ticket page, and a master that cannot act would hide the question, so the
+    ticket page answers it then. A master's question that waits past holds.escalate_after_minutes is the admin's.
+    A series-led run's ask_human, whatever its answerer (target, plan, environment), goes to the series master: the beat gives
+    it as a reason with the ticket, the question, its answerer, choices and recommendation, once per run and question
+    (record.Raised, kept only when judged). The master asks the operator one question at a time, so when that slot frees
+    every run question still parked that it neither carried nor told since is raised again. It is no longer copied into
+    the chat or kept as the series' question; a relayed question still waiting from before is dropped at the next beat. An
+    answer handed to the master counts as delivered only once it judged it.
+    The master answers with tell_ticket: a ticket whose newest run waits on a checkpointed question gets the text as that
+    question's answer through the inbox and resumes — with questionId only that question, else it names the question the run
+    waits on now; otherwise the conversation message as before. Or the master asks the operator with ask_human (forTicket
+    names the ticket; its run and question are kept), in its own words, and answers the run once the reply arrives.
+    An environment question the master forwards with its recommendation.
+    One place: for a series-led run the answer endpoint refuses and names the series; the sweeper neither takes a tracker
+    comment nor a deadline default for it (the deadline is handed to the master once, and a handed deadline is never taken
+    by default later, when the series stopped leading); each project's series are read once per sweep; the hold is one Question
+    hold, act Conversation, addressee Nobody (the master has it), so it is no admin hold and no person's "needs you".
+  out: "The tracker comment of a parked question; chat-bound runs (ChatRunQuestionRelay); the hot wait before a park; the series chat's rendering (3532e)."
+
+steps:
+  - id: led
+    action: "SeriesLedRun (Server): whether a run's ticket is series-led, read once from ISeriesRunStore; used by the endpoint and the sweeper."
+  - id: reason
+    action: "SeriesQuestions: a series-led parked question becomes a beat reason; the relay, the record copy and their helpers go; a waiting relayed question is dropped; SeriesMasterHandler's spent-budget answer names waiting run questions."
+  - id: answer
+    action: "SeriesTicketAnswer (Server): TellAsync delivers to the inbox when the newest run waits on a checkpoint; tell_ticket's description says so."
+  - id: ask
+    action: "ask_human takes forTicket, stored as SeriesQuestion.ForTicket and named in the answered reason."
+  - id: one-place
+    action: "RunControlEndpoints answer refuses a series-led run (logic in a new class; the file shrinks); DialogueResumeSweeper skips comment and default for series-led checkpoints and wakes the master at the deadline; TicketQuestionHold routes every series-led question as above."
+  - id: prompt
+    action: "series-master.md: one hint line that a ticket's question is the master's to answer, or to carry to the operator with its recommendation."
+  - id: tests
+    action: "Harness and unit tests below; SeriesQuestionsTests, SeriesQuestionsStaleTests, TicketHoldReaderTests and SeriesRunReadersTests rewritten where they pin the relay."
+
+tests:
+  - "SeriesRunQuestionCompositionTests.ParkedRun_WakesMasterWithItsQuestion"
+  - "SeriesRunQuestionCompositionTests.TellTicket_ParkedRun_AnswerResumesTheRun"
+  - "SeriesRunQuestionCompositionTests.MasterAsksOperator_ReplyThenTellTicket_ResumesTheRun"
+  - "SeriesRunQuestionCompositionTests.Answer_SeriesLedRun_Refused"
+  - "DialogueResumeSweeperTests.Deadline_SeriesLed_NoDefaultTaken"
+  - "TicketHoldReaderTests.Environment_SeriesLed_IsTheMastersQuestion"
+
+done:
+  - "A series-led run's question wakes its master with the question and is not copied into the chat (harness)."
+  - "tell_ticket on that ticket delivers the answer and the run resumes with it (harness, through the resume sweep)."
+  - "The master's ask_human, the operator's reply, then tell_ticket resume the run (harness)."
+  - "The answer endpoint refuses a series-led run; no deadline default or tracker comment answers it; its hold is the master's (tests)."
+  - "dotnet build and the affected tests are green; the spec gate passes."

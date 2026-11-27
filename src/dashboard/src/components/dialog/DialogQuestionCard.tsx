@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useT } from "@/hooks/useT";
 import { Markdown } from "@/components/ui/Markdown";
 import type { T } from "@/lib/i18n/translate";
@@ -23,41 +22,20 @@ import type { SpecDialogChoice, SpecDialogQuestionPush } from "@/types/spec-dial
 // composer's place as a decision (DialogDecisionBar, 7c42b) on both pages, and discarding is said in
 // words, so the card's Approve/Reject pair and its shape buttons are gone. An approval reaches the
 // card only once its wait is over, to say nothing was filed.
+//
+// 2026-11-27-3532e: the series' question card that set a label, a hint, a recommendation and a fold is gone (the master's
+// question is a chat message with quick replies), and those props went with it.
 
 interface Control {
   label: string;
   answer: string;
   primary: boolean;
-  recommended?: boolean;
 }
 
-/** 2026-11-26-b186: past this many characters a clamped card folds its text — by length, which a test can check. */
-const CLAMP_CHARS = 200;
-
-export function DialogQuestionCard({
-  question,
-  onAnswer,
-  recommended = null,
-  hint,
-  label,
-  clamp = false,
-}: {
-  question: SpecDialogQuestionPush;
-  onAnswer: (answer: string) => void;
-  /** 2026-11-25-9992j: the index of the recommended choice, drawn as the primary button and marked so. */
-  recommended?: number | null;
-  /** 2026-11-25-9992j: what writing below does, where it is not the edit note of a proposal. */
-  hint?: string;
-  /** 2026-11-26-b186: what the card's label says in place of "waiting on you" (the series names who asks). */
-  label?: string;
-  /** 2026-11-26-b186: a long text shows its first lines with "show all"; the buttons always show. */
-  clamp?: boolean;
-}) {
+export function DialogQuestionCard({ question, onAnswer }: { question: SpecDialogQuestionPush; onAnswer: (answer: string) => void }) {
   const t = useT();
-  const [all, setAll] = useState(false);
-  const long = clamp && question.text.length > CLAMP_CHARS;
   const expired = hasExpired(question);
-  const controls = expired ? [] : controlsFor(t, question, recommended);
+  const controls = expired ? [] : controlsFor(t, question);
   return (
     <div
       data-testid="dialog-question"
@@ -65,16 +43,10 @@ export function DialogQuestionCard({
       className={expired ? "ecard inert d-body text-body" : "ecard inert waiting d-body"}
     >
       <div className={expired ? "fl mb-1" : "fl on mb-1"}>
-        {expired ? t("dialog.question.expired") : label ?? t("dialog.question.waiting")}
+        {expired ? t("dialog.question.expired") : t("dialog.question.waiting")}
       </div>
       {question.text.trim().length > 0 && (
-        <div className={long && !all ? "dq-clamp" : undefined} data-testid="dialog-question-text"><Markdown>{question.text}</Markdown></div>
-      )}
-      {long && (
-        <button type="button" className="d-link dq-more" aria-expanded={all} onClick={() => setAll((was) => !was)}
-          data-testid="dialog-question-more">
-          {t(all ? "dialog.question.showLess" : "dialog.question.showAll")}
-        </button>
+        <div data-testid="dialog-question-text"><Markdown>{question.text}</Markdown></div>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {controls.map((control) => (
@@ -86,7 +58,6 @@ export function DialogQuestionCard({
             className={control.primary ? "btn primary" : "btn"}
           >
             {control.label}
-            {control.recommended && <span className="ml-1 opacity-80">({t("dialog.question.recommended")})</span>}
           </button>
         ))}
         {/* 2026-09-17-042ek: an EXPIRED card promised a revision it cannot deliver — the
@@ -94,16 +65,16 @@ export function DialogQuestionCard({
         <span className="ec-sub min-w-44 flex-1">
           {expired
             ? t("dialog.question.expiredHint")
-            : hint ?? t("dialog.question.noteHint")}
+            : t("dialog.question.noteHint")}
         </span>
       </div>
     </div>
   );
 }
 
-function controlsFor(t: T, question: SpecDialogQuestionPush, recommended: number | null): Control[] {
+function controlsFor(t: T, question: SpecDialogQuestionPush): Control[] {
   if (question.kind === "approval") return [];
-  if (question.choices.length > 0) return question.choices.map((choice, at) => asControl(choice, at === recommended));
+  if (question.choices.length > 0) return question.choices.map(asControl);
   if (question.kind === "confirmation")
     return [
       { label: t("dialog.question.yes"), answer: "yes", primary: true },
@@ -113,6 +84,6 @@ function controlsFor(t: T, question: SpecDialogQuestionPush, recommended: number
   return [];
 }
 
-function asControl(choice: SpecDialogChoice, recommended: boolean): Control {
-  return { label: choice.label, answer: choice.label, primary: recommended, recommended };
+function asControl(choice: SpecDialogChoice): Control {
+  return { label: choice.label, answer: choice.label, primary: false };
 }

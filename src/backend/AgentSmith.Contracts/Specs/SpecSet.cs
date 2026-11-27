@@ -43,19 +43,30 @@ public sealed record SpecSet(
     /// </summary>
     public IReadOnlyList<string> Executed { get; init; } = ExecutedSpecIds ?? [];
 
-    /// <summary>The specs no run has started yet — the only ones a correction may re-cut.</summary>
+    /// <summary>The specs no run has started yet — the only ones a correction may re-cut. 2026-11-27-3532d: a retired
+    /// spec is none of them; it never runs, and its replacement stands in its place.</summary>
     [JsonIgnore]
     public IReadOnlyList<DerivedSpec> UnexecutedTail =>
-        [.. Specs.Where(p => !Executed.Contains(p.SpecId, StringComparer.Ordinal))];
+        [.. Specs.Where(p => !Executed.Contains(p.SpecId, StringComparer.Ordinal) && !this.Retired().Contains(p.SpecId))];
 
     /// <summary>
     /// The executed specs in their original order. Only a CONTIGUOUS head can be
     /// preserved by position, which is what the append-only rule already implies: the
     /// sequence executes in order, so anything executed is a prefix of it.
+    /// 2026-11-27-3532d: a retired spec the head passes stays in it — it is settled, and its replacement ran after it —
+    /// so the head is every spec through the last executed one; the head never ends on a retired spec.
     /// </summary>
     [JsonIgnore]
-    public IReadOnlyList<DerivedSpec> ExecutedHead =>
-        [.. Specs.TakeWhile(p => Executed.Contains(p.SpecId, StringComparer.Ordinal))];
+    public IReadOnlyList<DerivedSpec> ExecutedHead
+    {
+        get
+        {
+            var retired = this.Retired();
+            var head = Specs.TakeWhile(p => Executed.Contains(p.SpecId, StringComparer.Ordinal) || retired.Contains(p.SpecId)).ToList();
+            while (head.Count > 0 && !Executed.Contains(head[^1].SpecId, StringComparer.Ordinal)) head.RemoveAt(head.Count - 1);
+            return head;
+        }
+    }
 
     /// <summary>2026-10-06-03c7d: the series' goal the manifest carries — an epic's own goal, or
     /// null when nothing set one.</summary>

@@ -41,6 +41,7 @@ public static class ShortfallSection
         SpecRunState.HandedBack =>
             $"handed back, never built: {spec.FailingCommand ?? "a premise no longer holds"}",
         SpecRunState.InProgress => "started, not finished",
+        SpecRunState.Superseded => "retired, never built", // 2026-11-27-3532d
         _ => "not started",
     };
 }

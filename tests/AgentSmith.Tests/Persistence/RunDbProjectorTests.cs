@@ -85,6 +85,22 @@ public sealed class RunDbProjectorTests : IDisposable
     }
 
     [Fact]
+    public async Task SpecStateChanged_Superseded_IsAnEndedRowThatSaysSuperseded()
+    {
+        // 2026-11-27-3532d: a retired spec's row says superseded and has ended; its replacement's row stands behind it.
+        var projector = NewProjector();
+        await projector.ProjectAsync(new RunStartedEvent("run-r", "ticket", "code", ["primary"], _clock.Now, "claude", "42"), default);
+        await projector.ProjectAsync(new SpecStateChangedEvent("run-r", "s-a", 1, "goal a", Contracts.Specs.SpecRunState.InProgress, null, _clock.Now), default);
+        await projector.ProjectAsync(new SpecStateChangedEvent("run-r", "s-a", 1, "goal a", Contracts.Specs.SpecRunState.Superseded, "superseded by s-c", _clock.Now), default);
+        await projector.ProjectAsync(new SpecStateChangedEvent("run-r", "s-c", 2, "goal c", Contracts.Specs.SpecRunState.InProgress, null, _clock.Now), default);
+
+        await using var db = new AgentSmithDbContext(Options());
+        var rows = await db.Set<AgentSmith.Infrastructure.Persistence.Entities.RunSpec>().Where(s => s.RunId == "run-r").OrderBy(s => s.Ordinal).ToListAsync();
+        rows.Select(r => (r.SpecId, r.Status)).Should().Equal(("s-a", RunSpecProjection.Superseded), ("s-c", "in_progress"));
+        rows[0].EndedAt.Should().NotBeNull("a superseded spec does not run again");
+    }
+
+    [Fact]
     public async Task LlmCallFinished_CarriesCachedTokens_PersistedOnRunLlmCall()
     {
         // p0323: the cached share is part of the durable per-call record — an

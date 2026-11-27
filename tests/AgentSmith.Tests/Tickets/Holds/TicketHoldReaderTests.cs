@@ -199,11 +199,39 @@ public sealed class TicketHoldReaderTests
             Parked = true, Asked = true, ParkedAt = T, SeriesId = series, SeriesActive = series is not null, Answerers = answerers,
         };
 
-    [Fact]
-    public void Question_ThePlansInASeries_IsAPlanHold_TalkedThroughInTheSeriesConversation()
+    // 2026-11-27-3532b: in a series that leads the ticket every parked question is its master's — one Question hold, the
+    // series' conversation, addressed to nobody: no admin hold, no person's "needs you".
+    private static readonly TicketHold MastersQuestion = new(TicketHoldAddressees.Nobody, TicketHoldCases.Question,
+        new TicketHoldAct(TicketHoldActs.Conversation, "sr-1"), T) { Attempt = 2 };
+
+    [Theory]
+    [InlineData("target")]
+    [InlineData("plan")]
+    [InlineData("target", "plan")]
+    public void Question_SeriesLed_IsTheMastersQuestion(params string[] answerers)
     {
-        _reader.Of(AskedOf("sr-1", "plan"))!.Should().BeEquivalentTo(new TicketHold(TicketHoldAddressees.Plan,
-            TicketHoldCases.QuestionPlan, new TicketHoldAct(TicketHoldActs.Conversation, "sr-1"), T) { Attempt = 2 });
+        _reader.Of(AskedOf("sr-1", answerers)).Should().BeEquivalentTo(MastersQuestion);
+    }
+
+    // 2026-11-27-3532b: a master's question that waits too long is the admin's, like any wait on nobody.
+    [Fact]
+    public void Question_SeriesLed_WaitingTooLong_IsTheAdmins()
+    {
+        var hold = _reader.Of(AskedOf("sr-1", "target") with { EscalateAfterMinutes = 60, Now = T.AddHours(2) })!;
+
+        hold.Addressee.Should().Be(TicketHoldAddressees.Admin);
+        hold.Case.Should().Be(TicketHoldCases.Question);
+        hold.Escalation.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void Environment_SeriesLed_IsTheMastersQuestion()
+    {
+        var hold = _reader.Of(AskedOf("sr-1", "plan", "environment"));
+
+        hold.Should().BeEquivalentTo(MastersQuestion);
+        hold!.IsPersons.Should().BeFalse();
+        _reader.Admin(AskedOf("sr-1", "environment")).Should().BeNull("the admin holds list does not carry it");
     }
 
     [Fact]
@@ -213,24 +241,6 @@ public sealed class TicketHoldReaderTests
             h.Addressee == TicketHoldAddressees.Decide && h.Case == TicketHoldCases.Question && h.Act!.Kind == TicketHoldActs.Answer);
         _reader.Of(AskedOf("sr-1", "plan") with { SeriesActive = false })!.Should().Match<TicketHold>(h =>
             h.Case == TicketHoldCases.Question && h.Act!.Kind == TicketHoldActs.Answer, "a series that ended reads no conversation");
-    }
-
-    [Fact]
-    public void Question_TheTargets_InAnActiveSeries_IsAnsweredInTheSeriesChat_NeverOnTheTicket()
-    {
-        // 2026-11-25-9992j: the series relays every question that is not the environment's, so the ticket page links there.
-        _reader.Of(AskedOf("sr-1", "target"))!.Should().Match<TicketHold>(h => h.Addressee == TicketHoldAddressees.Decide
-            && h.Case == TicketHoldCases.Question && h.Act == new TicketHoldAct(TicketHoldActs.Conversation, "sr-1"));
-    }
-
-    [Fact]
-    public void Question_APark_AlsoAskingThePlan_IsAnsweredInTheSeriesConversation_NeverOnTheTicket()
-    {
-        // One answer covers every question of a park, so a park that asks the plan is the series' to answer.
-        _reader.Of(AskedOf("sr-1", "target", "plan"))!.Should().Match<TicketHold>(h =>
-            h.Addressee == TicketHoldAddressees.Plan && h.Act == new TicketHoldAct(TicketHoldActs.Conversation, "sr-1"));
-        _reader.Of(AskedOf("sr-1", "plan", "environment"))!.Should().Match<TicketHold>(h =>
-            h.Addressee == TicketHoldAddressees.Admin && h.Act == new TicketHoldAct(TicketHoldActs.Conversation, "sr-1"));
     }
 
     [Fact]

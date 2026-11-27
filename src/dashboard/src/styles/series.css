@@ -141,25 +141,23 @@
 @media (prefers-reduced-motion: reduce) { .mock-tickets .sr-node, .mock-tickets .sr-edge { transition: none; } .mock-tickets .sr-node.working::after { animation: none; } }
 
 /* 2026-11-23-8d16: the pane's rule (ticket-thread.css) draws every .btn as underlined text, so a question's choices in the
-   chat are drawn as buttons again (2026-11-25-9992j): the recommended one in the accent, the rest outlined. */
-.mock-tickets .tk-pane .sr-question .btn {
-  border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 12px; border-radius: 9px;
+   chat are drawn as buttons again (2026-11-25-9992j): the recommended one in the accent, the rest outlined.
+   2026-11-27-3532e: small quick replies under the message list, no card around them. */
+.mock-tickets .sr-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.mock-tickets .tk-pane .sr-quick .btn {
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 3px 10px; border-radius: 999px;
   font-size: 12.5px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
-.mock-tickets .tk-pane .sr-question .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
-.mock-tickets .tk-pane .sr-question .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mock-tickets .tk-pane .sr-quick .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.mock-tickets .tk-pane .sr-quick .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* 2026-11-26-5201c: the questions that wait, pinned above the chat's input. 2026-11-26-b186: they never scroll and never shrink —
    a long question folds its text (show all), and the conversation gives way. */
 .mock-tickets .sr-questions { flex: none; display: grid; align-content: start; gap: 6px; scroll-margin-bottom: 16px; }
-.mock-tickets .sr-question .ecard { cursor: default; }
-.mock-tickets .sr-question .d-body { padding: 10px 14px; }
-.mock-tickets .sr-question .fl.on { color: var(--person); }
-.mock-tickets .sr-question [data-testid="dialog-question-text"] { max-height: 40vh; overflow-y: auto; }
-.dq-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
-.dq-more { font-size: 12.5px; margin-top: 2px; }
 .mock-tickets .sr-question-who { margin: 0 0 4px; font-size: 12.5px; font-weight: 600; color: var(--person); }
 .mock-tickets .sr-question-line { margin: 0; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
 .mock-tickets .sr-question-line .sr-question-who { display: inline; margin: 0; }
+/* 2026-11-27-3532e: over an open chat the waiting question is a one-line pointer to its message. */
+.mock-tickets .sr-question-pointer { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* 2026-11-26-f511a: the tickets that need a person, under one label; many of them scroll in their own few lines, so the
    composer below is never pushed out. */
 .mock-tickets .sr-needs { display: grid; gap: 2px; padding: 6px 12px; border: 1px solid var(--line-2); border-left: 3px solid var(--person); border-radius: var(--r-s); background: var(--panel); }

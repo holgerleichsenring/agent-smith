@@ -41,7 +41,7 @@ public sealed class SeriesCriteria(TicketBranchSeries branches, IServiceScopeFac
                 if (read.Set is null && read.State != SpecSetBranchState.Unreadable) continue;
             }
             if (read.Set is not { } set) { unread.Add($"{ticket.Key}: {read.Why ?? read.State.ToString()}"); continue; }
-            criteria.AddRange(set.Specs.SelectMany(s => s.Draft.Done.Select(d => new SeriesCriterion(ticket.Key, s.SpecId, d))));
+            criteria.AddRange(Of(ticket.Key, set));
         }
         return (criteria, unread);
     }
@@ -63,5 +63,15 @@ public sealed class SeriesCriteria(TicketBranchSeries branches, IServiceScopeFac
             logger.LogWarning(ex, "The landings of series {Series} could not be read; unread tickets are named", record.Id);
             return [];
         }
+    }
+
+    /// <summary>The criteria one ticket's set carries. 2026-11-27-3532d: a retired spec's are left out — its replacement
+    /// states what is to be met in its place.</summary>
+    public static IEnumerable<SeriesCriterion> Of(string ticketKey, SpecSet set)
+    {
+        ArgumentNullException.ThrowIfNull(set);
+        var retired = set.Retired();
+        return set.Specs.Where(s => !retired.Contains(s.SpecId))
+            .SelectMany(s => s.Draft.Done.Select(d => new SeriesCriterion(ticketKey, s.SpecId, d)));
     }
 }

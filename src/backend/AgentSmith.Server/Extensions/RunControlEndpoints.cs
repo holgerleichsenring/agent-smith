@@ -12,21 +12,16 @@ namespace AgentSmith.Server.Extensions;
 /// p0200: HTTP control surface for in-flight pipeline runs. Today: cancel. 2026-10-13-9a59n: retry is
 /// <see cref="RetryEndpoints"/>.
 ///
-/// p0330: cancel is PERSISTENT STATE, not a best-effort signal. The endpoint
-/// writes CancelRequested + a kill deadline onto the run row BEFORE returning;
-/// the cooperative token (in-process runs) may land inside the grace window,
-/// and <see cref="Services.Lifecycle.CancelEnforcer"/> finalizes the run after it —
-/// including a run that outlived a restart, which the in-memory registry can
-/// structurally never reach.
+/// p0330: cancel is PERSISTENT STATE, not a best-effort signal. The endpoint writes CancelRequested + a kill deadline onto
+/// the run row BEFORE returning; the cooperative token (in-process runs) may land inside the grace window, and
+/// <see cref="Services.Lifecycle.CancelEnforcer"/> finalizes the run after it — including a run that outlived a restart,
+/// which the in-memory registry can structurally never reach.
 ///
 /// States the operator can hit:
-///   1. QUEUED run — pure bookkeeping: queue entry deleted, row finished
-///      'cancelled', ticket terminalized (p0330 — otherwise the next poll
-///      re-claims it).
-///   2. Live run — flag persisted (the enforcer's contract), registry CTS
-///      signalled when the executor runs in-process.
-///   3. Row-less zombie known only to the broadcaster snapshot — synthetic
-///      RunFinished(cancelled) clears it (pre-relational behaviour).
+///   1. QUEUED run — pure bookkeeping: queue entry deleted, row finished 'cancelled', ticket terminalized (p0330 — otherwise
+///      the next poll re-claims it).
+///   2. Live run — flag persisted (the enforcer's contract), registry CTS signalled when the executor runs in-process.
+///   3. Row-less zombie known only to the broadcaster snapshot — synthetic RunFinished(cancelled) clears it.
 ///   4. Genuinely unknown runId → 404.
 /// </summary>
 internal static class RunControlEndpoints
@@ -51,6 +46,7 @@ internal static class RunControlEndpoints
         AnswerRequest body,
         IRunCheckpointStore checkpoints,
         IDialogueTransport dialogueTransport,
+        Services.Series.SeriesLedRun led,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(body.Answer)) return Results.BadRequest("answer is required");
@@ -58,6 +54,9 @@ internal static class RunControlEndpoints
         if (checkpoint is null) return Results.NotFound();
         if (checkpoint.ResumedAt is not null)
             return Results.Conflict("The question was already answered — the run is resuming.");
+        // 2026-11-27-3532b: a series-led run's question is its series master's, answered in the series' conversation
+        if (await led.LeaderAsync(checkpoint.Project, checkpoint.TicketId, cancellationToken) is { } series)
+            return Results.Conflict(Services.Series.SeriesLedRun.Refusal(series));
 
         await dialogueTransport.PublishAnswerAsync(
             checkpoint.DialogueJobId,

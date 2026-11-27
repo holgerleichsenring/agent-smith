@@ -21,7 +21,7 @@ public sealed class QueuedTicketRepository(
     public async Task<string> EnqueueAsync(CapacityQueueCandidate candidate, CancellationToken ct)
     {
         var existing = await FindAsync(candidate.Project, candidate.TicketId, ct);
-        if (existing is not null) return await RefreshReasonAsync(existing, candidate.Reason, ct);
+        if (existing is not null) return await RefreshAsync(existing, candidate, ct);
 
         var now = timeProvider.GetUtcNow();
         var staged = new List<EntityEntry> { unitOfWork.Add(NewEntry(candidate, now)) };
@@ -86,15 +86,13 @@ public sealed class QueuedTicketRepository(
         unitOfWork.Set<QueuedTicket>()
             .FirstOrDefaultAsync(q => q.Project == project && q.TicketId == ticketId, ct);
 
-    // A retry of an already-queued ticket keeps its arrival order AND its
-    // reserved run id — only the waiting reason refreshes on the entry and its
-    // queued Run row (the dashboard shows why it is still waiting).
-    private async Task<string> RefreshReasonAsync(QueuedTicket existing, string reason, CancellationToken ct)
+    // A retry of an already-queued ticket keeps its arrival order, its reserved run id and its context (2026-11-27-3532a: a trigger
+    // never overwrites a start by name; the pump reads the approved set at its claim) — only the waiting reason refreshes.
+    private async Task<string> RefreshAsync(QueuedTicket existing, CapacityQueueCandidate candidate, CancellationToken ct)
     {
-        existing.Reason = reason;
-        var run = await unitOfWork.Set<Run>()
-            .FirstOrDefaultAsync(r => r.Id == existing.ReservedRunId && r.Status == "queued", ct);
-        if (run is not null) run.Summary = reason;
+        existing.Reason = candidate.Reason;
+        var run = await unitOfWork.Set<Run>().FirstOrDefaultAsync(r => r.Id == existing.ReservedRunId && r.Status == "queued", ct);
+        if (run is not null) run.Summary = candidate.Reason;
         await unitOfWork.SaveChangesAsync(ct);
         return existing.ReservedRunId ?? string.Empty;
     }

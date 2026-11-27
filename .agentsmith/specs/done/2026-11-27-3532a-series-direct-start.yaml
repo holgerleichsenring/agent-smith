@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-3532a
+goal: "A series ticket is started only by its master, straight through the run-start funnel; a tracker trigger opens or joins its series, and add_ticket files an approved spec."
+
+applies_to: "default (Server series start, Application spawn funnel, series membership, edit acts and filing, capacity queue, spec gate)"
+
+requires: [2026-11-26-5f6e, 2026-11-25-96aea, 2026-11-25-9992f]
+
+facts:
+  - claim: "start_ticket runs a 'start' run that tags or moves the ticket, then claims it through the poller's label route, so a ticket that routes nowhere by its labels is never claimed."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/WaitingTicketStart.cs:63-73, src/backend/AgentSmith.Server/Services/Rework/ReworkFallbackSpawn.cs:29-42"
+  - claim: "The direct run-start path exists: ChatTicketRunLauncher builds a by-name envelope (series-marked for ReworkStartKind.Series) and goes through the spawn funnel: requirement gate, footprint, FIFO capacity queue, reservation, claim with lease."
+    evidence: "src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketRunLauncher.cs:25-47, src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:52-88"
+  - claim: "The claim's single-run guard is the lease; the Pending->Enqueued lifecycle write is display, and a concurrency refusal of it still proceeds."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:27-58"
+  - claim: "A by-name start skips the label-routing pre-check and the queue pump's trigger-status re-check."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/ClaimPreChecker.cs:20-25, src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:80-84"
+  - claim: "The trigger-label workaround (FiledWorkTriggerLabel, filedFromText) is reached only from WaitingTicketStart through TicketStartRun and StartTicketHandler."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/FiledWorkTriggerLabel.cs:17, src/backend/AgentSmith.Application/Services/Filing/FiledWorkMove.cs:29-44, src/backend/AgentSmith.Server/Services/Acts/TicketStartRun.cs:15-21"
+  - claim: "A poller or webhook trigger of a code ticket claims it through the funnel with no series involved; a comment answering a parked run comes the same way with plan answers."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:171, src/backend/AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs:60-61"
+  - claim: "A series of one is opened when a code run starts, a filing of one files it, or a pull request of it is read; the opener refuses after a stopped series."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesOfOne.cs:18-31, src/backend/AgentSmith.Application/Services/Series/SeriesMembership.cs:26-38, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:67"
+  - claim: "A filing creates its tickets (stamped) before it writes their series membership, then starts them by tag and move, leaving the claim to the trigger."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/PlannedTicketFiler.cs:29, src/backend/AgentSmith.Application/Services/Series/SeriesMembership.cs:24-27, src/backend/AgentSmith.Application/Services/Filing/TicketGraphStarts.cs:37"
+  - claim: "add_ticket files a FollowUp (title and body, no series, no approval record), so its run derives its own spec."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesEditActs.cs:66-72, src/backend/AgentSmith.Application/Services/Filing/FilingPlanner.cs:19,32-34"
+  - claim: "A filed spec ticket gets its approval record and branch write through SeriesFilingPlan.Spec and ApprovedSetTicketFiler; a spec yaml is validated by ISpecDraftValidator and read by SpecDraftReader."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/SeriesFilingPlan.cs:15-24, src/backend/AgentSmith.Application/Services/Filing/PlannedTicketFiler.cs:34-36, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftValidator.cs:35-55"
+  - claim: "The spec gate parks a run whose ticket carries the approved-set stamp and has no stored set; the run reads no series store."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledTicketSpecGate.cs:55-74, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:107"
+  - claim: "A queue upsert keeps the first stored context, and the pump claims a head with it; a retry builds its context fresh."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:23-24, src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:102,124-128, src/backend/AgentSmith.Server/Services/Rework/ReworkLaunch.cs:29-36"
+
+scope:
+  in: |
+    One master per ticket. start_ticket, a resume and the series node's Start start a series ticket through
+    ChatTicketRunLauncher (ReworkStartKind.Series): the requirement gate, the FIFO capacity queue, the reservation and the
+    claim with its lease. No 'start' run, no tag, no label route. The answer is started with its run, queued with its place
+    and reason, or refused with why. The 5f6e trigger-label workaround goes (FiledWorkTriggerLabel and the filedFromText
+    parameters; FiledFromTextAsync stays for FiledCompletelyAsync).
+    Outside entry: a poller or webhook spawn of the code pipeline that is not by name and carries no plan answers claims
+    nothing (ClaimResult.Rejected, ClaimRejectionReason.LedBySeries, replacing the trigger's claim of a code ticket). It
+    opens the ticket's series of one or finds the series that holds it and records a Prerequisite-kind wake "triggered, waits
+    for start_ticket" once per series, ticket and latest attempt (a re-trigger after a new attempt says retry_ticket runs it).
+    A ticket with a lease goes through the funnel as before; of a queued ticket, an entry a start by name or a resume put there
+    answers LedBySeries and keeps its context (the pump claims it), any other (a backstop with no context) goes through the
+    funnel, so a queue head is still claimed. A not-a-rework keyword comment (ReworkFallbackSpawn) is such a trigger too and
+    wakes the master once per attempt. A stopped series is not reopened by a trigger: its tickets start by a person's act.
+    A process with no series store claims as before.
+    Filing: membership records the same start wake for each ticket it opens or joins, so a webhook that sends no event
+    still reaches the master; then a series of one a trigger opened in the filing window ends as done and hands its ticket over.
+    Kept starts: chat, Retry, rework acts, the series runway auto-start, precondition release, pull-request commands and the
+    queue pump; each starts a worked ticket or is a person's act by name.
+    A series-started run (SeriesAutoStart) reads only the approval record in the spec gate, never the stamp.
+    add_ticket(title, spec, ...) validates the spec yaml and files it as a spec under the series' plan approval (its
+    conversation and principal, scope repos from the spec), so the run carries an approved set; the spec's own requires are
+    dropped from the draft and the stored yaml (ticket edges come from the arguments), and the ticket's title is the spec's.
+    A series without a conversation still refuses it.
+    A queue upsert keeps the first context (a trigger never overwrites a start by name), and the pump claims a head with the
+    approved set read at its claim.
+  out: "The tracker comment of a parked question; label routing of non-code pipelines; the queue order itself."
+
+steps:
+  - id: start
+    action: "WaitingTicketStart starts through ChatTicketRunLauncher after its holds; SpawnedStart maps the launch, the queue answer names its place (GetPositionsByRunIdAsync). The 'start' run path and the filedFromText parameters go."
+  - id: entry
+    action: "ISeriesTicketEntry (Contracts) / SeriesTicketEntry (Server, own scope): SpawnPipelineRunsUseCase hands a qualifying spawn to it before any reservation and answers Rejected/LedBySeries."
+  - id: filing
+    action: "SeriesMembership records start wakes for its tickets and stops a series of one holding a filed ticket."
+  - id: gate
+    action: "FiledTicketSpecGate takes whether the run is series-started; SpecSourceResolver passes pipeline.IsSeriesAutoStart()."
+  - id: add-ticket
+    action: "SeriesEditTools.add_ticket takes spec; a new SeriesAddedSpec (Server) validates, reads and builds the FilingRequest; SeriesEditActs files it."
+  - id: queue
+    action: "CapacityQueuePump refreshes the approved set at its claim through a small extracted class (IQueueHeadClaim); the upsert keeps the stored context."
+  - id: prompt
+    action: "series-master.md one line: a triggered ticket waits for start_ticket; add_ticket's description names the spec."
+  - id: tests
+    action: "Harness and unit tests named below; existing funnel tests switch to by-name envelopes where they test the claim; FiledWorkTriggerLabelTests and the 5f6e composition test are replaced."
+
+tests:
+  - "SeriesDirectStartCompositionTests.StartTicket_UnroutedTicket_StartsItsRunWithNoTag"
+  - "SeriesDirectStartCompositionTests.StartTicket_NoCapacity_AnswersQueuedWithPlace"
+  - "SeriesDirectStartCompositionTests.Trigger_CodeTicket_WakesItsMasterAndClaimsNothing"
+  - "SeriesDirectStartCompositionTests.TriggerThenStartTicket_OneRun"
+  - "SeriesDirectStartCompositionTests.Filing_NoTriggerEvent_MasterIsWokenToStart"
+  - "SeriesDirectStartCompositionTests.Trigger_QueueHead_IsStillClaimed"
+  - "SeriesDirectStartCompositionTests.AddTicket_Spec_FilesApprovedSetTheRunCarries"
+  - "SeriesDirectStartCompositionTests.StartTicketQueued_ThenTrigger_PumpClaimsWithSeriesAutoStart"
+  - "SeriesDirectStartCompositionTests.Filing_AbsorbedSeriesOfOne_DoesNotBlockALaterTrigger"
+  - "SeriesStartWakesTests.Wake_AfterAnAttempt_IsANewKey_AndSaysRetry"
+  - "FiledTicketSpecGateTests.MissingSet_SeriesStartedStampNoRecord_Derives"
+  - "CapacityQueuePumpTests.Claim_Head_CarriesApprovedSetReadNow"
+
+done:
+  - "start_ticket on a ticket no label routes spawns its code run with no tag written and no 'start' run (harness, red before)."
+  - "start_ticket with no room answers queued with its place and reason (harness)."
+  - "A poll trigger of a code ticket wakes its series master and claims nothing; start_ticket then makes exactly one run (harness)."
+  - "A filed ticket's master is woken to start it without any trigger event; a queue head is still claimed (harness)."
+  - "A trigger after a queued start by name claims nothing and the pump claims the head with the series' context (harness)."
+  - "add_ticket with a spec files a ticket whose code run carries that approved spec (harness)."
+  - "dotnet build and the affected tests are green; the spec gate passes."

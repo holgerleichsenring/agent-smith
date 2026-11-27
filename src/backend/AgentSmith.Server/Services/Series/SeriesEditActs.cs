@@ -9,12 +9,13 @@ namespace AgentSmith.Server.Services.Series;
 /// 2026-11-25-9992f: the series master's changes to its series' cut. An added ticket is filed through the 'file' run
 /// (<see cref="IFilingRun"/>) seeded with the series id, so it joins the series — and is written from the series branch —
 /// before anything could start it; it is filed unstarted and its edges are stored next, so it starts once they
-/// stand. Edges between members are added and removed through <see cref="SeriesRequirementLinks"/>. An edge that would let
+/// stand. 2026-11-27-3532a: it is filed from a spec under the series' plan approval (<see cref="SeriesAddedSpec"/>). Edges between members are added and removed through <see cref="SeriesRequirementLinks"/>. An edge that would let
 /// a ticket wait on itself is refused before anything is filed or written.
 /// </summary>
-public sealed class SeriesEditActs(TicketProjects projects, IFilingRun filing, SeriesRequirementLinks links) : ISeriesEditActs
+public sealed class SeriesEditActs(TicketProjects projects, IFilingRun filing, SeriesRequirementLinks links, SeriesAddedSpec specs)
+    : ISeriesEditActs
 {
-    public async Task<SeriesCutAnswer> AddTicketAsync(SeriesRunRecord series, string title, string body, IReadOnlyList<string> requires,
+    public async Task<SeriesCutAnswer> AddTicketAsync(SeriesRunRecord series, string spec, IReadOnlyList<string> requires,
         IReadOnlyList<string> requiredBy, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(series);
@@ -22,12 +23,18 @@ public sealed class SeriesEditActs(TicketProjects projects, IFilingRun filing, S
         if (string.IsNullOrEmpty(series.Conversation)) // 2026-11-25-96aea: a series of one without a conversation has nobody to report a series to
             return new("This series of one has no conversation to lead a series in; file the ticket in a Work it out conversation instead.", false);
         if (AddCycle(series, await links.GraphAsync(project, cancellationToken), requires, requiredBy) is { } refused) return new(refused, false);
-        var report = await filing.RunRequestAsync(project.Name, Request(series, title, body), series.Id);
-        if (report.Filed.FirstOrDefault(f => !string.IsNullOrEmpty(f.TicketId)) is not { } filed)
-            return new($"Nothing was filed: {report.Error ?? "the filing run filed no ticket"}.", false);
-        var id = filed.TicketId!;
-        var key = filed.Key ?? id;
-        try { await LinkAddedAsync(project, series, id, requires, requiredBy, cancellationToken); }
+        var (request, invalid) = specs.Request(series, spec); // 2026-11-27-3532a: an approved spec, never a text
+        if (request is null) return new($"Nothing was filed: the spec is not valid: {invalid}.", false);
+        var report = await filing.RunRequestAsync(project.Name, request, series.Id);
+        return report.Filed.FirstOrDefault(f => !string.IsNullOrEmpty(f.TicketId)) is { } filed
+            ? await LinkedAsync(project, series, filed.TicketId!, filed.Key ?? filed.TicketId!, requires, requiredBy, cancellationToken)
+            : new($"Nothing was filed: {report.Error ?? "the filing run filed no ticket"}.", false);
+    }
+
+    private async Task<SeriesCutAnswer> LinkedAsync(AgentSmith.Contracts.Models.Configuration.ResolvedProject project, SeriesRunRecord series,
+        string id, string key, IReadOnlyList<string> requires, IReadOnlyList<string> requiredBy, CancellationToken ct)
+    {
+        try { await LinkAddedAsync(project, series, id, requires, requiredBy, ct); }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return new($"Filed {key} into the series, unstarted, but its requirement edges were not stored: "
@@ -63,13 +70,6 @@ public sealed class SeriesEditActs(TicketProjects projects, IFilingRun filing, S
                 + $"({await links.AddAsync(project, series.Conversation, ticketId, addRequires, cancellationToken)} new).");
         return said.Count == 0 ? new("Nothing changed: name a ticket to add or to remove as a requirement.", false) : new(string.Join(" ", said), true);
     }
-
-    // Unstarted: the master starts it once its edges stand; the series id makes it a member, not the check's follow-up.
-    private static FilingRequest Request(SeriesRunRecord series, string title, string body) =>
-        new(series.Conversation, series.Principal, [], [], null, MayStartRuns: false)
-        {
-            FollowUp = new FilingFollowUp(title, body), IsSeriesMasterAddition = true,
-        };
 
     private static string? AddCycle(SeriesRunRecord series, SeriesRequirementGraph graph, IReadOnlyList<string> requires,
         IReadOnlyList<string> requiredBy)

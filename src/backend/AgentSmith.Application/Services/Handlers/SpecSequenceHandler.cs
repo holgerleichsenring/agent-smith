@@ -14,7 +14,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// still runs, so the half-migrated state reaches the pull request instead of disappearing with the run.
 /// </summary>
 public sealed class SpecSequenceHandler(
-    Specs.ISeriesSettingsReader series, TimeProvider clock, ILogger<SpecSequenceHandler> logger)
+    Specs.ISeriesSettingsReader series, TimeProvider clock, ILogger<SpecSequenceHandler> logger,
+    Specs.ISpecProgressRecorder? progress = null) // 2026-11-27-3532d: a retired spec's row says superseded
     : ICommandHandler<SpecSequenceContext>
 {
     // The block lives on PipelinePresets, not here: the park-capability questions are
@@ -22,26 +23,27 @@ public sealed class SpecSequenceHandler(
     private static IReadOnlyList<string> PerSpec(PipelineContext pipeline) =>
         PipelinePresets.SpecBlockFor(pipeline.TryGet<string>(ContextKeys.PipelineName, out var name) ? name : null);
 
-    public Task<CommandResult> ExecuteAsync(
+    public async Task<CommandResult> ExecuteAsync(
         SpecSequenceContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         if (!context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) || set is null || set.Specs.Count == 0)
-            return Task.FromResult(CommandResult.Ok("No derived specs to execute — the run has no spec set"));
+            return CommandResult.Ok("No derived specs to execute — the run has no spec set");
 
         // 2026-11-19-6b0ba: a spec derivation writes only the stand-ins; a written spec waits for its person.
         IReadOnlyList<DerivedSpec> pending = PipelinePresets.LeavesTicketAlone(context.Pipeline)
             ? [.. set.UnexecutedTail.Where(p => set.IsStandIn(p.SpecId))] : set.UnexecutedTail;
         if (pending.Count == 0)
-            return Task.FromResult(CommandResult.Ok(
-                $"Every spec of {set.Key} already executed on this branch — nothing left to run"));
+            return CommandResult.Ok(
+                $"Every spec of {set.Key} already executed on this branch — nothing left to run");
 
         // 2026-10-13-8762u: one attempt runs a chunk sized by series.specs_per_attempt and the wall clock LEFT.
         var (size, refused) = AttemptSize(context.Pipeline);
-        if (refused is not null) return Task.FromResult(CommandResult.Fail(refused));
+        if (refused is not null) return CommandResult.Fail(refused);
         IReadOnlyList<DerivedSpec> building = [.. pending.Take(size)];
         var chunked = building.Count < pending.Count;
         context.Pipeline.Set(ContextKeys.SpecSequenceProgress, Progress(set, pending, building.Count));
+        await SupersededAsync(context.Pipeline, set, cancellationToken);
         // 2026-09-17-0e79e: the executor's loop guard is sized here, because this is where
         // the work is known — the specs this attempt splices, never the set's own count.
         context.Pipeline.Set(ContextKeys.StepBudget, StepBudget.ForSpecs(building.Count));
@@ -52,11 +54,21 @@ public sealed class SpecSequenceHandler(
         logger.LogInformation(
             "Spec set {Key}: {Pending} spec(s) to execute — {Steps} spliced steps ({Specs}){Next}",
             set.Key, building.Count, commands.Length, string.Join(", ", building.Select(p => p.SpecId)), next);
-        return Task.FromResult(CommandResult.OkAndContinueWith(
+        return CommandResult.OkAndContinueWith(
             $"{building.Count} spec(s) to work through: "
             + string.Join(", ", building.Select(p => $"{p.SpecId} ({p.Draft.Goal})"))
             + next,
-            commands));
+            commands);
+    }
+
+    // 2026-11-27-3532d: the cut gives every unexecuted spec a not-started row; a retired one is settled, and says so.
+    private async Task SupersededAsync(PipelineContext pipeline, SpecSet set, CancellationToken ct)
+    {
+        if (progress is null) return;
+        foreach (var retired in set.Retired().Where(id => !set.Executed.Contains(id, StringComparer.Ordinal)))
+            await progress.RecordAsync(pipeline, retired, SpecRunState.Superseded,
+                note: $"superseded by {set.Specs.First(s => s.Draft.Supersedes.Contains(retired, StringComparer.Ordinal)).SpecId}",
+                cancellationToken: ct);
     }
 
     /// <summary>The specs this attempt may run, or why not even one fits — never floored to one.</summary>

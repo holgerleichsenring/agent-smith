@@ -22,7 +22,7 @@ public sealed class ReadSeriesToolHost(ISeriesRead series) : IToolHost
     [Description(
         "Read this ticket's series as its next attempt will run it: the specs its attempts published, with a "
         + "recorded edit nobody has worked yet already applied. Per spec: its id, goal, state (done, failed, "
-        + "handed_back, in_progress, not_started or carried), whether it ran — a spec that ran cannot be changed — "
+        + "handed_back, superseded, in_progress, not_started or carried), whether it ran — a spec that ran cannot be changed — "
         + "and its full yaml. Read it before edit_series.")]
     private async Task<string> ReadSeries(CancellationToken cancellationToken) =>
         Render(await series.ReadAsync(cancellationToken));

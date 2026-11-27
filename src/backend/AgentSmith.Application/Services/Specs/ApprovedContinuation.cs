@@ -25,7 +25,8 @@ public sealed class ApprovedContinuation(
             || record.Approval is not { } approval || !approval.IsNewerThan(branch.Approval)) return null;
 
         var (specs, notes) = merge.Apply(branch, record.Set, continuation);
-        var unstarted = specs.Count(s => !branch.Executed.Contains(s.SpecId, StringComparer.Ordinal));
+        var retired = SpecSupersession.Retired(specs); // 2026-11-27-3532d: a retired spec never runs, so the cap leaves it out
+        var unstarted = specs.Count(s => !branch.Executed.Contains(s.SpecId, StringComparer.Ordinal) && !retired.Contains(s.SpecId));
         var settings = series.Current(); // 2026-10-13-8762u: the series cap, read live; an invalid block refuses
         var invalid = settings.Refusal();
         if (invalid is not null || branch.Executed.Count + unstarted > settings.Series.MaxSpecs)

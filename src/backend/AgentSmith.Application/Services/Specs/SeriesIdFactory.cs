@@ -42,6 +42,15 @@ public sealed class SeriesIdFactory(TimeProvider time)
         return (Member(series, index), index);
     }
 
+    /// <summary>2026-11-27-3532d: the first member id nothing has taken among the series' <paramref name="letters"/>
+    /// letters, or null when every one is taken — the id shape holds no further member.</summary>
+    public static string? FreeWithin(string series, int letters, IReadOnlyCollection<string> taken)
+    {
+        for (var index = 0; index < letters; index++)
+            if (!IsTaken(Member(series, index), taken)) return Member(series, index);
+        return null;
+    }
+
     private static bool IsTaken(string id, IReadOnlyCollection<string> taken) =>
         taken.Any(t => t == id || Contracts.Specs.SeriesPaths.BelongsTo(t, id));
 }

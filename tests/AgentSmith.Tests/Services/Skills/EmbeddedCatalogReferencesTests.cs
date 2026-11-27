@@ -125,8 +125,9 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
         masters.Should().NotContain("spec-derivation-master").And.Contain("coding-agent-master");
 
         var coding = File.ReadAllText(Path.Combine(root, "skills", "_masters", "coding-agent-master", "SKILL.md"));
-        coding.Should().Contain("version: \"3.6.1\"").And.Contain("`revise_spec` and work from what you wrote")
+        coding.Should().Contain("version: \"3.7.0\"").And.Contain("`revise_spec` and work from what you wrote")
             .And.Contain("its `repos` and `applies_to` can be corrected too") // 2026-11-27-6625
+            .And.Contain("`retire: true`: the yaml you pass is its replacement") // 2026-11-27-3532d
             .And.NotContain("finish_spec"); // 2026-11-22-96c8b
     }
 

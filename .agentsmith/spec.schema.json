@@ -40,6 +40,13 @@
         }
       ]
     },
+    "supersedes": {
+      "type": "array",
+      "description": "Spec ids this spec replaces: each was retired undelivered and keeps its record; this one takes its place in the series.",
+      "items": {
+        "type": "string"
+      }
+    },
     "applies_to": {
       "type": "string",
       "description": "What the spec touches, in a line: the context, area or components it applies to. Written by the spec's author; the dominant context a reader opens first."

@@ -22,7 +22,10 @@ public sealed class SeriesMembership(ISeriesRunStore store, TimeProvider clock)
         pipeline.TryGet<string>(ContextKeys.SeriesRunId, out var id) && !string.IsNullOrEmpty(id)
             ? await store.GetAsync(id!, ct) : null;
 
-    /// <summary>Opens or joins the series for the created tickets; a lone ticket gets a series of one (2026-11-25-96aea).</summary>
+    /// <summary>Opens or joins the series for the created tickets; a lone ticket gets a series of one (2026-11-25-96aea).
+    /// 2026-11-27-3532a: each ticket's start wake is recorded on the opened or joined series — the master's own addition
+    /// excepted, which its master filed itself — and then a series of one a trigger opened over a filed ticket in the filing
+    /// window hands it over: it ends as done, never stopped, so the stop bar of a later trigger does not read it as a stop.</summary>
     public async Task WriteAsync(PipelineContext pipeline, FilingRequest request, ResolvedProject project,
         IReadOnlyList<FiledTicket> filed, CancellationToken ct)
     {
@@ -30,10 +33,28 @@ public sealed class SeriesMembership(ISeriesRunStore store, TimeProvider clock)
         ArgumentNullException.ThrowIfNull(request);
         var joining = pipeline.TryGet<string>(ContextKeys.SeriesRunId, out var id) && !string.IsNullOrEmpty(id);
         var tickets = OpenSeriesRunHandler.Members(filed, joining && !request.IsSeriesMasterAddition, clock); // 9992f
+        if (tickets.Count == 0) return;
         if (joining) await store.UpdateAsync(id!, r => OpenSeriesRunHandler.Joined(r, tickets), ct);
-        else if (tickets.Count >= 2) pipeline.Set(ContextKeys.SeriesRunOpened, await OpenAsync(request, project, tickets, ct, withBranch: true));
-        else if (tickets.Count == 1) // 2026-11-25-96aea: a filing of one is a series of one, talked about in its ticket's own conversation
-            pipeline.Set(ContextKeys.SeriesRunOpened, await OpenOneAsync(project, tickets[0], string.Empty, request.Principal, ct, request.MayStartRuns));
+        else
+        {
+            id = tickets.Count >= 2 ? await OpenAsync(request, project, tickets, ct, withBranch: true) // 2026-11-25-96aea: a filing of one
+                : await OpenOneAsync(project, tickets[0], string.Empty, request.Principal, ct, request.MayStartRuns); // is a series of one
+            pipeline.Set(ContextKeys.SeriesRunOpened, id!);
+        }
+        if (!request.IsSeriesMasterAddition)
+            await store.UpdateAsync(id!, r => SeriesStartWakes.Recorded(r, tickets.Select(t => t.TicketId), SeriesStartWakes.Filed,
+                clock.GetUtcNow()), ct);
+        await AbsorbAsync(project.Name, tickets, id!, ct);
+    }
+
+    // 2026-11-27-3532a: tickets are created stamped before this membership is written, so a trigger may have opened a series of
+    // one over one of them meanwhile; once the filing's series holds the ticket, that series ends and hands it over.
+    private async Task AbsorbAsync(string project, IReadOnlyList<SeriesTicket> tickets, string leading, CancellationToken ct)
+    {
+        var ids = tickets.Select(t => t.TicketId).ToHashSet(StringComparer.Ordinal);
+        foreach (var one in (await store.ListAsync([project], ct))
+                     .Where(r => r is { IsActive: true, IsOne: true } && r.Id != leading && ids.Contains(r.Tickets[0].TicketId)))
+            await store.UpdateAsync(one.Id, r => r with { State = SeriesRunStates.Done, FinishedAt = clock.GetUtcNow() }, ct);
     }
 
     /// <summary>2026-11-25-96aea: opens a series of one over the ticket — no series branch, the project's review with end

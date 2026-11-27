@@ -22,9 +22,11 @@ public sealed class ConversationSeriesRead(IServiceScopeFactory scopes, Resolved
         var states = state.Basis.GroupBy(b => b.SpecId, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First().State, StringComparer.Ordinal);
         var ran = state.ExecutedIds.ToHashSet(StringComparer.Ordinal);
+        var retired = next.Specs.SelectMany(d => d.Supersedes).ToHashSet(StringComparer.Ordinal); // 2026-11-27-3532d
         return new SeriesReading(null, state.Series,
-            [.. next.Specs.Select(d => new SeriesEntry(
-                d, states.GetValueOrDefault(d.SpecId) ?? TicketSeriesCuts.NotStarted, ran.Contains(d.SpecId)))],
+            [.. next.Specs.Select(d => new SeriesEntry(d, retired.Contains(d.SpecId) && !ran.Contains(d.SpecId)
+                ? Infrastructure.Persistence.Services.RunSpecProjection.Superseded
+                : states.GetValueOrDefault(d.SpecId) ?? TicketSeriesCuts.NotStarted, ran.Contains(d.SpecId)))],
             state.Scope.Shas ?? new Dictionary<string, string>());
     }
 }

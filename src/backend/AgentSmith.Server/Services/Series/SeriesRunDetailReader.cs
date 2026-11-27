@@ -27,17 +27,16 @@ public sealed class SeriesRunDetailReader(
         if (await store.GetAsync(id, ct) is not { } record || projects.Of(record.Project) is not { } project) return null;
         // 2026-11-25-9992a: the one state; 2026-11-23-8d16: a project with no held ticket reads as no holds, not as holds unread.
         var read = (await status.StatusesAsync([record], withHolds, ct))[record.Id];
-        var (facts, shape, held) = (read.ProjectFacts, read.Shape, read.Holds);
+        var (facts, shape) = (read.ProjectFacts, read.Shape);
         var shown = withHolds ? await WithTrackerAsync(await WithMergeSaidAsync(shape.Tickets, facts, ct), ct) : shape.Tickets;
         var name = (await names.OfAsync([record], ct))[record.Id];
         var spent = read.Facts.Sum(f => f.CostUsd);
         var session = await sessions.GetBySessionIdAsync(record.Conversation, ct);
-        var question = SeriesRunQuestion.Waiting(record, held);
+        var question = SeriesRunQuestion.Waiting(record);
         return new SeriesRunDetailView(record.Id, name, record.Project, record.State, record.Conversation, record.StartedAt,
             record.FinishedAt, shape.Counts, question?.Text, shown, shape.MergeOrder)
         {
             QuestionChoices = question?.Choices ?? [], QuestionRecommended = question?.RecommendedIndex, // 2026-11-25-9992j
-            QuestionTicket = question?.TicketId is { } asking ? shape.Tickets.FirstOrDefault(t => t.TicketId == asking)?.Key : null, // 5201c
             WorkingOn = SeriesWorkingOn.Of(read.Facts), // 2026-11-25-9992a
             NextMerge = shape.NextMerge, Progress = SeriesProgressWord.Of(shape.Counts.Landed, shape.Counts.Total), // 2026-11-25-433fa
             // 2026-11-24-f9c5c: a merge into a series branch never arms auto-complete; 2026-11-25-9992i: one into the default

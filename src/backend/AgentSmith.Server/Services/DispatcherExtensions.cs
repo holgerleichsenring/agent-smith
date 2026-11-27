@@ -83,6 +83,8 @@ internal static class DispatcherExtensions
             AgentSmith.Application.Services.Events.NoOpRunListNudge>();
         services.AddTransient<ISpawnPipelineRunsUseCase,
             AgentSmith.Application.Services.Spawning.SpawnPipelineRunsUseCase>();
+        // 2026-11-27-3532a: a trigger of a code ticket enters its series; the master starts it.
+        services.AddSingleton<AgentSmith.Contracts.Series.ISeriesTicketEntry, AgentSmith.Server.Services.Series.SeriesTicketEntry>();
         return services;
     }
 }

@@ -7,9 +7,10 @@ namespace AgentSmith.Contracts.Series;
 /// </summary>
 public interface ISeriesEditActs
 {
-    /// <summary>Files one ticket from <paramref name="title"/> and <paramref name="body"/> into the series, unstarted; it
-    /// requires <paramref name="requires"/>, and each of <paramref name="requiredBy"/> requires it.</summary>
-    Task<SeriesCutAnswer> AddTicketAsync(SeriesRunRecord series, string title, string body, IReadOnlyList<string> requires,
+    /// <summary>Files one ticket from the spec yaml <paramref name="spec"/> into the series, unstarted, as a spec under the
+    /// series' plan approval (2026-11-27-3532a); it requires <paramref name="requires"/>, and each of <paramref name="requiredBy"/>
+    /// requires it. A spec that is not schema-valid files nothing and is answered with the schema's error.</summary>
+    Task<SeriesCutAnswer> AddTicketAsync(SeriesRunRecord series, string spec, IReadOnlyList<string> requires,
         IReadOnlyList<string> requiredBy, CancellationToken cancellationToken);
 
     /// <summary>Adds the edges by which <paramref name="ticketId"/> requires <paramref name="addRequires"/> and removes those to

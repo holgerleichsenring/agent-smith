@@ -11,7 +11,7 @@ import type { RunSnapshot } from "@/types/hub-events";
 import { ticketState } from "@/components/tickets/detail/ticketState";
 import { yourMove, type YourMove } from "@/components/tickets/detail/yourMove";
 import type { T } from "@/lib/i18n/translate";
-import type { TicketAttempt, TicketDetail } from "@/types/tickets";
+import type { TicketAttempt, TicketDetail, TicketHold } from "@/types/tickets";
 
 // 2026-11-16-6877b: the ticket a run belongs to, for the breadcrumb: its key, its page, and which of its runs this is
 // ("Run 2 of 2"). Read once per run from the ticket page's own endpoint; a run without a project or ticket has none,
@@ -21,6 +21,7 @@ import type { TicketAttempt, TicketDetail } from "@/types/tickets";
 // 2026-11-18-d6d2d: and the ticket's latest attempt, read again whenever the ticket page itself would re-read — the
 // hub's TicketActivityChanged for this ticket (a new attempt announces it), a reconnect, the window regaining focus —
 // and on reread(), so an older attempt links to the latest and a requested Retry can follow the new attempt.
+// 2026-11-27-3532e: and the ticket's hold — a series-led run's question is its series master's, shown read-only.
 
 export interface RunTicket {
   label: string;
@@ -36,6 +37,8 @@ export interface RunTicket {
   latest: TicketAttempt | null;
   /** 2026-11-22-7103a: the ticket's Your move, as its page would draw it — the run's status line names its act. */
   move: YourMove | null;
+  /** 2026-11-27-3532e: the ticket's hold as its page reads it; null before the read or when nothing holds it. */
+  hold: TicketHold | null;
   /** Reads the ticket again now. */
   reread: () => void;
 }
@@ -84,7 +87,8 @@ export function useRunTicket(runId: string, snapshot: RunSnapshot | null): RunTi
   return {
     label: known?.label ?? ticketId, href: ticketPath(project, ticketId), project,
     number: known?.number ?? null, of: known?.of ?? null, attempt,
-    newest: attempt !== null && latest !== null && attempt.number === latest.number, latest, move: known ? moveOf(t, known.detail) : null, reread,
+    newest: attempt !== null && latest !== null && attempt.number === latest.number, latest, move: known ? moveOf(t, known.detail) : null,
+    hold: known?.detail.summary.hold ?? null, reread,
   };
 }
 

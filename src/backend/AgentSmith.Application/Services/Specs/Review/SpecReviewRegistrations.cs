@@ -26,6 +26,6 @@ public static class SpecReviewRegistrations
             // 2026-11-17-ec48a: the coding master's revise_spec — gate, text, writer and orchestration (3e10: no review).
             .AddTransient<Revision.SpecRevisionGate>()
             .AddTransient<Revision.SpecRevisionText>().AddTransient<Revision.SpecRepoJoin>().AddTransient<Revision.SpecRevisionWriter>()
-            .AddTransient<Revision.MasterSpecRevision>();
+            .AddTransient<Revision.MasterSpecRevision>().AddTransient<Revision.SpecRetirement>(); // 2026-11-27-3532d
     }
 }

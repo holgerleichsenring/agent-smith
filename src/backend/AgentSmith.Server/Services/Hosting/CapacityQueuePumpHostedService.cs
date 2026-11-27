@@ -62,7 +62,8 @@ public sealed class CapacityQueuePumpHostedService(
             services.GetRequiredService<ILogger<CapacityQueuePump>>(),
             new CapacityQueueHead(services.GetRequiredService<ICapacityBudget>(), services.GetRequiredService<ICapacityQueue>(),
                 services.GetService<AgentSmith.Application.Services.Claim.UnmetTicketRequirements>() is { } unmet
-                    ? new AgentSmith.Application.Services.Claim.RequiresUnmetGate(unmet, services.GetService<IPreviousAttemptReader>()) : null));
+                    ? new AgentSmith.Application.Services.Claim.RequiresUnmetGate(unmet, services.GetService<IPreviousAttemptReader>()) : null),
+            new QueueHeadClaim(services.GetService<AgentSmith.Application.Services.Specs.ApprovedSpecSetCarrier>())); // 2026-11-27-3532a
         return pump.RunAsync(ct);
     }
 }

@@ -174,7 +174,7 @@ public sealed class TrackerPoller(
         // p0269a: a capacity-deferred ticket was NOT claimed — it is waiting for room,
         // not spawned. Don't count it as a spawn; the Queued TicketTriggered outcome is
         // the waiting signal (next poll retries once capacity frees → sequential runs).
-        if (claim?.Outcome != ClaimOutcome.Queued)
+        if (claim?.Outcome != ClaimOutcome.Queued && claim?.Rejection != ClaimRejectionReason.LedBySeries) // 3532a: its master starts it
             counts.Spawned++;
         await TryPublishSystemAsync(new TicketTriggeredEvent(
             Source, tracker.Name, ticket.Id.Value,

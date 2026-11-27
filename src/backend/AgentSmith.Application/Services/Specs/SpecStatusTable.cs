@@ -58,6 +58,7 @@ public static class SpecStatusTable
         SpecRunState.HandedBack =>
             $"↩️ handed back, never built — {spec.FailingCommand ?? "a premise no longer holds"}",
         SpecRunState.InProgress => "⏳ started, not finished",
+        SpecRunState.Superseded => spec.Note is null ? "♻️ retired, never built" : $"♻️ retired, never built — {spec.Note}", // 3532d
         _ when spec.NextAttempt && atBoundary => "⏭️ next attempt",
         _ => spec.Note is null ? "⬜ not started" : $"⬜ not started — {spec.Note}",
     };

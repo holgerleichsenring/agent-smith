@@ -35,5 +35,10 @@ public enum ClaimRejectionReason
 
     /// <summary>2026-11-19-1b72a: the ticket's series is paused and no run worked the ticket yet. Lifted by the series'
     /// resume, which starts the ticket again.</summary>
-    SeriesPaused
+    SeriesPaused,
+
+    /// <summary>2026-11-27-3532a: a tracker trigger of a code ticket claims nothing — the ticket's series (a series of one opened
+    /// for it, or the series that holds it) leads it, and its master was woken to start it. Replaces the trigger's claim of a code
+    /// ticket; a start by name (start_ticket, Retry, chat) claims it.</summary>
+    LedBySeries
 }

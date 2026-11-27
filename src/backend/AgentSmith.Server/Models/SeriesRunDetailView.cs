@@ -50,10 +50,6 @@ public sealed record SeriesRunDetailView(
     /// <inheritdoc cref="QuestionChoices"/>
     public int? QuestionRecommended { get; init; }
 
-    /// <summary>2026-11-26-5201c: the key of the ticket whose run asked the waiting question — the chat's question card names
-    /// it; null for the master's own question or when none waits.</summary>
-    public string? QuestionTicket { get; init; }
-
     /// <summary>2026-11-25-433fa: the key of the ticket whose pull requests merge next (the list row's), null when none is
     /// ready — the chat's status line says it.</summary>
     public string? NextMerge { get; init; }

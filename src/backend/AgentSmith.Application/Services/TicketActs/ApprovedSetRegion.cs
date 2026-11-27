@@ -17,7 +17,8 @@ public sealed class ApprovedSetRegion(SeriesTicketRegion regions)
         ArgumentNullException.ThrowIfNull(tracker);
         ArgumentNullException.ThrowIfNull(set);
         var stamp = TicketLabelVocabulary.For(tracker).ApprovedSetStamp;
-        return regions.Render(set.Goal ?? string.Empty, set.Series ?? set.Key, [.. set.Specs.Select(s => s.Draft)],
+        var retired = set.Retired(); // 2026-11-27-3532d: the ticket's text names the specs that stand
+        return regions.Render(set.Goal ?? string.Empty, set.Series ?? set.Key, [.. set.Specs.Where(s => !retired.Contains(s.SpecId)).Select(s => s.Draft)],
             set.Approval?.Conversation, TicketLabelNote.For([stamp], stamp)).Body;
     }
 }

@@ -26,10 +26,8 @@ public sealed class FiledWorkMove(
     /// the ticket CARRIES — never a spec label or the approved-set stamp, which would send a discovered
     /// ticket through the filed-ticket gate instead of deriving. Never throws.
     /// </summary>
-    /// <param name="filedFromText">2026-11-26-5f6e: its series filed it from a text, so it gets its trigger label.</param>
     public async Task<FiledWorkStart> StartExistingAsync(
-        ITicketProvider provider, ResolvedProject project, string ticketId, bool mayStartRuns, CancellationToken ct,
-        bool filedFromText = false)
+        ITicketProvider provider, ResolvedProject project, string ticketId, bool mayStartRuns, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(provider);
         var id = new TicketId(ticketId);
@@ -40,8 +38,7 @@ public sealed class FiledWorkMove(
             logger.LogWarning(ex, "Ticket {Ticket} could not be read to start it", ticketId);
             return NotStarted(FiledWorkReasons.StatusUnreadable);
         }
-        var tagged = await tagger.ApplyAsync(provider, project, new CreatedTicket(id, null), labels, ct, filedFromText,
-            filedFromText ? configLoader.LoadConfig(serverContext.ConfigPath).PipelineTriggers : null); // 2026-11-26-a12eb
+        var tagged = await tagger.ApplyAsync(provider, project, new CreatedTicket(id, null), labels, ct);
         return tagged.Explaining(await StartAsync(provider, project, id, tagged.Labels, mayStartRuns, ct));
     }
 

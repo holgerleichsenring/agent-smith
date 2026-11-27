@@ -6,7 +6,8 @@ import { seriesDetail, seriesTicket } from "./seriesFixtures";
 
 // 2026-11-23-31dcd: the series page; its chat posts to the series' own conversation. 2026-11-25-9992j: ONE pane — the graph
 // and the chat under it, no sections; an older ?section=talk link scrolls to the chat; the series' waiting question shows
-// its choices as buttons, the recommended one primary, and a click sends the choice as the answer.
+// its choices as buttons, the recommended one primary, and a click sends the choice as the answer. 2026-11-27-3532e: as
+// quick replies under the chat, the question itself being the master's chat message.
 
 const hoisted = vi.hoisted(() => ({
   search: "", fetch: vi.fn(), lacks: false, scrolled: vi.fn(),
@@ -55,7 +56,7 @@ describe("SeriesRunPage", () => {
     render(<SeriesRunPage id="sr-1" />);
 
     await screen.findByTestId("series-chat");
-    expect(hoisted.scrolled).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(hoisted.scrolled).toHaveBeenCalledTimes(1)); // the scroll runs after the read; under load later
   });
 
   it("SeriesPage_Chat_PostsToTheSeriesOwnConversation", async () => {
@@ -68,69 +69,68 @@ describe("SeriesRunPage", () => {
     await waitFor(() => expect(hoisted.dialog.send).toHaveBeenCalledWith("The worker needs the callback URL", "shop"));
   });
 
-  it("SeriesPage_AQuestionWithChoices_DrawsThemAsButtons_TheRecommendedPrimary_AClickAnswers", async () => {
+  // 2026-11-27-3532e: the master's question is its chat message; its choices are quick replies under the messages, no card.
+  it("SeriesPage_AWaitingQuestionWithChoices_DrawsQuickReplies_AndNoPinnedCard", async () => {
     hoisted.fetch.mockResolvedValue(asked());
     render(<SeriesRunPage id="sr-1" />);
 
-    const merge = await screen.findByTestId("dialog-answer-Merge it");
-    const look = screen.getByTestId("dialog-answer-I'll look at the PR first");
+    const merge = await screen.findByTestId("series-quick-reply-Merge it");
+    const look = screen.getByTestId("series-quick-reply-I'll look at the PR first");
     expect(merge).toHaveClass("primary");
-    expect(merge).toHaveTextContent("(recommended)");
+    expect(merge).toHaveTextContent("(recommended)"); // visually hidden, read out
     expect(look).not.toHaveClass("primary");
-    expect(screen.getByTestId("series-question")).toHaveTextContent("Or write your own answer below.");
+    const block = screen.getByTestId("series-questions");
+    expect(block).toHaveAttribute("id", "series-question");
+    // the question is the master's chat message: nothing above the input repeats it while its replies are drawn
+    expect(block).not.toHaveTextContent("#50 is ready to merge.");
+    expect(block.querySelector(".ecard")).toBeNull();
 
     fireEvent.click(merge);
 
     expect(hoisted.dialog.send).toHaveBeenCalledWith("Merge it", "shop");
-    expect(screen.queryByTestId("series-question")).toBeNull();
-    expect(screen.queryByTestId("series-questions")).toBeNull(); // 2026-11-26-5201c: no empty block left above the input
+    expect(screen.queryByTestId("series-quick-replies")).toBeNull();
+    // the series still waits until it reads the answer: the anchor's block points at the question meanwhile
+    expect(screen.getByTestId("series-question-pointer")).toHaveTextContent("#50 is ready to merge.");
   });
 
-  it("SeriesPage_AFailedSend_BringsTheChoicesBack", async () => {
+  it("SeriesPage_AFailedSend_BringsTheQuickRepliesBack", async () => {
     hoisted.fetch.mockResolvedValue(asked());
     const page = render(<SeriesRunPage id="sr-1" />);
-    fireEvent.click(await screen.findByTestId("dialog-answer-Merge it"));
-    expect(screen.queryByTestId("series-question")).toBeNull();
+    fireEvent.click(await screen.findByTestId("series-quick-reply-Merge it"));
+    expect(screen.queryByTestId("series-quick-replies")).toBeNull();
 
     hoisted.dialog.failure = new Error("offline") as unknown as null;
     page.rerender(<SeriesRunPage id="sr-1" />);
 
-    expect(screen.getByTestId("series-question")).toBeInTheDocument();
+    expect(screen.getByTestId("series-quick-replies")).toBeInTheDocument();
     hoisted.dialog.failure = null;
   });
 
-  // 2026-11-26-5201c: another viewer sees the question too, without buttons, and who answers it here.
-  it("SeriesPage_WithoutRunsControl_ShowsTheQuestionWithoutChoiceButtons", async () => {
+  it("SeriesPage_WithoutRunsControl_DrawsNoQuickReplies", async () => {
     hoisted.lacks = true;
     hoisted.fetch.mockResolvedValue(asked());
     render(<SeriesRunPage id="sr-1" />);
 
-    const card = await screen.findByTestId("series-question");
-    expect(card).toHaveTextContent("#50 is ready to merge.");
-    expect(card).toHaveTextContent("Someone who may control runs answers it here.");
-    expect(screen.queryByTestId("dialog-answer-Merge it")).toBeNull();
+    expect(await screen.findByTestId("series-question-pointer")).toHaveTextContent("#50 is ready to merge.");
+    expect(screen.queryByTestId("series-quick-replies")).toBeNull();
   });
 
-  // 2026-11-26-5201c: a question without choices is a card too, naming its ticket, answered by writing below it.
-  it("SeriesPage_AQuestionWithoutChoices_IsACardNamingItsTicket_AnsweredBelow", async () => {
-    hoisted.fetch.mockResolvedValue(seriesDetail({ question: "Which callback URL?", questionTicket: "#19664" }));
-    render(<SeriesRunPage id="sr-1" />);
-
-    const card = await screen.findByTestId("series-question");
-    expect(card).toHaveTextContent("#19664 asks"); // 2026-11-26-b186: the asker is the card's label
-    expect(card).toHaveTextContent("Which callback URL?");
-    expect(card).toHaveTextContent("Answer below.");
-    expect(card.querySelector("button")).toBeNull();
-    expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument();
-  });
-
-  it("SeriesPage_TheQuestionBlock_SitsDirectlyAboveTheInput", async () => {
-    hoisted.fetch.mockResolvedValue(seriesDetail({ question: "Which callback URL?" }));
+  it("SeriesPage_AQuestionWithoutChoices_IsAOneLinePointer_TheAnchorNeverEmpty", async () => {
+    hoisted.fetch.mockResolvedValue(seriesDetail({ question: "Which callback URL?\nThe worker needs it." }));
     render(<SeriesRunPage id="sr-1" />);
 
     const block = await screen.findByTestId("series-questions");
     expect(block).toHaveAttribute("id", "series-question");
-    expect(block).toHaveTextContent("The series asks");
+    expect(screen.getByTestId("series-question-pointer")).toHaveTextContent(/^Which callback URL\?$/);
+    expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument();
+  });
+
+  it("SeriesPage_TheQuestionBlock_SitsDirectlyAboveTheInput", async () => {
+    hoisted.fetch.mockResolvedValue(asked());
+    render(<SeriesRunPage id="sr-1" />);
+
+    const block = await screen.findByTestId("series-questions");
+    expect(block).toHaveAttribute("id", "series-question");
     const following = block.compareDocumentPosition(screen.getByTestId("dialog-composer-text"));
     expect(following & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId("series-chat-scroll")).not.toContainElement(block);
@@ -139,9 +139,11 @@ describe("SeriesRunPage", () => {
   // 2026-11-26-f511a: every ticket that needs a person gets a line under "Needs you", each with its one link.
   it("SeriesPage_EveryTicketThatNeedsYou_IsALineWithItsLink_AndTheRailCountsThem", async () => {
     hoisted.fetch.mockResolvedValue(seriesDetail({
-      question: "Which callback URL?", questionTicket: "#61",
+      question: "Which callback URL?",
       tickets: [
-        seriesTicket({ ticketId: "61", key: "#61", kind: "question", hold: hold("question_plan", { act: { kind: "conversation", target: "sr-1" } }) }),
+        // 2026-11-27-3532b/e: a run's question its series master holds is the master's, not a person's line
+        seriesTicket({ ticketId: "61", key: "#61", kind: "question",
+          hold: hold("question", { addressee: "nobody", act: { kind: "conversation", target: "sr-1" } }) }),
         seriesTicket({ ticketId: "62", key: "#62", kind: "question", hold: hold("question") }),
         seriesTicket({ ticketId: "63", key: "#63", kind: "failed", hold: hold("failed", { act: { kind: "retry", target: "run-63" } }) }),
         seriesTicket({ ticketId: "64", key: "#64", kind: "approval",
@@ -200,29 +202,29 @@ describe("SeriesRunPage", () => {
     hoisted.fetch.mockResolvedValue({ ...asked(), threadId: null });
     render(<SeriesRunPage id="sr-1" />);
 
-    expect(await screen.findByTestId("series-question")).toHaveTextContent("#50 is ready to merge.");
+    expect(await screen.findByTestId("series-question-text")).toHaveTextContent("#50 is ready to merge.");
     expect(screen.getByTestId("series-talk-gone")).toBeInTheDocument();
-    expect(screen.queryByTestId("dialog-answer-Merge it")).toBeNull();
+    expect(screen.queryByTestId("series-quick-replies")).toBeNull();
   });
 
-  it("SeriesPage_ADecisionPending_TheQuestionSaysWhereToAnswer", async () => {
+  it("SeriesPage_ADecisionPending_DrawsNoQuickReplies", async () => {
     hoisted.dialog.awaitingProposal = {} as unknown as null;
     hoisted.fetch.mockResolvedValue(asked());
     render(<SeriesRunPage id="sr-1" />);
 
-    const card = await screen.findByTestId("series-question");
-    expect(card).toHaveTextContent("Continue the conversation in Work it out to answer it.");
-    expect(screen.queryByTestId("dialog-answer-Merge it")).toBeNull();
+    await screen.findByTestId("series-talk-decide");
+    expect(screen.queryByTestId("series-quick-replies")).toBeNull();
     hoisted.dialog.awaitingProposal = null;
   });
 
-  it("SeriesPage_AClosedConversation_StillShowsTheQuestion_WithoutButtons", async () => {
+  it("SeriesPage_AClosedConversation_StillShowsTheQuestion_WithoutQuickReplies", async () => {
     hoisted.fetch.mockResolvedValue({ ...asked(), conversationOpen: false });
     render(<SeriesRunPage id="sr-1" />);
 
-    const card = await screen.findByTestId("series-question");
-    expect(card).toHaveTextContent("Continue the conversation in Work it out to answer it.");
-    expect(screen.queryByTestId("dialog-answer-Merge it")).toBeNull();
+    expect(await screen.findByTestId("series-question-text")).toHaveTextContent("#50 is ready to merge.");
+    expect(screen.queryByTestId("series-quick-replies")).toBeNull();
+    // no chat and no replies here, so the choices are read off the line, the recommended one named
+    expect(screen.getByTestId("series-question-choices")).toHaveTextContent("Choices: Merge it (recommended) / I'll look at the PR first");
   });
 
   it("SeriesPage_AClosedConversation_IsContinuedInWorkItOut", async () => {
@@ -245,28 +247,6 @@ describe("SeriesRunPage", () => {
     expect(screen.getByTestId("series-section-bar")).toContainElement(screen.getByTestId("series-title"));
     expect(screen.getByTestId("series-title").tagName).toBe("H1");
     expect(screen.getByTestId("series-status-line").parentElement).toHaveClass("sr-heading");
-  });
-
-  it("SeriesPage_ALongQuestion_FoldsItsText_TheButtonsStay", async () => {
-    const text = "Shall the recipient detail wait for the server contract? ".repeat(6);
-    hoisted.fetch.mockResolvedValue(seriesDetail({ question: text, questionChoices: ["Wait", "Stub it"], questionRecommended: 0 }));
-    render(<SeriesRunPage id="sr-1" />);
-
-    const more = await screen.findByTestId("dialog-question-more");
-    expect(screen.getByTestId("dialog-question-text")).toHaveClass("dq-clamp");
-    expect(screen.getByTestId("dialog-answer-Wait")).toBeInTheDocument();
-    fireEvent.click(more);
-    expect(screen.getByTestId("dialog-question-text")).not.toHaveClass("dq-clamp");
-    expect(more).toHaveTextContent("Show less");
-  });
-
-  it("SeriesPage_AShortQuestion_IsNotFolded", async () => {
-    hoisted.fetch.mockResolvedValue(seriesDetail({ question: "Which callback URL?" }));
-    render(<SeriesRunPage id="sr-1" />);
-
-    await screen.findByTestId("series-question");
-    expect(screen.queryByTestId("dialog-question-more")).toBeNull();
-    expect(screen.getByTestId("dialog-question-text")).not.toHaveClass("dq-clamp");
   });
 
   it("SeriesPage_UnknownSeries_SaysSo", async () => {

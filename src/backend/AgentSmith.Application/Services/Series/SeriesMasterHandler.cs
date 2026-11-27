@@ -18,7 +18,9 @@ namespace AgentSmith.Application.Services.Series;
 /// thread continues across beats; its spend accrues on the record, and once dialogue.series_master_budget_usd is
 /// spent it judges no more and the conversation is told once. 2026-11-25-9992e: it merges, refreshes, retargets and reads
 /// or restarts CI for its tickets and the final pull requests (<see cref="SeriesPullRequestTools"/>); every act is logged with
-/// its reason (<see cref="SeriesActedFunction"/>); its surface stays within the house cap of 20 tools.
+/// its reason (<see cref="SeriesActedFunction"/>). 2026-11-27-3532c: it reads its project's repositories, their specs and its
+/// conversation's uploads (<see cref="ISeriesSourceScopes"/>), its tools composed by <see cref="SeriesMasterSurface"/>; it is
+/// the one master outside the 2026-11-18-9c1cd cap of 20 tools (the operator: no counts, no caps).
 /// 2026-11-25-9992g: the events on its tickets wake it (<see cref="SeriesBeat.Wakes"/>), cleared once judged; before its
 /// budget is spent the conversation is asked to raise it or stop (<see cref="SeriesBudgetQuestion"/>).
 /// 2026-11-25-9992f: it adds tickets and re-links requirements itself (<see cref="SeriesEditTools"/>).
@@ -29,7 +31,9 @@ public sealed class SeriesMasterHandler(
     SeriesFinalMerge finals, SeriesFinalCi finalCi, SeriesBudgetQuestion budgets, // 2026-11-25-9992g
     ISeriesEditActs edits, // 2026-11-25-9992f
     ILogger<SeriesMasterHandler> logger, ISeriesRecordReads? records = null, TimeProvider? clock = null,
-    AgentSmith.Contracts.Runs.IRunReportReader? reports = null) // 2026-11-26-a12ed
+    AgentSmith.Contracts.Runs.IRunReportReader? reports = null, // 2026-11-26-a12ed
+    ISeriesSourceScopes? sources = null, // 2026-11-27-3532c
+    ISeriesSpecRetirement? retirement = null) // 2026-11-27-3532d
     : ICommandHandler<SeriesMasterContext>
 {
     public const string MasterName = "series-master";
@@ -48,15 +52,22 @@ public sealed class SeriesMasterHandler(
 
     private async Task<CommandResult> JudgeAsync(SeriesMasterContext context, SeriesBeat beat, CancellationToken ct)
     {
-        var prompt = SeriesMasterPrompt.Build(beat);
         var tracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
         var before = tracker.CaptureSpend().AccruedUsd;
         AgenticLoopResult result;
-        try { result = await loop.RunAsync(Request(context, beat, prompt), ct); }
+        // 2026-11-27-3532c: the beat owns its read scopes; a failure opening them takes the failed loop's back-off, and they
+        // are disposed on every path, a cancelled one's too.
+        var readable = SeriesSourceMap.None;
+        try
+        {
+            if (sources is not null) readable = await sources.OpenAsync(beat, context.Project, ct);
+            result = await loop.RunAsync(Request(context, beat, SeriesMasterPrompt.Build(beat, readable.Sources), readable), ct);
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return await FailedAsync(beat, ex, tracker.CaptureSpend().AccruedUsd - before, ct);
         }
+        finally { await readable.DisposeAsync(); }
         tracker.Track(result.Response);
         // 2026-11-25-433fb: the thread keeps the turn without its table; CompactSeriesThread bounds what it keeps
         await KeepAsync(beat, SeriesMasterPrompt.Kept(beat), result.Response.Text, tracker.CaptureSpend().AccruedUsd - before, ct);
@@ -75,21 +86,10 @@ public sealed class SeriesMasterHandler(
             + "(dialogue.series_status_minutes) so a failing model is not retried every sweep.");
     }
 
-    private AgenticLoopRequest Request(SeriesMasterContext context, SeriesBeat beat, string prompt)
+    private AgenticLoopRequest Request(SeriesMasterContext context, SeriesBeat beat, string prompt, SeriesSourceMap readable)
     {
-        var messages = new SeriesMidTurnMessages(beat, conversation); // 0207b: what the operator writes meanwhile
-        var ask = new SeriesAskTool(beat, store, config.Dialogue.QuestionDefaultMinutes).GetTool(); // 0207c
-        var check = AIFunctionFactory.Create(
-            ([System.ComponentModel.Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default) =>
-                progress.CheckAsync(beat, ct), "check_series", // 0207d; 2026-11-25-9992e: with the reason logged
-            "Starts the series check again (on the series branch when it has one, else the default branch) — for a check that ended without a verdict.");
-        // 2026-11-25-e94ec: an act marks the beat, whose reply is posted only then (SeriesBeat.MasterSpeaks); a read does not.
-        var prs = new SeriesPullRequestTools(beat, context, pullRequests, finals, finalCi).GetTools(); // 2026-11-25-9992e
-        var cut = new SeriesEditTools(beat, edits, store).GetTools(); // 2026-11-25-9992f
-        var acted = new SeriesActTools(beat, acts, store, pause).GetTools().Append(ask).Append(check).Concat(prs).Concat(cut)
-            .Select(f => (AIFunction)new SeriesActedFunction(f, beat, store, logger, clock));
-        IList<AITool> tools = [.. new SeriesReadTools(beat, reports).GetTools().Concat(acted)
-            .Select(f => new MidTurnMessageAIFunction(f, messages)), .. records?.Tools() ?? []];
+        var tools = new SeriesMasterSurface(acts, store, config, conversation, progress, pause, pullRequests, finals, finalCi,
+            edits, logger, records, clock, reports, retirement).Tools(beat, context, readable); // 2026-11-27-3532c
         var agent = context.Project.Agent;
         return new AgenticLoopRequest(agent, TaskType.Primary, prompts.Get(MasterName), prompt, tools,
             Name: MasterName, PriorMessages: SeriesThread.Read(beat.Record.ThreadJson), Compaction: agent.Compaction);
@@ -104,6 +104,8 @@ public sealed class SeriesMasterHandler(
             ThreadJson = SeriesThread.Append(r.ThreadJson, prompt, answer), MasterCostUsd = r.MasterCostUsd + spent,
             Wakes = beat.Unjudged(r.Wakes), MasterFailedAt = null, // 2026-11-25-9992g: exactly the wakes it judged
             Raised = [.. r.Raised, .. beat.Raised.Where(k => !r.Raised.Contains(k))], // 2026-11-25-96aec
+            // 2026-11-27-3532b: the answer it was handed this beat reached it — as its wakes, only once it judged
+            Question = beat.MasterAnswered && r.Question is { Answer: not null, Delivered: false } handed ? handed with { Delivered = true } : r.Question,
         }, ct);
         if (kept is not null) beat.Record = kept;
     }
