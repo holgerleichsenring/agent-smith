@@ -19,7 +19,7 @@ public static class SeriesTicketState
         ArgumentNullException.ThrowIfNull(fact);
         if (fact.Landed) return SeriesTicketKinds.Merged;
         if (fact.Hold is not { } hold) return Unheld(fact);
-        if (hold.Case == H.MergeNext) return SeriesTicketKinds.Now;
+        if (hold.Case is H.MergeNext or H.Merging) return SeriesTicketKinds.Now; // 2026-11-27-e451: the master's merge is next too
         if (hold.Case is H.Question or H.QuestionPlan or H.QuestionEnvironment || hold.Addressee == TicketHoldAddressees.Plan)
             return SeriesTicketKinds.Question;
         if (hold.Case == H.ApprovalNeeded) return SeriesTicketKinds.Approval; // 2026-11-26-5201f: a person's step, not a failure

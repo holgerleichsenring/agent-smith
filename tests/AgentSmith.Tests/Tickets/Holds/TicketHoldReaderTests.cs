@@ -73,6 +73,53 @@ public sealed class TicketHoldReaderTests
                 new TicketHoldAct(TicketHoldActs.Merge, "sr-1"), T) { Attempt = 2 });
     }
 
+    // 2026-11-27-e451: where the series' master merges (review none, or end into the series branch) its next merge is nobody's.
+    [Fact]
+    public void Merge_TheMastersSeries_IsNobodysMerging()
+    {
+        var hold = _reader.Of(Facts(RunStatuses.Success) with
+        {
+            SeriesId = "sr-1", MergeStep = Order[0], SeriesMergeOrder = Order, SeriesMasterMerges = true,
+            OpenPullRequests = new TicketOpenPullRequests(AgentSmith.Contracts.Reviews.CiStates.None, null),
+        })!;
+
+        (hold.Addressee, hold.Case, hold.Act, hold.Next).Should().Be((TicketHoldAddressees.Nobody, TicketHoldCases.Merging,
+            new TicketHoldAct(TicketHoldActs.Series, "sr-1"), "#44"));
+        hold.IsPersons.Should().BeFalse();
+    }
+
+    // 2026-11-27-e451: a led ticket's conflict or draft is its master's step, read among the waits — a person's own hold
+    // (an edited text, red CI) still wins over it.
+    [Fact]
+    public void Nobody_ALedTicketsConflictOrDraft_IsTheMasters_APersonsHoldStillWins()
+    {
+        var led = Facts(RunStatuses.Success) with { SeriesId = "sr-1", SeriesMasterLeads = true, MergeStep = Order[0], SeriesMergeOrder = Order };
+        var conflict = new TicketOpenPullRequests(AgentSmith.Contracts.Reviews.CiStates.Green, T) { Conflicts = true, ConflictsSince = T };
+        var draft = new TicketOpenPullRequests(AgentSmith.Contracts.Reviews.CiStates.Green, T) { Drafts = ["https://host/pr/1"] };
+
+        (_reader.Of(led with { OpenPullRequests = conflict })!).Should().Match<TicketHold>(h =>
+            h.Addressee == TicketHoldAddressees.Nobody && h.Case == TicketHoldCases.MasterRefresh && h.Act!.Kind == TicketHoldActs.Series);
+        _reader.Of(led with { OpenPullRequests = draft })!.Case.Should().Be(TicketHoldCases.MasterDraft, "a draft offers no merge");
+        _reader.Of(led with { OpenPullRequests = conflict, TextEdited = true })!.Addressee.Should().Be(TicketHoldAddressees.Plan);
+        _reader.Of(led with { OpenPullRequests = conflict with { Ci = AgentSmith.Contracts.Reviews.CiStates.Red } })!.Case
+            .Should().Be(TicketHoldCases.CiFailed);
+        _reader.Of(led with { SeriesMasterLeads = false, OpenPullRequests = conflict })!.Case.Should().Be(TicketHoldCases.PrConflict);
+    }
+
+    [Fact]
+    public void SeriesBeatDue_MasterMerges_UnderNoneAndUnderEndWithABranch_NotUnderEach()
+    {
+        var record = new AgentSmith.Contracts.Series.SeriesRunRecord("sr-1", "c", "alpha", "op", true,
+            AgentSmith.Contracts.Series.SeriesRunStates.Running, [], T);
+        AgentSmith.Application.Services.Series.SeriesBeatDue.MasterMerges(record with { IntegrationBranch = "agent-smith/series/sr-1" }).Should().BeTrue();
+        AgentSmith.Application.Services.Series.SeriesBeatDue.MasterMerges(record with { Review = AgentSmith.Contracts.Models.Configuration.ReviewMode.None }).Should().BeTrue();
+        AgentSmith.Application.Services.Series.SeriesBeatDue.MasterMerges(record).Should().BeFalse("without a branch the review is each");
+        AgentSmith.Application.Services.Series.SeriesBeatDue.MasterMerges(record with
+        {
+            IntegrationBranch = "agent-smith/series/sr-1", Review = AgentSmith.Contracts.Models.Configuration.ReviewMode.Each,
+        }).Should().BeFalse();
+    }
+
     // 2026-11-23-849e: the series' one merge hold names the step after it and what waits on merges to start, and whether
     // merging approves; a ticket that starts only on merges waits on nobody for them, the series' next first.
     private static readonly SeriesRunMergeStep[] Order =

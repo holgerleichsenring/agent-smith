@@ -114,6 +114,7 @@ public sealed class SeriesOfOneTests
         var green = new SeriesWake(SeriesWakeKinds.Ci, "the CI is green") { Verdict = CiStates.Green, TicketId = "43", At = SeriesRecords.T };
 
         SeriesBeatDue.Waking(record, green).Should().Be(wakes);
+        SeriesBeatDue.Waking(record, green with { Verdict = CiStates.None }).Should().Be(wakes, "2026-11-27-e451: no CI merges as green does");
         SeriesBeatDue.Waking(record, green with { Verdict = CiStates.Red }).Should().BeTrue("a red CI is the master's decision");
     }
 

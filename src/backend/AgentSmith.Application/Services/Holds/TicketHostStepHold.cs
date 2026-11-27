@@ -17,8 +17,19 @@ public static class TicketHostStepHold
         ArgumentNullException.ThrowIfNull(facts);
         // 2026-11-26-f511a: a draft stacked on a requirement of its active series that has not landed is the master's to
         // publish once that lands, not a person's step yet (TicketSeriesWait).
-        return Moves(facts) && !TicketSeriesWait.WaitsOnAnother(facts) && facts.OpenPullRequests is { Drafts: [var first, ..] }
+        // 2026-11-27-e451: so is one its series master leads (MasterDraft).
+        return Moves(facts) && !TicketSeriesWait.WaitsOnAnother(facts) && !TicketPullRequestHold.Led(facts)
+            && facts.OpenPullRequests is { Drafts: [var first, ..] }
             ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.PrDraft, new(TicketHoldActs.PullRequest, first), null)
+            : null;
+    }
+
+    /// <summary>2026-11-27-e451: a led ticket's draft — the master's to publish (merge_pull_request publishes first), nobody's.</summary>
+    public static TicketHold? MasterDraft(TicketHoldFacts facts)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        return Moves(facts) && !TicketSeriesWait.WaitsOnAnother(facts) && facts is { SeriesMasterLeads: true, SeriesId: { } series, OpenPullRequests.Drafts.Count: > 0 }
+            ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Nobody, TicketHoldCases.MasterDraft, new(TicketHoldActs.Series, series), null)
             : null;
     }
 

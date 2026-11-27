@@ -19,11 +19,12 @@ public static class TicketPullRequestHold
         return !TicketHoldOf.AtWork(facts) && facts.OpenPullRequests?.Refresh is { InFlight: true };
     }
 
-    /// <summary>2026-11-24-6811d: the refresh run's wait — nobody's, since it started.</summary>
+    /// <summary>2026-11-24-6811d: the refresh run's wait — nobody's, since it started. 2026-11-27-e451: else a led ticket's
+    /// conflict or draft, its master's step — read among the waits, so a person's hold (a plan edit, red CI) still wins.</summary>
     public static TicketHold? RefreshWait(TicketHoldFacts facts) =>
         Refreshing(facts)
             ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Nobody, TicketHoldCases.Refreshing, null, facts.OpenPullRequests!.Refresh!.At)
-            : null;
+            : MasterConflict(facts) ?? TicketHostStepHold.MasterDraft(facts);
 
     /// <summary>2026-11-24-6811d: the newest refresh left the branch unchanged and its reason still stands — a person decides,
     /// the reason quoted as the hold's detail.</summary>
@@ -38,21 +39,35 @@ public static class TicketPullRequestHold
     }
 
     /// <summary>2026-11-24-6811a: an open pull request of a ticket not at work that its host says conflicts with its base —
-    /// a person decides, whatever its CI says, since nothing merges it.</summary>
+    /// a person decides, whatever its CI says, since nothing merges it. 2026-11-27-e451: a ticket its series master leads is the
+    /// master's to refresh (refresh_branch) — nobody's.</summary>
     public static TicketHold? Conflict(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        return !TicketHoldOf.AtWork(facts) && facts.OpenPullRequests is { Conflicts: true } open
+        return !TicketHoldOf.AtWork(facts) && !Led(facts) && facts.OpenPullRequests is { Conflicts: true } open
             ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.PrConflict, Act(open), open.ConflictsSince)
             : null;
     }
 
+    /// <summary>2026-11-27-e451: a led ticket's conflicting pull request — the master's refresh_branch, nobody's.</summary>
+    public static TicketHold? MasterConflict(TicketHoldFacts facts)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        return !TicketHoldOf.AtWork(facts) && facts is { SeriesMasterLeads: true, SeriesId: { } series, OpenPullRequests: { Conflicts: true } open }
+            ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Nobody, TicketHoldCases.MasterRefresh, new(TicketHoldActs.Series, series), open.ConflictsSince)
+            : null;
+    }
+
+    /// <summary>2026-11-27-e451: a series master that can act leads the ticket's pull requests.</summary>
+    internal static bool Led(TicketHoldFacts facts) => facts is { SeriesMasterLeads: true, SeriesId: not null };
+
     /// <summary>2026-11-24-6811a: an open pull request conflicts with its base, or 6811d: a refresh works on one, or 5201f: one
-    /// waits for a person's approval — no merge is offered.</summary>
+    /// waits for a person's approval — no merge is offered. 2026-11-27-e451: nor while a led ticket's draft waits for its master.</summary>
     public static bool Blocks(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        return facts.OpenPullRequests is { Conflicts: true } or { AwaitingApproval.Count: > 0 } || Refreshing(facts);
+        return facts.OpenPullRequests is { Conflicts: true } or { AwaitingApproval.Count: > 0 } || Refreshing(facts)
+            || Led(facts) && facts.OpenPullRequests is { Drafts.Count: > 0 };
     }
 
     /// <summary>Red CI on an open pull request of a ticket that is not at work.</summary>

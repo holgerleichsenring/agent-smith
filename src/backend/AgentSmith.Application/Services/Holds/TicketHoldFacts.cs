@@ -57,6 +57,14 @@ public sealed record TicketHoldFacts(string Project, string TicketId)
     /// <summary>2026-11-23-31dch: that series run is still active, so its conversation reads a plan question's answer.</summary>
     public bool SeriesActive { get; init; }
 
+    /// <summary>2026-11-27-e451: that series' master merges its tickets' pull requests itself
+    /// and can act (<see cref="AgentSmith.Application.Services.Series.SeriesLeads.Merges"/>).</summary>
+    public bool SeriesMasterMerges { get; init; }
+
+    /// <summary>2026-11-27-e451: that series' master leads the ticket's pull requests — a conflict and a draft are its steps
+    /// (<see cref="AgentSmith.Application.Services.Series.SeriesLeads.PullRequests"/>).</summary>
+    public bool SeriesMasterLeads { get; init; }
+
     /// <summary>The ticket's place in that series' merge order; null when no pull request of it waits there.</summary>
     public SeriesRunMergeStep? MergeStep { get; init; }
 

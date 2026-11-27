@@ -59,7 +59,7 @@ public sealed record TicketHoldInputs(
         return facts with
         {
             SeriesId = series, SeriesActive = InActiveSeries(facts.Project, facts.TicketId), MergeStep = StepOf(facts.Project, facts.TicketId),
-            SeriesMergeOrder = plan.MergeOrder, SeriesStartsOnMerge = plan.StartsOnMerge,
+            SeriesMergeOrder = plan.MergeOrder, SeriesStartsOnMerge = plan.StartsOnMerge, SeriesMasterMerges = plan.MasterMerges, SeriesMasterLeads = plan.MasterLeads, // e451
             SeriesUnlanded = wait.Unlanded, SeriesTakenUpAt = wait.TakenUpAt, SeriesStartRefusedAt = wait.StartRefusedAt, // ecf2e
         };
     }

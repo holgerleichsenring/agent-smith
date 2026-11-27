@@ -95,7 +95,7 @@ public sealed class PrReviewRecordRefresh(
             await ci.ApplyAsync(project, states, record, stored, ct);
             await target.ApplyAsync(states, record, stored, ct); // 2026-11-22-6d85b: where a merge landed
             var wrote = await writer.WriteAsync(record, entries, start, ct);
-            if (held) foreach (var wake in SeriesPrChange.Of(stored, record, entries, project.Merge.CiPendingSeconds)) await wakes.WakeAsync(project.Name, pr.TicketId, wake, ct); // 9992g
+            if (held) foreach (var wake in SeriesPrChange.Of(stored, record, entries, project.Merge.CiPendingSeconds, project.Merge.CiSettleSeconds)) await wakes.WakeAsync(project.Name, pr.TicketId, wake, ct); // 9992g
             return wrote;
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)

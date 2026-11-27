@@ -31,8 +31,12 @@ internal static class SeriesTicketWords
         H.CiRunning => "CI running" + Since(hold),
         H.CiNotStarted => "build not started" + Since(hold),
         H.PrConflict => "PR conflicts with its base",
+        H.MasterRefresh => "PR conflicts with its base · yours: refresh_branch, no person waits on it", // 2026-11-27-e451
+        H.MasterDraft => "PR is still a draft · yours: publish it (merge_pull_request publishes first) only once its work is "
+            + "complete, its description says what a stopped run left out" + Pr(hold), // 2026-11-27-e451
         H.RefreshRefused => $"refresh left the branch unchanged · {hold.Detail?.Subject}",
         H.MergeNext => "ready to merge · next",
+        H.Merging => "ready to merge · next · the master's merge, no person waits on it", // 2026-11-27-e451
         H.MergeReady => "ready to merge",
         H.MergeAfter => $"merges after {Names(hold)}",
         H.Retarget => $"PR targets {Targets(fact)}, neither the series nor the default branch · move it with retarget_pull_request", // 5201f

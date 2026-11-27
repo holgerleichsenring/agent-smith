@@ -169,6 +169,10 @@ export type TicketHoldCase =
   | "question" | "question_plan" | "question_environment" | "handback" | "readiness_unknown" | "infrastructure" | "interrupted" | "criteria_unmet" | "failed" | "shortfall"
   | "text_edited"
   | "merge_next" | "starts_on_merge"
+  /** 2026-11-27-e451: the series' next merge is its master's (review none, or end into the series branch) — nobody's */
+  | "merging"
+  /** 2026-11-27-e451: a led ticket's conflict to refresh, or draft to publish — the series master's step, nobody's */
+  | "master_refresh" | "master_draft"
   /** 2026-11-23-d60d: an open pull request that can merge now, red CI on one, and CI still running on one */
   | "merge_ready" | "ci_failed" | "ci_running"
   /** 2026-11-23-0219: a required build that has not started on an open pull request's head */

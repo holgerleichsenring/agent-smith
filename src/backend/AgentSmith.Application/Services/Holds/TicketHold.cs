@@ -83,6 +83,8 @@ public static class TicketHoldCases
     public const string Shortfall = "shortfall";
     public const string TextEdited = "text_edited";
     public const string MergeNext = "merge_next";
+    /// <summary>2026-11-27-e451: the series master's own step on a led ticket's pull request, nobody's: the next merge, a conflict to refresh, a draft to publish.</summary>
+    public const string Merging = "merging", MasterRefresh = "master_refresh", MasterDraft = "master_draft";
 
     /// <summary>2026-11-23-d60d: a pull request outside any series' merge order can merge now — CI green or none, nothing
     /// it requires unlanded.</summary>

@@ -28,6 +28,9 @@ internal sealed class SeriesWakeBeatRig
 
     public Mock<ISeriesRunLaunch> Launch { get; } = new();
 
+    /// <summary>2026-11-27-e451: the master's pull-request acts, for a test whose master merges.</summary>
+    public Mock<ISeriesPullRequestActs> PullRequests { get; } = new();
+
     private readonly Mock<ISeriesConversation> _conversation = new();
 
     /// <summary>2026-11-27-ecf2e: the series' conversation, for a test that binds a ticket's.</summary>
@@ -71,6 +74,6 @@ internal sealed class SeriesWakeBeatRig
     private SeriesMasterHandler Master() => new(Loop.Object, Mock.Of<IPromptCatalog>(p => p.Get(It.IsAny<string>()) == "body"),
         Mock.Of<ISeriesTicketActs>(), Store, Config, _conversation.Object, new SeriesProgress(Store, Launch.Object),
         new SeriesPause(Store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), _conversation.Object),
-        Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), SeriesWakeDoubles.Budget(Store, Config), Mock.Of<ISeriesEditActs>(),
+        PullRequests.Object, SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), SeriesWakeDoubles.Budget(Store, Config), Mock.Of<ISeriesEditActs>(),
         NullLogger<SeriesMasterHandler>.Instance);
 }

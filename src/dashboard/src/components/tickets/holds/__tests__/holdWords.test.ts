@@ -15,7 +15,7 @@ const CASES: TicketHoldCase[] = [
   "image_untrusted", "bootstrap_missing", "preflight", "question", "question_plan", "question_environment", "handback", "readiness_unknown", "infrastructure", "interrupted",
   "criteria_unmet", "failed", "shortfall", "text_edited", "merge_next", "starts_on_merge", "working", "model_wait", "queued", "resuming",
   "restarting", "merge_after", "retarget", "prerequisite", "merge_ready", "ci_failed", "ci_running",
-  "ci_not_started", "pr_conflict", "refreshing", "refresh_refused", "approval_needed", "pr_draft", "start_refused",
+  "ci_not_started", "pr_conflict", "refreshing", "refresh_refused", "approval_needed", "pr_draft", "start_refused", "merging", "master_refresh", "master_draft",
 ];
 
 describe("holdWords", () => {
@@ -28,6 +28,8 @@ describe("holdWords", () => {
       }
     }
     expect(holdSentence(translator("en"), hold("failed", { attempt: 3 }))).toBe("Attempt 3 failed.");
+    // 2026-11-27-e451: the master's merge says nobody else acts
+    expect(holdSentence(translator("en"), hold("merging", { addressee: "nobody" }))).toContain("the series master merges it. Nothing for you to do.");
     expect(holdSentence(translator("en"), hold("merge_after", { names: ["SCRUM-1", "SCRUM-2"] }))).toBe("Merges after SCRUM-1 and SCRUM-2. Nothing for you to do yet.");
     expect(holdSentence(translator("de"), hold("starts_on_merge", { addressee: "nobody", names: ["#1"] })))
       .toBe("Wartet auf einen Merge: #1. Für dich gibt es nichts zu tun.");
@@ -168,10 +170,14 @@ describe("holdWords", () => {
     const now = new Date(2026, 10, 23, 9, 0);
     const since = new Date(2026, 10, 23, 0, 12).toISOString();
     const escalated = hold("model_wait", { addressee: "admin", since, escalation: { afterMinutes: 60, key: "holds.escalate_after_minutes" } });
-    expect(holdSentence(translator("en"), escalated, now))
-      .toBe("Waiting for the model since 00:12, longer than 60 minutes (holds.escalate_after_minutes). Reported to the admin.");
-    expect(holdSentence(translator("de"), escalated, now))
-      .toBe("Wartet seit 00:12 auf das Modell, länger als 60 Minuten (holds.escalate_after_minutes). An den Admin gemeldet.");
+    // 2026-11-27-e451: an overdue model wait is capacity — it names the setting an admin raises, not a ticket decision.
+    expect(holdSentence(translator("en"), escalated, now)).toBe("Waiting for the model since 00:12, longer than 60 minutes "
+      + "(holds.escalate_after_minutes): every run place of the model is taken. An admin can raise the agent's agent.max_concurrent_runs "
+      + "in Settings, or the run starts once a place frees up.");
+    expect(holdSentence(translator("de"), escalated, now)).toContain("agent.max_concurrent_runs");
+    const queued = { ...escalated, case: "queued" as const };
+    expect(holdSentence(translator("en"), queued, now))
+      .toBe("Waiting for sandbox capacity since 00:12, longer than 60 minutes (holds.escalate_after_minutes). Reported to the admin.");
   });
 
   it("sinceClock_TodayIsATime_AnOlderDayCarriesItsDate", () => {

@@ -73,7 +73,8 @@ What you can do:
 How to lead the series well:
 - Read the graph before you merge: prerequisites first, then what waits on them. Under review `end` a ticket merges
   into the series branch once its build and tests are green — your call, nobody waits there; the final pull request
-  goes to a person. Under `each` you ask after each ticket. A merge question is `ask_human` with `mergeOf` (the
+  goes to a person. A pull request whose CI reads `none` has no CI at all: it merges as a green one does, under
+  review `end` and `none` alike. Under `each` you ask after each ticket. A merge question is `ask_human` with `mergeOf` (the
   ticket, or `final`): it carries the buttons "Merge it" and "Look at the pull request first" and the pull requests'
   links, and waits for the person. "Merge it" is yours to merge; a person who merges on the host needs nothing from
   you; after "Look at the pull request first", the person writes when it may merge.
