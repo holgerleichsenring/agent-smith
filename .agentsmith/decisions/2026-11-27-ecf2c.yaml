@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-ecf2c
+
+decisions:
+  - category: Architecture
+    chose: "A repository whose ticket branch carries only the spec record gets no pull request while another repository of the run carries code; earlier open ones are left alone"
+    over: "Keeping every series repository's spec pull request as the run's work (2026-10-12-3a36c/f5f7e)"
+    reason: "decider: operator, 2026-11-27 — a ticket that changed code in one repository opened draft pull requests in all three, two with only spec bookkeeping, and each needed a look and an approval."
+  - category: Architecture
+    chose: "Derivation creates the draft spec pull request only when the placement's specs sit in one repository; over several it only finds an existing one, and CommitAndPR opens a pull request where the code is"
+    over: "Creating a draft in every spec repository and closing the ones that end record-only; opening drafts and leaving the record-only ones open"
+    reason: "decider: claude, from the spec review — which repository carries code is unknown at derivation, and no source provider can close a pull request (twenty ISourceProvider implementations). A left-open draft would hold the ticket's landing (every record must end). Cost: a parked multi-repository run lists no pull request until code exists, and the ticket comment lists none (the comments handle an empty map); a failed multi-repository run without code opens none at all, where 2026-10-12-3a36c kept every spec pull request — the two harness tests that pinned that now pin this."
+  - category: Implementation
+    chose: "Record-only is proven per branch: DeliveryDiff against the base branch (AgainstBase) touching only .agentsmith paths and the root .gitattributes; a diff against the run start or HEAD, a failed one, or one that throws keeps the pull request"
+    over: "This run's staged changes (CommitAndPR's hasCode); CarriesSource alone"
+    reason: "decider: claude, from the spec and diff reviews — a rework run that changes only another repository must keep an earlier run's code pull request; the record writes merge=union lines into .gitattributes, which IsRunRecordPath does not cover; a shallow clone's fallback rungs see only part of the branch. A base that moved since the cut can make a record-only branch read as source; that errs toward keeping."
+  - category: Scope
+    chose: "The spec's record stays in the repository the spec is placed in; a record-only repository's record stays on its work branch and on the server (SpecRecordedEvent, the pointer's executed ids)"
+    over: "Moving the record into the repository that carries the work, as the operator's request says"
+    reason: "decider: claude, open for the operator — the done file replaces the planned file in the same repository, the manifest is that repository's sub-series, the pointer records the sha under it, and a later spec's code is not known when an earlier spec records. A spec's master writes only its own repositories, so a record-only repository's spec delivered no code. Moving the record needs a design of its own."
+  - category: Implementation
+    chose: "SpecOnlyPullRequests takes DeliveryDiff as a required dependency; every hand-built test construction passes TestGit.Delivery"
+    over: "An optional dependency that falls back to the old behaviour"
+    reason: "decider: claude, from the spec review — an optional one would let a wiring gap pass every test unnoticed."

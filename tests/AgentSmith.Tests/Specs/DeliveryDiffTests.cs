@@ -85,6 +85,7 @@ public sealed class DeliveryDiffTests
         result.Failed.Should().BeFalse();
         result.Text.Should().Be(Committed, "the run committed its work before the gate read the branch");
         result.BaseRef.Should().Be($"{FirstRunCommit}^", "the run started at the parent of its FIRST commit");
+        result.AgainstBase.Should().BeFalse("2026-11-27-ecf2c: the run's start sees only this run's part of the branch");
         result.Basis.Should().Contain("where this run started");
     }
 
@@ -110,6 +111,7 @@ public sealed class DeliveryDiffTests
 
         result.BaseRef.Should().Be("origin/main");
         result.Basis.Should().Be("against origin/main");
+        result.AgainstBase.Should().BeTrue("2026-11-27-ecf2c: the comparison ran against the base branch");
         result.Text.Should().Be(Committed);
         sandbox.Ran.Where(a => a[0] == "diff").Should().ContainSingle()
             .Which.Should().NotContain($"{FirstRunCommit}^",

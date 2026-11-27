@@ -58,7 +58,10 @@ public sealed class DeliveryDiff(
             logger.LogInformation(
                 "Delivery diff taken {Description} ({Chars:N0} chars)", description, diff.Length);
             return new DiffResult(
-                diff, description, BaseRef: DeliveryDiffCandidates.BaseRefOf(against));
+                diff, description, BaseRef: DeliveryDiffCandidates.BaseRefOf(against))
+            {
+                AgainstBase = DeliveryDiffCandidates.IsBaseRung(against, resolved.Name), // 2026-11-27-ecf2c
+            };
         }
 
         logger.LogWarning("No delivery diff could be taken — no comparable base ref in the sandbox");
@@ -94,5 +97,10 @@ public sealed class DeliveryDiff(
     /// taken against.
     /// </summary>
     public sealed record DiffResult(
-        string Text, string Basis, bool Failed = false, string? BaseRef = null);
+        string Text, string Basis, bool Failed = false, string? BaseRef = null)
+    {
+        /// <summary>2026-11-27-ecf2c: the comparison ran against the base branch (origin/&lt;base&gt; or &lt;base&gt;), so
+        /// the text is everything the branch delivers; the run-start and HEAD rungs see only part of it.</summary>
+        public bool AgainstBase { get; init; }
+    }
 }

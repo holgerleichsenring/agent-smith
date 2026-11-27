@@ -12,19 +12,15 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// 2026-10-12-f5f7e fast-tier end-to-end: a series over Server and Client, over a scope that also holds a
-/// worker. Each series repository gets its own draft spec pull request at derivation; the run then dies
-/// before any spec gained code, so both are spec-only — and both are still listed as opened, carry the
-/// run's body and link each other. The worker, which no spec names, gets none.
+/// worker. 2026-11-27-ecf2c: over several repositories derivation opens no draft spec pull request — which will
+/// carry code is not known yet — and the run dies before any spec gained code, so every branch carries only the
+/// spec record and no repository gets a pull request.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class SeriesSpecPullRequestsTests
 {
-    private const string ServerPr = "https://stub.test/sample-server/pull/1";
-    private const string ClientPr = "https://stub.test/sample-client/pull/1";
-
-
     [Fact]
-    public async Task SeriesOverServerAndClient_RunEndsWithoutCode_OnePrPerRepositoryCrossLinked()
+    public async Task SeriesOverServerAndClient_RunEndsWithoutCode_OpensNoPullRequest()
     {
         var pullRequests = new PerRepoPullRequestProvider();
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
@@ -45,15 +41,10 @@ public sealed class SeriesSpecPullRequestsTests
         await runner.RunAsync("code");
 
         var pipeline = runner.LastContext!;
-        SpecPullRequests.Of(pipeline).Should().BeEquivalentTo(
-            new Dictionary<string, string> { ["sample-server"] = ServerPr, ["sample-client"] = ClientPr });
+        SpecPullRequests.Of(pipeline).Should().BeEmpty();
         pipeline.Get<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests)
-            .Where(o => o.Status == OpenStatus.Opened).Select(o => (o.RepoName, o.Url))
-            .Should().BeEquivalentTo([("sample-server", (string?)ServerPr), ("sample-client", (string?)ClientPr)],
-                "a spec-only repository's pull request is listed as opened; the worker has none");
-        pullRequests.Bodies[ServerPr].Should().Contain(ClientPr, "the cross-link reaches the spec PRs")
-            .And.NotContain(SpecPrBody.SiblingMarker);
-        pullRequests.Bodies[ClientPr].Should().Contain(ServerPr);
+            .Should().NotContain(o => o.Status == OpenStatus.Opened, "a branch with only the spec record gets no pull request");
+        pullRequests.Bodies.Should().BeEmpty();
     }
 
     private static IReadOnlyList<RepoConnection> Repos() =>

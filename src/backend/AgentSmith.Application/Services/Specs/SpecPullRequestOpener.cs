@@ -18,6 +18,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// 2026-10-12-f5f7e: one per series repository, over that repository's sub-series. A repository
 /// whose sub-series holds no spec only finds one — as does a repository the scope read that the set
 /// no longer names, so the ticket comment can list its pull request as dropped.
+/// 2026-11-27-ecf2c: and only a series whose specs sit in one repository creates it; over several, each only finds one.
 /// </summary>
 public sealed class SpecPullRequestOpener(
     ISourceProviderFactory sourceFactory,
@@ -32,10 +33,13 @@ public sealed class SpecPullRequestOpener(
         ArgumentNullException.ThrowIfNull(scope);
         if (!pipeline.TryGet<Repository>(ContextKeys.Repository, out var repository) || repository is null)
             return SpecPullRequests.Of(pipeline);
+        // 2026-11-27-ecf2c: over several repositories none is created here — which of them will carry code is not known
+        // yet, and one left with only the spec record gets no pull request; CommitAndPR opens one where the code is.
+        var creates = placement.Members.Count(m => placement.Set.OfRepository(m.Name ?? string.Empty).Specs.Count > 0) <= 1;
         foreach (var member in placement.Members)
         {
             var own = placement.Set.OfRepository(member.Name ?? string.Empty);
-            var url = await OpenOneAsync(pipeline, repository, member, own, own.Specs.Count > 0, cancellationToken);
+            var url = await OpenOneAsync(pipeline, repository, member, own, creates && own.Specs.Count > 0, cancellationToken);
             await RecordAsync(pipeline, member.Name, url, cancellationToken);
         }
         // A dropped repository's pull request is only listed — it is no outcome of this run.

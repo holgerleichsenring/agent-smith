@@ -62,14 +62,12 @@ public sealed class FailedRunRepoWritesTests
                 "a repository the run changed nothing in gets no branch pushed"));
 
         var pipeline = runner.LastContext!;
-        // 2026-10-12-f5f7e: each series repository has its own spec PR, and each is the failed run's work.
-        var specPrs = Application.Services.Specs.SpecPullRequests.Of(pipeline);
-        specPrs.Keys.Should().BeEquivalentTo(["sample-server", "sample-client"]);
+        // 2026-11-27-ecf2c: a series over several repositories opens no draft at derivation, and a failed run without code
+        // opens none after — every branch carries only the spec record.
+        Application.Services.Specs.SpecPullRequests.Of(pipeline).Should().BeEmpty();
         var opened = pipeline.Get<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests);
-        opened.Where(o => o.Status == OpenStatus.Opened).Select(o => (o.RepoName, o.Url))
-            .Should().BeEquivalentTo(specPrs.Select(pr => (pr.Key, (string?)pr.Value)), "the spec PRs are the failed run's persisted work");
-        var comment = tickets.Finalized.Should().ContainSingle().Subject.Comment;
-        comment.Should().Contain(specPrs["sample-server"], "the failure comment names the spec PR");
+        opened.Should().NotContain(o => o.Status == OpenStatus.Opened, "no repository carries code");
+        tickets.Finalized.Should().ContainSingle().Subject.Comment.Should().NotBeNullOrWhiteSpace("the failure is still told");
     }
 
     private static bool IsGitCommit(Step step) =>
