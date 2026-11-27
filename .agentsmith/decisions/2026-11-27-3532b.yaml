@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-3532b
+
+decisions:
+  - category: Architecture
+    chose: "Only the series master asks the operator: a series-led run's ask_human, whatever its answerer, is a beat reason for its master (SeriesRunAsk), raised once per run and question (question:{run}:{question}, kept in Raised only once judged); the master answers it with tell_ticket or asks the operator with ask_human in its own words and its recommendation, and answers the run once the reply arrives"
+    over: "Relaying the run's question verbatim into the series chat (SeriesQuestions.RelayAsync) and answering it from the operator's next message; asking the operator from the run and the master side by side"
+    reason: "decider: operator. A run never asks the operator directly; one question lives in one place, the series chat, worded by the master that knows the series."
+  - category: Architecture
+    chose: "tell_ticket on a ticket whose newest run waits on a checkpointed question delivers the text as that question's answer through IDialogueAnswerInbox (SeriesTicketAnswer); the resume sweep, RunResumer and MasterAnswerIntake take it from there; any other ticket gets the conversation message as before"
+    over: "A new answer tool; a second resume path from the beat"
+    reason: "decider: operator. Reuse the existing answer/resume path of a parked run; no second path. MasterAnswerIntake already accepts free text."
+  - category: Architecture
+    chose: "An environment question (a missing secret, a quota) goes to the master like any other; its reason tells it to forward it with its recommendation and not to try to fix it"
+    over: "Keeping it the admin's hold with a ticket-page answer box"
+    reason: "decider: operator. Questions only the environment can fix are forwarded with a recommendation; the master does not fix them."
+  - category: Scope
+    chose: "The run-to-operator paths for a series-led ticket go: the answer endpoint refuses with 409 naming the series (SeriesLedRun), the hold is no admin hold and no answer box, the relayed chat copy and its helpers (Left, RelayAsync, IsRelayed, IsPlan, Key, Headline, SeriesRunQuestion's ticket branch, SeriesRunDetailView.QuestionTicket) are removed"
+    over: "Hiding the answer box in the dashboard only; keeping the relay as a fallback"
+    reason: "decider: operator. Remove the ticket-page answer box, the 'reported to the admin' routing and the second copy in the chat; the ticket page may show the question read-only (3532e)."
+  - category: Implementation
+    chose: "A ticket question relayed before this change and still waiting is dropped at the series' next beat (SettleAsync), unanswered; the run's question then reaches the master as a reason"
+    over: "A boot-time migration of stored series questions"
+    reason: "decider: operator. Startup changes nothing; the beat that reads the record settles it, as e94ea already dropped stale relays."
+  - category: Architecture
+    chose: "Series-led is one predicate, SeriesLeads.Questions: the newest series that holds the ticket is active, no series of one, its master's loop has not failed since it last judged (MasterFailedAt) and its budget is not spent. The hold facts (TicketHoldSeriesRead), SeriesQuestions (via SeriesBudgetQuestion.Leads), the answer endpoint and the resume sweep (SeriesLedRun) all read it. Otherwise the ticket page's answer box, tracker comment and deadline default answer the run"
+    over: "Active and not a series of one only; naming waiting run questions in the chat when the budget is spent"
+    reason: "decider: claude (review). A master that cannot act would otherwise hide the question forever (nobody hold, refused endpoint, no default). Most series of one have no conversation and ask_human needs one, so the ticket page is their only channel. Operator gap: whether a series of one should get a conversation so its master can ask is open."
+  - category: Implementation
+    chose: "When the operator-question slot frees (the master's question answered, or a relayed one dropped), the once-keys of run questions still parked that the master neither carried (the freed question's ForRunId/ForQuestionId) nor answered with tell_ticket since the question was asked are removed from Raised, so the same beat raises them again"
+    over: "Re-raising every beat; keeping the key and losing a second ticket's question while ask_human refused"
+    reason: "decider: claude (review). ask_human holds one question at a time, so a run question judged while another waited could never be carried; re-raising only when the slot frees adds no per-beat loop."
+  - category: Implementation
+    chose: "ask_human forTicket keeps the run id and checkpoint question id the ticket's run waits on; the answered reason names them; tell_ticket takes an optional questionId (SeriesTell) and on a mismatch answers nothing and names the question the run waits on now; its replies name the ticket's key"
+    over: "Answering whatever the ticket's run is parked on"
+    reason: "decider: claude (review). A ticket retried and parked on a second question must not take the answer the operator gave to the first."
+  - category: Implementation
+    chose: "An answer handed to the master is marked Delivered in SeriesMasterHandler.KeepAsync with its judged wakes; SeriesQuestions hands an answered, undelivered question again in the next beat"
+    over: "Marking it delivered when settled, before the loop runs"
+    reason: "decider: claude (review). A failed loop would lose the operator's answer to a question carried for a run."
+  - category: Implementation
+    chose: "A deadline handed to the master (its once-key raised) is never taken by default later, when the series stopped leading; SeriesWakes writes nothing for a once-key already raised; the sweep reads each project's series once (SeriesLedScan) and logs and skips a failing checkpoint"
+    over: "Moving the checkpoint's deadline to now + dialogue.question_default_minutes when the series stops leading"
+    reason: "decider: claude (review). Skipping the default needs no new checkpoint write: the run stays parked and its ticket page answers it. Without the guards the sweeper rewrote the series row every 15 s past the deadline, and one bad row stopped every resume."
+  - category: Implementation
+    chose: "A master's question that waits past holds.escalate_after_minutes escalates to the admin (Question is an escalating nobody case; TicketHoldEscalations wraps TicketQuestionHold.Master)"
+    over: "No escalation for the master's held question"
+    reason: "decider: claude (review). Like every wait on nobody, one that lasts too long is the admin's to look at."
+  - category: Implementation
+    chose: "The series-led question's hold is one Question hold, act Conversation (target the series id), addressee TicketHoldAddressees.Nobody — not Held in SeriesRunCounts, no NeedsYou bucket, not in the admin holds; the table words say 'question · the series master's'"
+    over: "A new addressee 'master'; keeping Decide/Plan/Admin by answerer"
+    reason: "decider: claude. Nobody already means 'nothing is needed from a person'; reusing it adds no label meaning (no second path), and every surface that keys on a person's or the admin's hold leaves it out by construction."
+  - category: Implementation
+    chose: "For a series-led checkpoint the resume sweep takes neither a tracker comment nor the deadline default (ParkedAnswerFallback); the passed deadline wakes the master once (SeriesQuestionDeadline: a run wake, once-key question-deadline:{run}:{question}) naming the default it did not take"
+    over: "Taking the default at the deadline as before; waking nobody and letting the run wait silently"
+    reason: "decider: claude. The default would answer the operator's question past the master; the wake hands the deadline to the master as a reason instead. A tracker comment still reaches the master as a comment wake (SeriesTicketCommentWake)."
+  - category: Implementation
+    chose: "ask_human takes forTicket, stored as a new SeriesQuestion.ForTicket; its answer's reason names the ticket and tells the master to answer its run with tell_ticket"
+    over: "Reusing SeriesQuestion.TicketId"
+    reason: "decider: claude. TicketId is read as 'a relayed ticket question' by the budget question and the stale drop; a new field keeps that meaning intact."
+  - category: Implementation
+    chose: "The fallback answers move out of DialogueResumeSweeper into ParkedAnswerFallback, registered with SeriesLedRun and SeriesQuestionDeadline by AddParkedAnswerFallback; RunControlEndpoints shrinks by its doc comment for the added refusal"
+    over: "Growing the sweeper past 120 lines and the baselined endpoint and persistence files"
+    reason: "decider: claude. The file-length rule; the ticket comment and the default are one responsibility, the answers taken when the inbox holds none."

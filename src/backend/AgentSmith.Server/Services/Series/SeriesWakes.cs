@@ -16,7 +16,8 @@ public sealed class SeriesWakes(ISeriesRunStore store, TimeProvider clock, ILogg
         var holders = (await store.ListAsync([project], cancellationToken)) // the ticket's own project only
             .Where(r => r.IsActive && r.Tickets.Any(t => t.TicketId == ticketId)).ToList();
         var stamped = wake with { At = clock.GetUtcNow(), TicketId = ticketId };
-        foreach (var series in holders)
+        // 2026-11-27-3532b: a once-key the series raised already writes nothing — a caller may repeat it every sweep
+        foreach (var series in holders.Where(h => wake.Once is not { } once || !h.Raised.Contains(once, StringComparer.Ordinal)))
             await store.UpdateAsync(series.Id, r => Recorded(r, stamped), cancellationToken);
         if (holders.Count > 0)
             logger.LogInformation("Series {Series}: woken by {Kind} on ticket {Ticket}",
