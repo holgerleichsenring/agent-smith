@@ -26,7 +26,7 @@ public sealed class SeriesBudgetQuestion(ISeriesRunStore store, AgentSmithConfig
             r => r.BudgetAsked || Blocked(r) ? r : r with { Question = asked, BudgetAsked = true }, ct);
         if (kept is null) return;
         beat.Record = kept;
-        if (kept.Question?.Id == asked.Id) beat.Said.Add(SeriesQuestionText.Asked(asked, null));
+        if (kept.Question?.Id == asked.Id) beat.Said.Add(SeriesQuestionText.Asked(asked));
     }
 
     /// <summary>Settles an answer that is exactly one of the choices; for any other it clears the ask, so a later beat

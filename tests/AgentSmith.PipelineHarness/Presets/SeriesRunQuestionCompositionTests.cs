@@ -132,6 +132,9 @@ public sealed class SeriesRunQuestionCompositionTests
 
         result.Should().BeOfType<Conflict<string>>().Which.Value.Should().Contain($"series {run.Series}");
         transport.VerifyNoOtherCalls();
+        // 3532e: the run's own read names the series, so its page shows the question read-only
+        var checkpoint = await run.Services.GetRequiredService<IRunCheckpointStore>().GetByRunIdAsync(RunId, default);
+        (await run.Services.GetRequiredService<SeriesLedRun>().QuestionOfAsync(checkpoint, default))!.SeriesId.Should().Be(run.Series);
         (await run.Services.GetRequiredService<IDialogueAnswerInbox>().GetAsync(RunId, QuestionId, default)).Should().BeNull();
     }
 

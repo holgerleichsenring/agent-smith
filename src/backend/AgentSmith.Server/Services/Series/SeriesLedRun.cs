@@ -20,6 +20,13 @@ public sealed class SeriesLedRun(ISeriesRunStore store, AgentSmithConfig config)
         return Leads(series) ? series : null;
     }
 
+    /// <summary>2026-11-27-3532e: the parked question as the run's page reads it, naming the series that leads it.</summary>
+    public async Task<Events.PendingQuestionInfo?> QuestionOfAsync(AgentSmith.Contracts.Models.RunCheckpointRecord? checkpoint, CancellationToken ct)
+    {
+        if (Events.PendingQuestionInfo.FromCheckpoint(checkpoint) is not { } question) return null;
+        return await LeaderAsync(checkpoint!.Project, checkpoint.TicketId, ct) is { } series ? question with { SeriesId = series.Id } : question;
+    }
+
     /// <summary>Whether this series leads its tickets' run questions.</summary>
     public bool Leads(SeriesRunRecord? series) => SeriesLeads.Questions(series, config.Dialogue.SeriesMasterBudgetUsd);
 

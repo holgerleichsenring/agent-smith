@@ -2,19 +2,18 @@ using AgentSmith.Contracts.Series;
 
 namespace AgentSmith.Application.Services.Series;
 
-/// <summary>2026-11-17-0207c: how a series question reads in the conversation — the question, its choices, the
-/// recommendation and when it is taken by default — and how its default is said.</summary>
+/// <summary>2026-11-17-0207c: how a series question reads in the conversation — the question, the recommendation and when
+/// it is taken by default — and how its default is said. 2026-11-27-3532e: it is the master's plain chat message with one short
+/// choices line — the page draws them as quick replies under the chat too, but a closed conversation, a pending decision
+/// and Work it out show none — and a ticket's run never asks here (3532b).</summary>
 public static class SeriesQuestionText
 {
-    /// <summary>The relayed or own question as the conversation reads it; 2026-11-23-31dch: a plan question says so.</summary>
-    public static string Asked(SeriesQuestion question, string? ticketKey, bool aboutThePlan = false)
+    /// <summary>The master's own question as the conversation reads it.</summary>
+    public static string Asked(SeriesQuestion question)
     {
         ArgumentNullException.ThrowIfNull(question);
-        var text = (ticketKey is null ? "One decision only you can make:"
-                : aboutThePlan ? $"{ticketKey} asks about the plan — a decision only you can make:"
-                : $"{ticketKey} asks a decision only you can make:")
-            + $"\n\n**{question.Text}**";
-        if (question.Choices.Count > 0) text += $"\n\nChoices: {string.Join(" · ", question.Choices)}";
+        var text = $"One decision only you can make:\n\n**{question.Text}**";
+        if (question.Choices.Count > 0) text += $"\n\nChoices: {string.Join(" / ", question.Choices)}";
         if (question.Recommended is { } recommended) text += $"\n\nRecommended: {recommended}";
         return text + "\n\n" + (question.DeadlineAt is { } at
             ? $"If you don't answer, I take the recommendation at {at.UtcDateTime:HH:mm} UTC · or reply below."

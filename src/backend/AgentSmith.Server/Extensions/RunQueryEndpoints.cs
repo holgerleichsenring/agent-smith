@@ -90,7 +90,7 @@ internal static class RunQueryEndpoints
     private static async Task<IResult> GetRunAsync(
         string runId, RunRepository runs, ICapacityQueue capacityQueue,
         IRunCheckpointStore checkpoints,
-        ICapacityBudget capacityBudget, IActiveRunLease activeRunLease, TimeProvider clock,
+        ICapacityBudget capacityBudget, IActiveRunLease activeRunLease, TimeProvider clock, Services.Series.SeriesLedRun led,
         CancellationToken cancellationToken)
     {
         var run = await runs.GetRunDetailAsync(runId, cancellationToken);
@@ -100,12 +100,10 @@ internal static class RunQueryEndpoints
         // cannot be "queued to resume" on the list and "needs you" on its own page.
         var relaunching = await RunQueuePlace.RelaunchingAsync(
             activeRunLease, clock, positions, [run], cancellationToken);
-        // p0327: the parked run's pending question rides the detail snapshot so
-        // the dashboard renders it with the answer affordance.
+        // p0327: the parked run's pending question rides the detail snapshot with the answer affordance — 3532e: or the series
+        // whose master holds it, which the page shows read-only.
         var pendingQuestion = run.Status == "waiting_for_input"
-            ? PendingQuestionInfo.FromCheckpoint(
-                await checkpoints.GetByRunIdAsync(runId, cancellationToken))
-            : null;
+            ? await led.QuestionOfAsync(await checkpoints.GetByRunIdAsync(runId, cancellationToken), cancellationToken) : null;
         // p0336: the capacity calculation (footprint + reservation) for the panel.
         var capacity = await capacityBudget.GetAsync(runId, cancellationToken);
         // p0344b: the detail additionally serves the persisted run story

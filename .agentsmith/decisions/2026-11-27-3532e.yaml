@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-3532e
+
+decisions:
+  - category: Architecture
+    chose: "The pinned question card (SeriesQuestionCard over DialogQuestionCard) goes; the master's question is its plain chat message, and its choices are small quick-reply buttons under the message list (SeriesQuickReplies) that send the choice as the next message through dialog.send, hidden once sent and back if the send failed, for runs.control only"
+    over: "Keeping the bordered card pinned above the input; drawing the choices inside the transcript entry"
+    reason: "decider: operator. In the series chat the master's question is a normal message, not a pinned bordered card; choices may be small quick-reply buttons under it. Reuse the existing chat rendering and send path."
+  - category: Implementation
+    chose: "SeriesQuestionText.Asked keeps one short 'Choices: a / b' line under the question (the recommendation and the deadline line stay) and takes the question alone; the quick replies stay optional under it"
+    over: "Dropping the choice list from the message (the first cut)"
+    reason: "decider: claude (review). Where no buttons are drawn — a closed conversation, a pending decision, Work it out's transcript — the choices would be invisible, and the budget question settles only on an exact choice. The ticket and plan wording went with 3532b."
+  - category: Architecture
+    chose: "The run page shows a series-led question read-only — its text and a link to the series chat — read from the run's own read (PendingQuestionInfo.SeriesId, set by SeriesLedRun on GET /api/runs/{id}) and else from the ticket's hold (useRunTicket exposes summary.hold), and its Now label says the series master has the question; a series of one keeps the answer form"
+    over: "Keeping PendingQuestionCard's answer form on the run page for every waiting run"
+    reason: "decider: operator. The ticket page may show the question read-only with a link to the series chat; the run page answers no series-led run (the endpoint refuses it since 3532b). decider: claude (review): the ticket read arrives later or not at all, so the run's own read carries it."
+  - category: Implementation
+    chose: "The Needs-you strip leaves out a ticket whose hold is a question addressed to nobody (the master's, 3532b); the block keeps the status bar's anchor (SERIES_QUESTION_ID) and the 'N need you' count still counts the master's own question"
+    over: "Matching the series question's ticket key (questionTicket, removed with the relay)"
+    reason: "decider: operator. 'N need you' and the strip may keep pointing to it; a question the master holds is no person's line."
+  - category: Implementation
+    chose: "The block stands while the series' question or a person's ticket waits — the rule openQuestionCount counts by; where no quick replies are drawn the question is one line (SeriesQuestionLine): over an open chat a one-line pointer, where no chat is drawn (gone or closed) the question in Markdown with its choices and the recommended one"
+    over: "Hiding the block once a reply was sent; an empty anchor block; nothing where no transcript is drawn"
+    reason: "decider: claude (review). The status bar's 'N need you' link must never land on an empty block, and the page must not hide what the series waits on."
+  - category: Implementation
+    chose: "The recommended quick reply carries a visually hidden '(recommended)' and the replies are keyed by index"
+    over: "Colour alone; keying by label"
+    reason: "decider: claude (review). A screen reader hears which one is recommended; two equal labels do not collide."
+  - category: Scope
+    chose: "The card-only dictionary keys (series.chat.ticketAsks, seriesAsks, answerBelow, questionHint, questionNoControl, questionClosed, dialog.question.showAll/showLess), DialogQuestionCard's label, hint, recommended and clamp props, the card and .dq-clamp/.dq-more CSS and the dashboard's questionTicket field are removed; ThreadMessages stays as it is"
+    over: "Leaving them unused"
+    reason: "decider: claude. Nothing reads them after the card went; ThreadMessages already draws a conversation-routed question read-only with the series link."

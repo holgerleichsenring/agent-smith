@@ -182,6 +182,17 @@ public sealed class SeriesQuestionsTests
         again.MasterAnswered.Should().BeTrue();
     }
 
+    // 2026-11-27-3532e: the question is a plain chat message with one short choices line — where no quick replies are drawn
+    // (a closed conversation, Work it out) the choices still read.
+    [Fact]
+    public void Asked_IsThePlainQuestion_WithOneChoicesLineAndItsRecommendation()
+    {
+        var text = SeriesQuestionText.Asked(Asked(0));
+
+        text.Should().Contain("**Keep the original deadline?**").And.Contain("\n\nChoices: keep / restart").And.Contain("Recommended: keep");
+        SeriesQuestionText.Asked(SeriesQuestions.Ask("Go on?", [], null, SeriesRecords.T, 120)).Should().NotContain("Choices:");
+    }
+
     [Fact]
     public void TicketMasterQuestion_RecommendedIndex_ReachesTheCheckpointQuestion()
     {

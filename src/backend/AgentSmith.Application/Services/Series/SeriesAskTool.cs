@@ -42,7 +42,7 @@ public sealed class SeriesAskTool(SeriesBeat beat, ISeriesRunStore store, int de
                 r => r with { Question = asked, MasterQuestionsAsked = r.MasterQuestionsAsked + (r.Question is { Answer: null } ? 0 : 1) },
                 ct) is { } kept) // 2026-11-25-9992k: one replacing a waiting question is not a second ask
             beat.Record = kept;
-        beat.Said.Add(SeriesQuestionText.Asked(asked, null));
+        beat.Said.Add(SeriesQuestionText.Asked(asked));
         return asked.DeadlineAt is { } at
             ? $"Asked. Without an answer the series takes \"{asked.Recommended}\" at {at:u}."
             : "Asked. It waits for the operator's answer.";
