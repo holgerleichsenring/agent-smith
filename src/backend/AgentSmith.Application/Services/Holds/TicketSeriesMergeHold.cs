@@ -9,12 +9,16 @@ namespace AgentSmith.Application.Services.Holds;
 /// </summary>
 public static class TicketSeriesMergeHold
 {
-    /// <summary>The ticket's pull requests merge next in its series: the person's one merge there.</summary>
+    /// <summary>The ticket's pull requests merge next in its series: the person's one merge there. 2026-11-27-e451: where the
+    /// master merges (<see cref="TicketHoldFacts.SeriesMasterMerges"/>) it is nobody's — the master merges it.</summary>
     public static TicketHold? Next(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
         if (facts.MergeStep is not { Wait: SeriesRunMergeWaits.Ready } step || facts.SeriesId is not { } series) return null;
         var after = facts.SeriesMergeOrder.SkipWhile(s => s.TicketId != step.TicketId).Skip(1).FirstOrDefault();
+        if (facts.SeriesMasterMerges)
+            return TicketHoldOf.Hold(facts, TicketHoldAddressees.Nobody, TicketHoldCases.Merging, new(TicketHoldActs.Series, series),
+                facts.OpenPullRequests?.CiSince ?? facts.EndedAt) with { Next = after?.Key };
         return TicketHoldOf.Hold(facts, TicketHoldAddressees.Merge, TicketHoldCases.MergeNext,
                 new(TicketHoldActs.Merge, series), facts.EndedAt)
             with { Names = facts.SeriesStartsOnMerge, Next = after?.Key };

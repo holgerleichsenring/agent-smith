@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-e451
+
+decisions:
+  - category: Architecture
+    chose: "A new nobody hold case `merging` for the series' ready step when the master merges; its kind stays `now`"
+    over: "Keeping merge_next and only changing its addressee; dropping the ready step's hold altogether"
+    reason: "decider: operator rule (2026-11-25-9992i, series-master.md: under end the merge into the series branch is the master's, nobody waits there). merge_next's words, title and Merge act all say a person merges, so a second case is the honest sentence; the kind `now` keeps SeriesJudgement.NewlyNext bringing the master back when a ticket becomes next."
+  - category: Scope
+    chose: "The master merges under review none as well as under end with a series branch (SeriesBeatDue.MasterMerges); each keeps the person's merge"
+    over: "End only, as the incident showed"
+    reason: "decider: documented rule — SeriesOpening.cs, SeriesPolicy.cs and series-master.md say under none the master merges on green; a person's merge hold there was the same defect. PersonMerges is now read from the same rule, so the hold and the wake cannot disagree."
+  - category: Architecture
+    chose: "Merging only while the master can act (SeriesLeads.Merges: active, loop not failed, budget left); else the person's merge_next stays"
+    over: "Merging for every series whose review makes the merge the master's"
+    reason: "decider: claude, from the diff review — a stopped series or a failed master would otherwise hide a stranded pull request behind 'the master merges it'. A paused series still reads as merging; the operator paused it."
+  - category: Implementation
+    chose: "A head that reported no CI for merge.ci_settle_seconds wakes the master once per pull request and head, verdict none, through the existing settle rule (PrRecordCiRead.Settled)"
+    over: "Waking on the first none read; making the run end's wake loud again"
+    reason: "decider: claude — 'nothing yet' is not 'nothing configured' (merge.ci_settle_seconds' own reason), so a first none must not wake; the run end stays quiet as 96aea decided, the CI verdict (now including none) being the decision."
+  - category: Implementation
+    chose: "The CI watch reads a none head for twice merge.ci_settle_seconds after it was first seen none"
+    over: "Reading none heads forever; leaving them to the periodic PR re-read"
+    reason: "decider: claude — the watch stopped at the first none read, so the settled read never came promptly. CiAtTicks keeps the first-seen time while state and head stay, so the window ends by itself; it holds while merge.ci_poll_seconds is under twice the settle, past which the periodic re-read still sees it. No new limit: both values exist."
+  - category: Scope
+    chose: "A long merging wait is not escalated to the admin"
+    over: "Adding merging to TicketHoldEscalations"
+    reason: "decider: claude — no evidence a master that is woken leaves a merge; a master that cannot act already falls back to the person's merge. Not built until a run shows the need."
+  - category: Architecture
+    chose: "While a series master leads a ticket (SeriesLeads.PullRequests, a series of one included), its PR conflict and draft are the master's nobody holds master_refresh and master_draft"
+    over: "Keeping pr_conflict and pr_draft as a person's decision inside a series; reusing the refreshing case before any refresh runs"
+    reason: "decider: operator (coordinator message, 2026-11-27) — in a series a conflict is the master's refresh_branch and a draft its merge_pull_request, never a person's step; only what the master hands over through ask_human is. A master that cannot act gives both back to the person. 'refreshing' would claim a run that has not started."
+  - category: Scope
+    chose: "Red CI, a refused refresh and a host approval stay a person's hold"
+    over: "Making every pull-request hold of a led ticket the master's"
+    reason: "decider: claude — the operator named conflicts, the merge and drafts; a host approval is a person's by the host's rule, and red CI and a refused refresh carry evidence a person may need to see. Revisit with a live case."
+  - category: Implementation
+    chose: "An overdue model wait stays the admin's, with the agents' settings as its act and a sentence that an admin can raise agent.max_concurrent_runs, or the run starts once a place frees"
+    over: "Dropping the escalation; leaving it as a generic 'reported to the admin'"
+    reason: "decider: claude, asked by the operator to decide — waiting for a model place is capacity: no ticket decision lifts it, but a wait past holds.escalate_after_minutes is a real signal and only the admin's setting changes it. It is an admin hold (Stuck, listed under Needs you only for admins), now saying what lifts it."
+  - category: Implementation
+    chose: "The master's conflict and draft holds are read among the waits (TicketPullRequestHold.RefreshWait), and a led draft blocks the merge hold"
+    over: "Returning them from the decide step where pr_conflict and pr_draft sit"
+    reason: "decider: claude, from the diff review — a nobody hold in the decide step would hide a person's own hold behind it (an edited text, red CI, a refused start). merging, master_refresh and master_draft are not escalated when the master leaves them; a master that cannot act gives them back to the person."

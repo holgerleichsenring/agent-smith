@@ -53,7 +53,8 @@ internal static class TicketHoldSeriesRead
     {
         var order = mergeOrder.ToDictionary(s => s.TicketId, StringComparer.Ordinal);
         read.Plans[record.Id] = new TicketHoldSeriesPlan(mergeOrder,
-            [.. record.Tickets.Where(t => waiting.Contains(t.TicketId)).Select(t => t.Key).Distinct(StringComparer.Ordinal)]);
+            [.. record.Tickets.Where(t => waiting.Contains(t.TicketId)).Select(t => t.Key).Distinct(StringComparer.Ordinal)])
+        { MasterMerges = SeriesLeads.Merges(record, budget), MasterLeads = SeriesLeads.PullRequests(record, budget) }; // 2026-11-27-e451
         foreach (var ticket in record.Tickets)
         {
             var key = (project, ticket.TicketId);

@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-e451
+goal: "A led series ticket's PR merge, conflict and draft are the master's nobody holds, not Needs you; a settled no-CI head wakes the master; an overdue model wait names its setting."
+
+applies_to: "default (Application holds + series, Server rework/holds, Persistence CI watch, series-master prompt, dashboard hold words)"
+
+requires: [2026-11-25-96aea, 2026-11-25-96aec, 2026-11-23-849e]
+
+facts:
+  - claim: "The series' ready merge step is always a person's merge hold (addressee merge), whatever the series' review; the hold reads no review at all."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketSeriesMergeHold.cs:18; src/backend/AgentSmith.Application/Services/Holds/TicketHoldFacts.cs"
+  - claim: "A person's hold puts the ticket in Needs you on the tickets page, and the series page and its strip read the same holds."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:94; src/backend/AgentSmith.Server/Services/Series/SeriesRunHolds.cs"
+  - claim: "A ticket PR into the series branch is a ready merge step like one into the default branch."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunPullRequests.cs:30"
+  - claim: "A successful run end that left a pull request is recorded quietly, the CI verdict that follows being the decision."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNoActTail.cs:51"
+  - claim: "Only a green, red or not-started CI wakes the master; a CI that reports nothing (none) never does."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/SeriesPrChange.cs:43"
+  - claim: "The CI watch stops reading a head whose CI is none, so even a settled none is not re-read until the periodic PR re-read."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrRecordCiDue.cs:25"
+  - claim: "A conflict on an open pull request, and a draft, are a person's decision hold whether or not a series master leads the ticket, though a conflict wakes the master (pr wake 'conflicts with its base') and refresh_branch is its act."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketPullRequestHold.cs:49; src/backend/AgentSmith.Application/Services/Holds/TicketHostStepHold.cs:24; src/backend/AgentSmith.Server/Services/Rework/SeriesPrChange.cs"
+  - claim: "An overdue model wait escalates to the admin with no act and the generic 'reported to the admin' sentence."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketHoldEscalations.cs:18; src/dashboard/src/components/tickets/holds/holdWords.ts"
+  - claim: "The master is told a ticket under end merges once its build and tests are green; nothing says a PR with no CI counts."
+    evidence: "src/backend/AgentSmith.Application/Prompts/Resources/series-master.md:74"
+
+scope:
+  in: |
+    The master merges a series' ticket pull requests when the series runs under review none, or under end with a series
+    branch (SeriesBeatDue.MasterMerges). Then the ready step's hold is the new nobody case `merging` (act: the series), not
+    merge_next: it is not Needs you, the series page offers no person's Merge, its kind stays `now` so NewlyNext still brings
+    the master back, and the master's words say the merge is its own. Under each, and a series of one under each or end, the
+    person's merge hold stays, and so does it while the master cannot act (stopped, loop failed, budget spent: SeriesLeads.Merges).
+    A head that has reported no CI for merge.ci_settle_seconds (the head stood since it moved, or since the PR opened) wakes
+    the master once per PR and head, verdict none; the CI watch reads a none head for twice the settle seconds after it was
+    first seen none, so that settled read happens. A series of one whose person merges takes no turn for a none verdict, as
+    for green. The master's prompt says a PR that reports no CI at all merges under end as a green one does.
+    Folded in from a second live case (a conflict after siblings landed on the series branch showed under Needs you): while a
+    series master leads the ticket (SeriesLeads.PullRequests: active, loop not failed, budget left; a series of one included),
+    a conflict is the nobody case master_refresh and a draft master_draft, both acting on the series; otherwise the person's
+    pr_conflict and pr_draft stay. Both are read among the waits (after plan and merge), so a person's own hold still
+    wins. A conflict already wakes the master; a test proves its refresh_branch reaches the refresh act.
+    An overdue model wait stays the admin's (capacity, not a ticket decision): its act opens /config/agents and its sentence
+    says an admin can raise agent.max_concurrent_runs, or the run starts once a place frees up.
+  out: "Escalating a long `merging` wait to the admin; review each multi-ticket series (its merge question stays); red CI, a refused refresh and a host approval stay a person's (the master hands over what it cannot do through ask_human)."
+
+steps:
+  - id: hold
+    action: "SeriesBeatDue.MasterMerges, with PersonMerges read from it; TicketHoldCases.Merging; TicketHoldFacts.SeriesMasterMerges from TicketHoldSeriesPlan (TicketHoldSeriesRead); TicketSeriesMergeHold.Next returns the nobody merging hold for it; SeriesTicketState kind now; SeriesTicketWords."
+  - id: wake
+    action: "SeriesPrChange wakes on a settled none (once-key ci-none:<pr>:<head>), the settle rule shared with PrRecordCiRead; PrReviewRecordRefresh passes merge.ci_settle_seconds; PrRecordCiDue reads a none head for 2x settle; PersonMerges treats none like green."
+  - id: led-pr-steps
+    action: "SeriesLeads.PullRequests, TicketHoldFacts.SeriesMasterLeads; TicketPullRequestHold.Conflict and TicketHostStepHold.Draft return master_refresh / master_draft for a led ticket; SeriesTicketWords; TicketHoldEscalations gives an overdue model wait the agents' settings act."
+  - id: prompt-dashboard
+    action: "series-master.md: no CI counts as green under end; dashboard: case merging in TicketHold and its sentence (en, de)."
+  - id: tests
+    action: "Composition: a series-under-end ticket PR into the series branch with no CI is a nobody merging hold, not Needs you, no NextMerge; a settled none read wakes the series once, the beat hands it to the master and its merge_pull_request reaches the merge act. Unit: SeriesPrChange none settled/unsettled, PrRecordCiDue none window, hold reader merging."
+
+tests:
+  - "TicketHoldListTests.List_ASeriesUnderEnd_ItsReadyPullRequestIntoTheSeriesBranch_IsTheMastersMerge_NotYourMove"
+  - "TicketHoldListTests.List_ASeriesUnderEndWhoseMasterFailed_ItsReadyPullRequest_StaysYourMove"
+  - "SeriesMasterPullRequestWakeTests.ASettledNoCiHead_WakesTheMaster_WhoseMergeReachesTheMergeAct"
+  - "SeriesMasterPullRequestWakeTests.AConflictAppearing_WakesTheMaster_WhoseRefreshReachesTheRefreshAct"
+  - "TicketHoldListTests.List_ASeriesTicketsConflictAndDraft_AreTheMastersSteps_WhileItCanAct"
+  - "TicketHoldEscalationTests.Escalation_At59MinutesNobody_At61AdminWithValueAndKey"
+  - "TicketHoldReaderTests.Nobody_ALedTicketsConflictOrDraft_IsTheMasters_APersonsHoldStillWins"
+  - "SeriesPrChangeTests.ASettledNoCi_WakesOncePerHead"
+  - "SeriesPrChangeTests.CiDue_ANoneHead_IsReadInsideTheSettleWindowOnly"
+  - "TicketHoldReaderTests.Merge_TheMastersSeries_IsNobodysMerging"
+  - "TicketHoldReaderTests.SeriesBeatDue_MasterMerges_UnderNoneAndUnderEndWithABranch_NotUnderEach"
+
+done:
+  - "A ticket PR of a series under end, into the series branch, green or with no CI, holds as nobody's merging and never as Needs you (test)."
+  - "Under merging the series page and its list row name no person's next merge (SeriesRunTickets.NextMerge is null) (test)."
+  - "A no-CI head settled past merge.ci_settle_seconds wakes the master once, and the beat's merge_pull_request reaches the merge act (test)."
+  - "A led series ticket's conflict and draft are nobody's master_refresh / master_draft, a person's once the master cannot act (test)."
+  - "A conflict appearing wakes the master and its refresh_branch reaches the refresh act (test)."
+  - "An overdue model wait's act opens the agents' settings and its sentence names agent.max_concurrent_runs (tests)."
+  - "dotnet build, the full suite and the dashboard tests and build are green."

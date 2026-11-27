@@ -10,18 +10,26 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// standalone ticket being a series of one) are read for their master — while their head's CI is unread, on an older head,
 /// or pending or not started since after <see cref="PendingSinceTicks"/> — twice merge.ci_pending_seconds back, so the read
 /// past the deadline that wakes the master once (96aec) still happens, and the polling of a CI that never decides ends.
+/// 2026-11-27-e451: and a head whose CI is none since after <see cref="NoneSinceTicks"/> — twice merge.ci_settle_seconds back,
+/// so the read once the head settled, which tells the master it has no CI, happens (while merge.ci_poll_seconds stays under
+/// that window; past it the periodic re-read sees it).
 /// </summary>
 public sealed record PrRecordCiDue(long CheckedBeforeTicks, long PendingSinceTicks)
 {
     public IReadOnlyCollection<string> SeriesTickets { get; init; } = [];
 
+    /// <summary>2026-11-27-e451: a none head first seen none after this is read on; null reads none heads no more.</summary>
+    public long? NoneSinceTicks { get; init; }
+
     public Expression<Func<PrReviewRecord, bool>> Where(string project)
     {
         var (checkedBefore, pendingSince) = (CheckedBeforeTicks, PendingSinceTicks);
+        var noneSince = NoneSinceTicks ?? long.MaxValue;
         var series = SeriesTickets;
         return r => r.Project == project && r.State == PrReviewStates.Open && r.CheckedAtTicks < checkedBefore
             && series.Contains(r.TicketId)
             && (r.CiState == null || r.CiHeadSha != r.HeadSha
-                || ((r.CiState == CiStates.Pending || r.CiState == CiStates.NotStarted) && (r.CiAtTicks == null || r.CiAtTicks > pendingSince)));
+                || ((r.CiState == CiStates.Pending || r.CiState == CiStates.NotStarted) && (r.CiAtTicks == null || r.CiAtTicks > pendingSince))
+                || (r.CiState == CiStates.None && r.CiAtTicks > noneSince));
     }
 }

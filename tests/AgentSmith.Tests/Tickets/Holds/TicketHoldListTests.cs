@@ -64,6 +64,80 @@ public sealed class TicketHoldListTests : IDisposable
         next.Hold.Next.Should().Be("SCRUM-2", "2026-11-23-849e: the step after it");
     }
 
+    // 2026-11-27-e451: under review end the master merges a ticket into the series branch — a ready pull request there with no CI
+    // (no build policy on the branch) or a green one is the master's merge, never Your move, and the series page offers no Merge.
+    [Theory]
+    [InlineData(CiStates.None)]
+    [InlineData(CiStates.Green)]
+    public async Task List_ASeriesUnderEnd_ItsReadyPullRequestIntoTheSeriesBranch_IsTheMastersMerge_NotYourMove(string ci)
+    {
+        const string branch = "agent-smith/series/sr-1";
+        await _h.Services.GetRequiredService<ISeriesRunStore>().OpenAsync(new SeriesRunRecord("sr-1", "conv-sr-1", "alpha", "operator", true,
+            SeriesRunStates.Running, [new SeriesTicket("1", "SCRUM-1", "Ticket 1", false, T), new SeriesTicket("2", "SCRUM-2", "Ticket 2", false, T)], T)
+        { IntegrationBranch = branch, Review = ReviewMode.End }, default);
+        var first = Record("1", ci);
+        var second = Record("2", ci);
+        first.TargetBranch = second.TargetBranch = branch;
+        await _h.AddAsync(Run("r-1", "1"), Step("r-1"), first, Run("r-2", "2"), Step("r-2"), second, Requires("2", "1"));
+
+        var list = await ListAsync();
+        await using var scope = _h.Services.CreateAsyncScope();
+        var series = (await scope.ServiceProvider.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default))!;
+
+        var next = list.Tickets.Single(t => t.TicketId == "1");
+        (next.Bucket, next.Hold!.Addressee, next.Hold.Case, next.Hold.Act).Should().Be((TicketBucket.Working, TicketHoldAddressees.Nobody,
+            TicketHoldCases.Merging, new TicketHoldAct(TicketHoldActs.Series, "sr-1")));
+        next.Hold.Next.Should().Be("SCRUM-2");
+        list.Counts.NeedsYou.Should().Be(0, "a merge into the series branch is the master's, no person waits there");
+        series.MergeOrder.First().Wait.Should().Be(AgentSmith.Application.Services.Series.SeriesRunMergeWaits.Ready);
+        series.NextMerge.Should().BeNull("the series page offers no person's merge");
+        series.Tickets.Single(t => t.TicketId == "1").Kind.Should().Be(AgentSmith.Application.Services.Series.SeriesTicketKinds.Now,
+            "it is still next, so a change to it brings the master back (SeriesJudgement.NewlyNext)");
+    }
+
+    // 2026-11-27-e451: in a series its master leads, a conflict on a ticket's pull request is the master's refresh and a draft the
+    // master's to publish — nobody's; once the master cannot act (its loop failed) both are a person's decision again.
+    [Theory]
+    [InlineData(false, TicketBucket.Working, TicketHoldAddressees.Nobody, TicketHoldCases.MasterRefresh, TicketHoldCases.MasterDraft)]
+    [InlineData(true, TicketBucket.NeedsYou, TicketHoldAddressees.Decide, TicketHoldCases.PrConflict, TicketHoldCases.PrDraft)]
+    public async Task List_ASeriesTicketsConflictAndDraft_AreTheMastersSteps_WhileItCanAct(bool failed, string bucket, string addressee,
+        string conflictCase, string draftCase)
+    {
+        const string branch = "agent-smith/series/sr-1";
+        await _h.Services.GetRequiredService<ISeriesRunStore>().OpenAsync(new SeriesRunRecord("sr-1", "conv-sr-1", "alpha", "operator", true,
+            SeriesRunStates.Running, [new SeriesTicket("1", "SCRUM-1", "Ticket 1", false, T), new SeriesTicket("2", "SCRUM-2", "Ticket 2", false, T)], T)
+        { IntegrationBranch = branch, Review = ReviewMode.End, MasterFailedAt = failed ? T : null }, default);
+        var conflicting = Record("1", CiStates.Green);
+        conflicting.HasConflicts = true;
+        conflicting.ConflictsAtTicks = T.UtcTicks;
+        var draft = Record("2", CiStates.Green);
+        draft.IsDraft = true;
+        conflicting.TargetBranch = draft.TargetBranch = branch;
+        await _h.AddAsync(Run("r-1", "1"), Step("r-1"), conflicting, Run("r-2", "2"), Step("r-2"), draft);
+
+        var row = (await ListAsync()).Tickets.ToDictionary(t => t.TicketId);
+
+        (row["1"].Bucket, row["1"].Hold!.Addressee, row["1"].Hold!.Case).Should().Be((bucket, addressee, conflictCase));
+        (row["2"].Bucket, row["2"].Hold!.Addressee, row["2"].Hold!.Case).Should().Be((bucket, addressee, draftCase));
+    }
+
+    // 2026-11-27-e451: a master that cannot act (its loop failed) merges nothing — the ready pull request stays a person's merge.
+    [Fact]
+    public async Task List_ASeriesUnderEndWhoseMasterFailed_ItsReadyPullRequest_StaysYourMove()
+    {
+        const string branch = "agent-smith/series/sr-1";
+        await _h.Services.GetRequiredService<ISeriesRunStore>().OpenAsync(new SeriesRunRecord("sr-1", "conv-sr-1", "alpha", "operator", true,
+            SeriesRunStates.Running, [new SeriesTicket("1", "SCRUM-1", "Ticket 1", false, T), new SeriesTicket("2", "SCRUM-2", "Ticket 2", false, T)], T)
+        { IntegrationBranch = branch, Review = ReviewMode.End, MasterFailedAt = T }, default);
+        var first = Record("1", CiStates.None);
+        first.TargetBranch = branch;
+        await _h.AddAsync(Run("r-1", "1"), Step("r-1"), first, Run("r-2", "2"), Step("r-2"));
+
+        var next = (await ListAsync()).Tickets.Single(t => t.TicketId == "1");
+
+        (next.Bucket, next.Hold!.Case).Should().Be((TicketBucket.NeedsYou, TicketHoldCases.MergeNext));
+    }
+
     // 2026-11-23-849e: the series page, its list row and the ticket's hold share one rule — a ready step whose CI still runs
     // is no merge for a person, and the next merge is named only while the hold is that merge.
     [Fact]

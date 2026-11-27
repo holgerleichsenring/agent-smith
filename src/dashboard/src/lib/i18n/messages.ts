@@ -1211,6 +1211,11 @@ export const coreMessages = {
     de: "{wait}, länger als {minutes} Minuten ({key}). An den Admin gemeldet.",
   },
   "hold.title.escalated": { en: "Reported to the admin", de: "An den Admin gemeldet" },
+  // 2026-11-27-e451: an overdue model wait is capacity, not a ticket decision — it names the setting that lifts it.
+  "hold.escalated.model_wait": {
+    en: "{wait}, longer than {minutes} minutes ({key}): every run place of the model is taken. An admin can raise the agent's agent.max_concurrent_runs in Settings, or the run starts once a place frees up.",
+    de: "{wait}, länger als {minutes} Minuten ({key}): alle Laufplätze des Modells sind belegt. Ein Admin kann agent.max_concurrent_runs des Agenten in den Einstellungen erhöhen, sonst startet der Lauf, sobald ein Platz frei wird.",
+  },
   "hold.sentence.queued": {
     en: "Attempt {n} waits in the queue. Nothing for you to do.",
     de: "Versuch {n} wartet in der Warteschlange. Für dich gibt es nichts zu tun.",
@@ -1223,6 +1228,19 @@ export const coreMessages = {
   "hold.sentence.merge_after": {
     en: { one: "Merges after {names}. Nothing for you to do yet.", other: "Merges after {names}. Nothing for you to do yet." },
     de: { one: "Wird nach {names} gemergt. Für dich gibt es noch nichts zu tun.", other: "Wird nach {names} gemergt. Für dich gibt es noch nichts zu tun." },
+  },
+  // 2026-11-27-e451: the series' master merges it (review none, or end into the series branch).
+  "hold.sentence.merging": {
+    en: "Its pull request is next in the series' merge order; the series master merges it. Nothing for you to do.",
+    de: "Sein Pull Request ist in der Merge-Reihenfolge der Serie als Nächstes dran; der Series-Master mergt ihn. Für dich gibt es nichts zu tun.",
+  },
+  "hold.sentence.master_refresh": {
+    en: "Its pull request conflicts with its base; the series master brings it up to date. Nothing for you to do.",
+    de: "Sein Pull Request hat einen Konflikt mit seinem Basis-Branch; der Series-Master bringt ihn auf den neuen Stand. Für dich gibt es nichts zu tun.",
+  },
+  "hold.sentence.master_draft": {
+    en: "Its pull request is still a draft; the series master publishes it once its work is complete. Nothing for you to do.",
+    de: "Sein Pull Request ist noch ein Entwurf; der Series-Master veröffentlicht ihn, sobald die Arbeit fertig ist. Für dich gibt es nichts zu tun.",
   },
   "hold.sentence.retarget": {
     en: "Its pull request targets another ticket's branch; the series master moves it onto the series or default branch. Nothing for you to do.",

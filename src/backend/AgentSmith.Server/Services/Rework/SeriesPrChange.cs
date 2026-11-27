@@ -11,17 +11,20 @@ namespace AgentSmith.Server.Services.Rework;
 /// person's new approval or change request, 2026-11-26-5201f: the host starting to need a person's approval. The first read of a pull request its run opened, a conflict that cleared and a
 /// target that changed are recorded quietly (<see cref="SeriesWake.Quiet"/>). A head that moved, a running CI and a re-read
 /// that saw the same record nothing.
+/// <para>2026-11-27-e451: a head that reported no CI for merge.ci_settle_seconds has none — the verdict none, once per pull
+/// request and head (<see cref="NoCi"/>); before that, 'nothing yet' is not 'nothing configured' and records nothing.</para>
 /// </summary>
 public static class SeriesPrChange
 {
     public static IReadOnlyList<SeriesWake> Of(
-        PrReviewRecordView? stored, PrReviewRecord read, IReadOnlyList<PrReviewEntry> entries, int pendingSeconds)
+        PrReviewRecordView? stored, PrReviewRecord read, IReadOnlyList<PrReviewEntry> entries, int pendingSeconds, int settleSeconds)
     {
         ArgumentNullException.ThrowIfNull(read);
         ArgumentNullException.ThrowIfNull(entries);
         if (read.State is PrReviewStates.Unread or PrReviewStates.Unsupported) return [];
         var wakes = new List<SeriesWake>();
         if (Ci(stored, read) is { } ci) wakes.Add(new SeriesWake(SeriesWakeKinds.Ci, ci) { Verdict = read.CiState });
+        if (NoCi(stored, read, settleSeconds) is { } none) wakes.Add(none);
         if (SeriesPrCiDeadline.Of(stored, read, pendingSeconds) is { } late) wakes.Add(late);
         var waking = Waking(stored, read).ToList();
         if (waking.Count > 0) wakes.Add(Change(read, waking, quiet: false) with { Verdict = StateChanged(stored, read) ? read.State : null });
@@ -30,6 +33,18 @@ public static class SeriesPrChange
         var quiet = Quiet(stored, read).ToList();
         if (quiet.Count > 0) wakes.Add(Change(read, quiet, quiet: true));
         return wakes;
+    }
+
+    /// <summary>2026-11-27-e451: an open pull request whose head reports no CI and has stood for merge.ci_settle_seconds — it has
+    /// none, and merges as a green one does; raised once per pull request and head.</summary>
+    public static SeriesWake? NoCi(PrReviewRecordView? stored, PrReviewRecord read, int settleSeconds)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        if (read.State != PrReviewStates.Open || read.CiState != CiStates.None || read.CiHeadSha is not { } head) return null;
+        if (!PrRecordCiRead.Settled(read, stored, settleSeconds)) return null;
+        return new SeriesWake(SeriesWakeKinds.Ci, $"the CI of pull request {read.Url} on {SeriesPrCiDeadline.Short(head)} is none: nothing "
+            + $"reported for merge.ci_settle_seconds = {settleSeconds}, so it has no CI and merges as a green one does")
+        { Verdict = CiStates.None, Once = $"ci-none:{read.PrKey}:{head}" };
     }
 
     // A record that never read the host (its first read failed) knows no state yet.

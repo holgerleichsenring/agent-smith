@@ -26,7 +26,10 @@ public static class CiWatchSelection
             due.AddRange(await records.CiDueAsync(project.Name, new PrRecordCiDue(
                 (now - TimeSpan.FromSeconds(project.Merge.CiPollSeconds)).UtcTicks,
                 (now - 2 * TimeSpan.FromSeconds(project.Merge.CiPendingSeconds)).UtcTicks) // not a limit: past the deadline wake, read once more
-                { SeriesTickets = SeriesTickets(activeSeries, project.Name) }, ct));
+                {
+                    SeriesTickets = SeriesTickets(activeSeries, project.Name),
+                    NoneSinceTicks = (now - 2 * TimeSpan.FromSeconds(project.Merge.CiSettleSeconds)).UtcTicks, // 2026-11-27-e451
+                }, ct));
         return due;
     }
 

@@ -54,12 +54,22 @@ public static class SeriesBeatDue
     }
 
     /// <summary>2026-11-25-96aea: a series of one whose review lets a person decide the merge asks through its ticket's merge hold
-    /// (its Merge button and pull request link): a green CI, or its turning next to merge, is no turn of the master's.</summary>
+    /// (its Merge button and pull request link): a green CI, or its turning next to merge, is no turn of the master's.
+    /// 2026-11-27-e451: nor a CI that reports nothing (none), which merges as green does.</summary>
     public static bool PersonMerges(SeriesRunRecord record, SeriesWake? wake = null)
     {
         ArgumentNullException.ThrowIfNull(record);
-        return record.IsOne && record.EffectiveReview != ReviewMode.None
-            && (wake is null || wake.Kind == SeriesWakeKinds.Ci && wake.Verdict == Contracts.Reviews.CiStates.Green);
+        return record.IsOne && !MasterMerges(record)
+            && (wake is null || wake.Kind == SeriesWakeKinds.Ci && wake.Verdict is Contracts.Reviews.CiStates.Green or Contracts.Reviews.CiStates.None);
+    }
+
+    /// <summary>2026-11-27-e451: the master merges the series' ticket pull requests itself — under review none on green, under
+    /// end into the series branch; no person waits there. Under each a person approves (a series of one through its ticket's
+    /// merge hold, a filed series through the master's merge question).</summary>
+    public static bool MasterMerges(SeriesRunRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        return record.EffectiveReview == ReviewMode.None || record is { EffectiveReview: ReviewMode.End, IntegrationBranch: not null };
     }
 
     /// <summary>2026-11-25-9992g: the master's loop has not failed within dialogue.series_status_minutes.</summary>

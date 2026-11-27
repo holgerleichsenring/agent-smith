@@ -42,12 +42,14 @@ public sealed class TicketHoldEscalationTests
 
         var late = _reader.Of(Facts(RunStatuses.Running, 61) with { WaitingForModelSince = T })!;
 
-        late.Should().BeEquivalentTo(new TicketHold(TicketHoldAddressees.Admin, TicketHoldCases.ModelWait, null, T)
+        // 2026-11-27-e451: an overdue model wait is capacity — its act opens the agents, whose max_concurrent_runs lifts it
+        late.Should().BeEquivalentTo(new TicketHold(TicketHoldAddressees.Admin, TicketHoldCases.ModelWait,
+            new TicketHoldAct(TicketHoldActs.Settings, TicketHoldEscalations.AgentsSettingsPath), T)
         {
             Attempt = 2, Escalation = new TicketHoldEscalation(60, HoldsConfig.EscalateAfterMinutesKey),
         });
         late.Escalation!.Key.Should().Be("holds.escalate_after_minutes");
-        _reader.Of(Facts(RunStatuses.Queued, 61) with { EnqueuedAt = T })!.Escalation.Should().NotBeNull();
+        _reader.Of(Facts(RunStatuses.Queued, 61) with { EnqueuedAt = T })!.Should().Match<TicketHold>(h => h.Escalation != null && h.Act == null);
         _reader.Of(Facts("cancelled", 61) with { Interrupted = true, Restarting = true })!.Addressee.Should().Be(TicketHoldAddressees.Admin);
     }
 

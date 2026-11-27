@@ -30,7 +30,7 @@ public sealed class SeriesPrChangeTests
     };
 
     private static IReadOnlyList<SeriesWake> Of(PrReviewRecordView? stored, PrReviewRecord read, params PrReviewEntry[] entries) =>
-        SeriesPrChange.Of(stored, read, entries, pendingSeconds: 3600);
+        SeriesPrChange.Of(stored, read, entries, pendingSeconds: 3600, settleSeconds: 180);
 
     [Theory]
     [InlineData(CiStates.Green, "is green")]
@@ -110,6 +110,35 @@ public sealed class SeriesPrChangeTests
 
         due(Record("old")).Should().BeTrue();
         due(Record("new")).Should().BeFalse("a pending on the head itself polls only inside the window");
+    }
+
+    // 2026-11-27-e451: a head that reported no CI for merge.ci_settle_seconds has none — the master is woken with that verdict,
+    // once per pull request and head; before the settle, or on a head that just moved, nothing is said.
+    [Fact]
+    public void ASettledNoCi_WakesOncePerHead()
+    {
+        var settled = Of(Stored(ci: CiStates.None), Read(ci: CiStates.None, at: T.AddMinutes(4)));
+        settled.Should().ContainSingle().Which.Should().Match<SeriesWake>(w => w.Kind == SeriesWakeKinds.Ci && !w.Quiet
+            && w.Verdict == CiStates.None && w.Once == $"ci-none:k7:{Head}" && w.Text.Contains("is none"));
+        Of(Stored(ci: CiStates.None), Read(ci: CiStates.None, at: T.AddMinutes(2))).Should().BeEmpty("180 seconds have not passed");
+        Of(null, Read(ci: CiStates.None, at: T.AddMinutes(4))).Should().NotContain(w => w.Kind == SeriesWakeKinds.Ci, "a first read knows no head yet");
+        Of(Stored(ci: CiStates.None) with { HeadMovedAt = T.AddMinutes(3) }, Read(ci: CiStates.None, at: T.AddMinutes(4)))
+            .Should().BeEmpty("the head stood one minute since it moved");
+    }
+
+    [Fact]
+    public void CiDue_ANoneHead_IsReadInsideTheSettleWindowOnly()
+    {
+        var due = new AgentSmith.Infrastructure.Persistence.Repositories.PrRecordCiDue(CheckedBeforeTicks: 100, PendingSinceTicks: 50)
+            { SeriesTickets = ["7"], NoneSinceTicks = 20 }.Where("p").Compile();
+        PrReviewRecord Record(long firstSeenNone) => new()
+        {
+            Project = "p", TicketId = "7", State = PrReviewStates.Open, CheckedAtTicks = 10, HeadSha = "h",
+            CiState = CiStates.None, CiHeadSha = "h", CiAtTicks = firstSeenNone,
+        };
+
+        due(Record(30)).Should().BeTrue("first seen none inside twice the settle seconds");
+        due(Record(5)).Should().BeFalse("past the window a head with no CI is no longer polled");
     }
 
     // 2026-11-26-5201f: the host starting to need a person's approval wakes the master once, so it tells the person.

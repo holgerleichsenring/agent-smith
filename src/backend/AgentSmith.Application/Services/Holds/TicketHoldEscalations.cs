@@ -9,6 +9,9 @@ namespace AgentSmith.Application.Services.Holds;
 /// </summary>
 public static class TicketHoldEscalations
 {
+    /// <summary>2026-11-27-e451: where the agents' <c>agent.max_concurrent_runs</c> is set — an overdue model wait's act.</summary>
+    public const string AgentsSettingsPath = "/config/agents";
+
     /// <summary>The nobody cases that wait on something outside the run. A working attempt is bounded by its own wall time;
     /// a merge or a requirement still worked carries its own hold. 2026-11-23-849e: a CI that runs that long is a hung
     /// pipeline (or a lost read), the same "something outside the run is wrong"; 2026-11-23-0219: so is a build that never started.</summary>
@@ -30,6 +33,8 @@ public static class TicketHoldEscalations
             {
                 Addressee = TicketHoldAddressees.Admin,
                 Escalation = new TicketHoldEscalation(facts.EscalateAfterMinutes, HoldsConfig.EscalateAfterMinutesKey),
+                // 2026-11-27-e451: an overdue model wait is capacity — the act opens the agents, whose max_concurrent_runs lifts it
+                Act = hold.Case == TicketHoldCases.ModelWait ? new TicketHoldAct(TicketHoldActs.Settings, AgentsSettingsPath) : hold.Act,
             }
             : hold;
     }

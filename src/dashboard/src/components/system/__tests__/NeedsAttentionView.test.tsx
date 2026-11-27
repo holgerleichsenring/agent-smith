@@ -45,7 +45,7 @@ describe("NeedsAttentionView", () => {
 
     const sentence = await screen.findByTestId("needs-attention-sentence-alpha-41");
     expect(sentence.textContent).toMatch(
-      /^Waiting for the model since .+, longer than 60 minutes \(holds\.escalate_after_minutes\)\. Reported to the admin\.$/);
+      /^Waiting for the model since .+, longer than 60 minutes \(holds\.escalate_after_minutes\): every run place of the model is taken\. An admin can raise the agent.s agent\.max_concurrent_runs in Settings/); // 2026-11-27-e451
     expect(screen.getByTestId("needs-attention-ticket-alpha-41")).toHaveAttribute("href", "/tickets/alpha/41");
     expect(screen.getByTestId("needs-attention-ticket-alpha-41")).toHaveTextContent("SCRUM-41 · Orders");
     expect(screen.getByTestId("needs-attention-limit-alpha-41"))

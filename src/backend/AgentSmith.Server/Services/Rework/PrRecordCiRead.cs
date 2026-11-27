@@ -44,6 +44,11 @@ public sealed class PrRecordCiRead(ILogger<PrRecordCiRead> logger)
     /// <summary>2026-11-25-7a92a: the head this read sees is the one stored, and has stood since it moved there (or since the pull
     /// request opened) for merge.ci_settle_seconds — only then may a host call "nothing on this head" not started.</summary>
     internal static bool Settled(ResolvedProject project, PrReviewRecord record, PrReviewRecordView? stored) =>
+        Settled(record, stored, project.Merge.CiSettleSeconds);
+
+    /// <summary>2026-11-27-e451: the one settle rule, for the CI read and for the master's no-CI wake
+    /// (<see cref="SeriesPrChange"/>) alike.</summary>
+    internal static bool Settled(PrReviewRecord record, PrReviewRecordView? stored, int settleSeconds) =>
         stored is { HeadSha: { } was } && was == record.HeadSha && (stored.HeadMovedAt ?? stored.StateAt) is { } since
-        && new DateTimeOffset(record.CheckedAtTicks, TimeSpan.Zero) - since >= TimeSpan.FromSeconds(project.Merge.CiSettleSeconds);
+        && new DateTimeOffset(record.CheckedAtTicks, TimeSpan.Zero) - since >= TimeSpan.FromSeconds(settleSeconds);
 }

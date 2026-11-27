@@ -15,4 +15,16 @@ public static class SeriesLeads
     public static bool Questions(SeriesRunRecord? record, decimal configuredBudgetUsd) =>
         record is { IsActive: true, MasterFailedAt: null } && (!record.IsOne || record.Conversation.Length > 0) // ecf2e
         && record.MasterCostUsd < record.BudgetUsd(configuredBudgetUsd);
+
+    /// <summary>2026-11-27-e451: whether the series leads its tickets' merges — its review makes them the master's
+    /// (<see cref="SeriesBeatDue.MasterMerges"/>), and it leads their pull requests (<see cref="PullRequests"/>). One that
+    /// cannot act leaves the merge to a person, so a stranded pull request never reads as merging.</summary>
+    public static bool Merges(SeriesRunRecord? record, decimal configuredBudgetUsd) =>
+        PullRequests(record, configuredBudgetUsd) && SeriesBeatDue.MasterMerges(record!);
+
+    /// <summary>2026-11-27-e451: whether the series' master leads its tickets' pull requests — a conflict (refresh_branch) and a
+    /// draft (merge_pull_request publishes it) are its steps: the series is active, a series of one included, and its master can
+    /// act (its loop has not failed since it last judged, its budget is not spent).</summary>
+    public static bool PullRequests(SeriesRunRecord? record, decimal configuredBudgetUsd) =>
+        record is { IsActive: true, MasterFailedAt: null } && record.MasterCostUsd < record.BudgetUsd(configuredBudgetUsd);
 }
