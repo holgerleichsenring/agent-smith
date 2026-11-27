@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.233.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.232.0...v0.233.0) (2026-11-27)
+
+
+### Features
+
+* **series:** a series of one asks in its ticket's chat; a refused start and a self-written spec show (2026-11-27-ecf2e) ([f928254](https://github.com/holgerleichsenring/agent-smith/commit/f9282544fa6edc8be190a463712e5f1ead4dcfdb))
+* **series:** ticket rail, spec lanes with repo chips, no record-only PRs, landed series check, series-of-one chat (2026-11-27-ecf2) ([2cd173f](https://github.com/holgerleichsenring/agent-smith/commit/2cd173f7e3ca5a0bfbbac77734f2d00100a28a8b))
+
 ## [0.232.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.231.0...v0.232.0) (2026-11-27)
 
 
