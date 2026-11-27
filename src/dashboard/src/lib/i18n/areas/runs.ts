@@ -98,6 +98,9 @@ export const runsMessages = {
   // --- runs: the Now block (runNowLines, RunNow) ---
   "runs.log.now.live": { en: "Now — follows the agent", de: "Jetzt – folgt dem Agenten" },
   "runs.log.now.waiting": { en: "Waiting for your answer", de: "Wartet auf deine Antwort" },
+  // 2026-11-27-3532e: a series-led run's question is its series master's, answered from the series chat.
+  "runs.log.now.seriesHas": { en: "Its series master has the question", de: "Der Serien-Master hat die Frage" },
+  "runs.log.now.seriesChat": { en: "Open the series chat ›", de: "Zum Chat der Serie ›" },
   "runs.log.now.queued": { en: "Waiting for capacity", de: "Wartet auf Kapazität" },
   "runs.log.now.ended": { en: "How it ended", de: "Wie es endete" },
   "runs.log.now.working": { en: "working", de: "arbeitet" },

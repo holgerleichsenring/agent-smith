@@ -31,6 +31,19 @@ public sealed class SeriesWakesTests
                 .Which.Should().Be(wake with { At = SeriesRecords.T, TicketId = "43" });
     }
 
+    // 2026-11-27-3532b: a sweep repeats a deadline wake every scan; once its key is raised nothing is written again.
+    [Fact]
+    public async Task WakeAsync_ARaisedOnceKey_WritesNothing()
+    {
+        await _store.OpenAsync(SeriesRecords.Running() with { Raised = ["question-deadline:run-43:q"] }, default);
+        var version = _store.Records["sr-1"].Version;
+
+        (await Wakes.WakeAsync("sample", "43", new SeriesWake(SeriesWakeKinds.Run, "deadline") { Once = "question-deadline:run-43:q" }, default))
+            .Should().BeTrue();
+
+        _store.Records["sr-1"].Version.Should().Be(version, "the series row is not rewritten");
+    }
+
     [Fact]
     public async Task WakeAsync_NoSeriesHoldsTheTicket_RecordsNothing()
     {

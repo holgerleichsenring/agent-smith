@@ -13,6 +13,8 @@ using AgentSmith.Infrastructure.Persistence.Services.Translators;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Server.Services.Lifecycle;
 using AgentSmith.Server.Services.Rework;
+using AgentSmith.Server.Services.Series;
+using AgentSmith.Contracts.Series;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -109,6 +111,51 @@ public sealed class DialogueResumeSweeperTests : IDisposable
         answer.Answer.Should().Be("reject", "the persisted DefaultAnswer applies headless at the deadline");
         using var ctx = new AgentSmithDbContext(Options());
         ctx.QueuedTickets.Single().IsResume.Should().BeTrue();
+    }
+
+    // 2026-11-27-3532b: a series-led run's question is its master's — the deadline takes no default and no tracker comment
+    // answers it; the passed deadline wakes the master once instead.
+    [Fact]
+    public async Task Deadline_SeriesLed_NoDefaultTaken()
+    {
+        await ApplyAsync(Started("run-1"));
+        await ApplyAsync(Checkpointed("run-1", deadline: DateTimeOffset.UtcNow.AddMinutes(-1)));
+        await ApplyAsync(new RunFinishedEvent("run-1", "waiting_for_input", null, "Waiting", T));
+        var series = new AgentSmith.Tests.Series.InMemorySeriesRunStore();
+        await series.OpenAsync(new SeriesRunRecord("sr-1", "conv-1", "p1", "operator", true, SeriesRunStates.Running,
+            [new SeriesTicket("42", "#42", "work", false, T), new SeriesTicket("43", "#43", "more", false, T)], T), default);
+        var inbox = BuildInbox();
+
+        var resumed = await BuildSweeper(new AnsweringTicket(inbox), series: series).ScanOnceAsync(CancellationToken.None);
+        var version = series.Records["sr-1"].Version;
+        await BuildSweeper(new AnsweringTicket(inbox), series: series).ScanOnceAsync(CancellationToken.None);
+        series.Records["sr-1"].Version.Should().Be(version, "a raised deadline wake writes nothing on later scans");
+
+        resumed.Should().Be(0);
+        (await inbox.GetAsync("job-1", "q1", CancellationToken.None)).Should().BeNull("neither the default nor the comment answers it");
+        using var ctx = new AgentSmithDbContext(Options());
+        ctx.RunCheckpoints.Single().ResumedAt.Should().BeNull();
+        var wake = series.Records["sr-1"].Wakes.Should().ContainSingle("the deadline wakes the master once").Subject;
+        wake.Should().Match<SeriesWake>(w => w.Kind == SeriesWakeKinds.Run && w.TicketId == "42"
+            && w.Text.Contains("passed its deadline") && w.Text.Contains("its default \"reject\" was not taken"));
+    }
+
+    // 2026-11-27-3532b: a deadline handed to the master is never taken by default later, when the series stopped leading —
+    // a long-passed deadline would otherwise answer at once; a person answers it on the ticket page.
+    [Fact]
+    public async Task Deadline_HandedToTheMaster_SeriesStopped_NoDefaultTaken()
+    {
+        await ApplyAsync(Started("run-1"));
+        await ApplyAsync(Checkpointed("run-1", deadline: DateTimeOffset.UtcNow.AddDays(-2)));
+        await ApplyAsync(new RunFinishedEvent("run-1", "waiting_for_input", null, "Waiting", T));
+        var series = new AgentSmith.Tests.Series.InMemorySeriesRunStore();
+        await series.OpenAsync(new SeriesRunRecord("sr-1", "conv-1", "p1", "operator", true, SeriesRunStates.Stopped,
+            [new SeriesTicket("42", "#42", "work", false, T), new SeriesTicket("43", "#43", "more", false, T)], T)
+        { Raised = ["question-deadline:run-1:q1"] }, default);
+
+        (await BuildSweeper(series: series).ScanOnceAsync(CancellationToken.None)).Should().Be(0);
+
+        (await BuildInbox().GetAsync("job-1", "q1", CancellationToken.None)).Should().BeNull();
     }
 
     [Fact]
@@ -297,14 +344,19 @@ public sealed class DialogueResumeSweeperTests : IDisposable
     }
 
     private DialogueResumeSweeper BuildSweeper(
-        IParkedTicketDialogue? ticket = null, IRunListNudge? nudge = null)
+        IParkedTicketDialogue? ticket = null, IRunListNudge? nudge = null, ISeriesRunStore? series = null)
     {
         var checkpoints = new DbRunCheckpointStore(ScopeFactory());
         var inbox = BuildInbox();
         var resumer = new RunResumer(
             new DbCapacityQueue(ScopeFactory()), checkpoints, NullLogger<RunResumer>.Instance);
+        var store = series ?? new AgentSmith.Tests.Series.InMemorySeriesRunStore();
+        var led = new SeriesLedRun(store, new AgentSmith.Contracts.Models.Configuration.AgentSmithConfig());
+        var fallback = new ParkedAnswerFallback(ticket ?? new SilentTicket(), inbox, led,
+            new SeriesQuestionDeadline(new SeriesWakes(store, TimeProvider.System, NullLogger<SeriesWakes>.Instance), TimeProvider.System),
+            TimeProvider.System, NullLogger<ParkedAnswerFallback>.Instance);
         return new DialogueResumeSweeper(
-            BuildProvider(), checkpoints, inbox, resumer, ticket ?? new SilentTicket(),
+            BuildProvider(), checkpoints, inbox, resumer, ticket ?? new SilentTicket(), fallback, led,
             new UnanswerableParkReporter(
                 ScopeFactory(), checkpoints, _findings,
                 NullLogger<UnanswerableParkReporter>.Instance),

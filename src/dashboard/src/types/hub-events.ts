@@ -584,7 +584,7 @@ export interface PipelineStepsPlannedEvent extends RunEventBase {
  * p0466: a spec of the derived sequence changed standing — selected, through,
  * or stopped. The server projects it into the run's RunSpec row, which is what
  * makes a spec addressable once it has ended. `state` mirrors the C#
- * SpecRunState enum (0 not started, 1 in progress, 2 done, 3 failed).
+ * SpecRunState enum (0 not started, 1 in progress, 2 done, 3 failed, 4 handed back, 5 superseded).
  */
 export interface SpecStateChangedEvent extends RunEventBase {
   type: EventType.SpecStateChanged;
@@ -1006,6 +1006,8 @@ export interface PendingQuestionInfo {
   defaultAnswer: string | null;
   askedAt: string;
   answerDeadlineAt: string;
+  /** 2026-11-27-3532e: the series whose master holds the question, on the run's own read; absent where a person answers. */
+  seriesId?: string | null;
 }
 
 /** p0344b: server-computed state of one story beat. Derived from the typed

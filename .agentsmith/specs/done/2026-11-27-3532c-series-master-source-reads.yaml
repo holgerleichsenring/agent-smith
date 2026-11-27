@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-3532c
+goal: "The series master reads its project's repositories at the default, a ticket's or the series branch, the specs on them and its conversation's uploads, with the design turn's read tools."
+
+applies_to: "default (Application series master tool composition, Server source scope opener)"
+
+requires: [2026-11-18-9c1cd]
+
+facts:
+  - claim: "The design turn reads through FilesystemToolHost (read_file, grep_in_tree, find_files, directory_tree) over a map of read-only sandboxes, the path routed to the longest key followed by '/'; the design turn does not bound their results."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:84-139,567-573, src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:76-88"
+  - claim: "ISourceScopeSandboxFactory opens a lazy read-only scope of a repository at a revision; nothing spawns until the first read, disposing an unspawned scope costs nothing, and writes are refused."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ISourceScopeSandboxFactory.cs:6-27, src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeSandbox.cs:38-54"
+  - claim: "SeriesVerification opens one scope per repository at a published sha and disposes them after."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SeriesVerification.cs:45-53"
+  - claim: "A conversation's uploads are listed by ReferenceSetRepository and opened by IReferenceSetSandboxFactory as reference:<name>; the factory always holds keyed by conversation, address and set."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogReadOnlyScopes.cs:47-63, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:43, src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:103-113"
+  - claim: "The series master's tools are composed per beat with no sandboxes; the record carries project, conversation (empty for most series of one) and IntegrationBranch; a ticket branch is TicketBranchNamer.Compose(TicketId)."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:78-96, src/backend/AgentSmith.Contracts/Series/SeriesRunRecord.cs:11-13,79, src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:31-32"
+  - claim: "2026-11-18-9c1cd caps every master at twenty tools; the series master is at twenty."
+    evidence: "tests/AgentSmith.Tests/Series/SeriesMasterActLogTests.cs:110-122, tests/AgentSmith.Tests/Handlers/MasterToolSurfaceTests.cs:33-37, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:51"
+
+scope:
+  in: |
+    Per beat the series master gets read_file, grep_in_tree, find_files and directory_tree (FilesystemToolHost, unbounded as
+    the design turn has them) over: each repository of the project (project.Repos) at its default branch (<repo>/...), at
+    the branch of each member ticket a run or a pull request worked (the beat's facts: a latest run or a pull request;
+    <repo>@<ticket key>/..., opened at TicketBranchNamer.Compose of its id), at the series
+    branch when there is one (<repo>@series/...), and the conversation's uploads (reference:<name>/...) when it has a
+    conversation. Specs are the .agentsmith/specs files under those paths. Repository scopes are opened with no conversation
+    id, so they are the beat's and never a design conversation's held sandbox; an upload scope is taken from and given back
+    to its conversation's hold, as a design turn does; a hold put back over another sandbox of its key removes the one it
+    displaced. A worked ticket whose branch is gone answers the revision error. All are disposed when the beat ends, each
+    dispose guarded; a failure opening them takes the failed loop's back-off, and uploads that cannot be listed are left
+    out, logged. An address is listed and routed once. No templates.
+    The server opens them behind one optional port (ISeriesSourceScopes, as ISeriesRecordReads is). The addresses are
+    listed in the master's prompt per beat; series-master.md gets one hint line. A project with no repositories gets no reads.
+    The twenty-tool cap goes for the series master (operator principle: no counts, no caps).
+  out: "Writing anything; another project's repositories; templates."
+
+steps:
+  - id: port
+    action: "ISeriesSourceScopes.OpenAsync(beat, project) answers an owned map; Server's SeriesSourceScopes builds it from ISourceScopeSandboxFactory, ReferenceSetRepository and IReferenceSetSandboxFactory."
+  - id: tools
+    action: "SeriesMasterSurface (extracted from SeriesMasterHandler) adds the four reads over that map, wrapped as the other tools are, and the handler owns the map, disposed in a finally."
+  - id: describe
+    action: "SeriesMasterPrompt lists the readable addresses; series-master.md one hint line; SeriesRun preset comment corrected."
+  - id: cap
+    action: "TheMastersSurface_IsAtMostTwentyTools goes; the series master is named outside the rule in MasterToolComposition and SeriesMasterHandler comments."
+  - id: tests
+    action: "Harness test over a stub sandbox fixture and unit tests of the map."
+
+tests:
+  - "SeriesMasterSourceReadCompositionTests.ReadFile_DefaultBranch_ReturnsTheRepositoryFile"
+  - "SeriesMasterSourceReadCompositionTests.ReadFile_TicketKey_ChecksOutTheTicketsBranch"
+  - "SeriesSourceScopesTests.Open_TicketsSeriesAndUploads_KeysEveryAddress"
+  - "SeriesSourceScopesTests.Open_NoConversation_NoReferenceKeys"
+  - "SeriesSourceScopesTests.Open_NoRepositories_NothingToRead"
+  - "SeriesSourceScopesTests.Map_ADuplicateAddress_ListedOnceAndEveryScopeDisposed"
+  - "SeriesMasterSourceDisposalTests (judged, throwing, cancelled loop; failed open takes the back-off)"
+  - "HeldSandboxDisplacementTests.Hold_AKeyHoldingAnotherSandbox_RemovesTheDisplacedOne"
+  - "HeldSandboxDisplacementTests.Hold_TheSameSandboxAgain_RemovesNothing"
+
+done:
+  - "In a series master turn, read_file of <repo>/<path> answers the file and <repo>@<key>/<path> checks out agent-smith/<ticket id> (harness with the stub sandbox)."
+  - "The map keys the series branch and the uploads, and none of the uploads for a series without a conversation (unit tests)."
+  - "dotnet build and the affected tests are green; the spec gate passes."

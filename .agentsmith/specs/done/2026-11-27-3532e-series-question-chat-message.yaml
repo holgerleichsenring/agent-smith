@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-3532e
+goal: "The master's question is a plain chat message with optional quick replies, and a series-led run's question shows read-only on its run page with a link to the series chat."
+
+applies_to: "dashboard (series conversation, run page) and default (series question text)"
+
+requires: [2026-11-27-3532b, 2026-11-26-5201c, 2026-11-26-b186]
+
+facts:
+  - claim: "SeriesQuestionBlock pins a bordered question card (DialogQuestionCard) above the chat's input, beside the needs-you lines, and carries the anchor the status bar links to."
+    evidence: "src/dashboard/src/components/series/page/SeriesQuestionBlock.tsx:46-90, src/dashboard/src/components/series/page/SeriesConversationSection.tsx:79, src/dashboard/src/components/series/page/SeriesSectionBar.tsx:32"
+  - claim: "The master's question is already said in the chat as a message, with its choices printed as text."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesAskTool.cs:41, src/backend/AgentSmith.Application/Services/Series/SeriesQuestionText.cs:10-22"
+  - claim: "The ticket thread already draws a conversation-routed question read-only with the series link; the run page always draws an answer card."
+    evidence: "src/dashboard/src/components/tickets/detail/ThreadMessages.tsx:115-127, src/dashboard/src/components/jobs/runlog/RunNow.tsx:47,67-71"
+
+scope:
+  in: |
+    The pinned question card goes. The question stays the master's chat message; when the series waits on it and the master
+    gave choices, small quick-reply buttons sit under the message list and send the choice as the next message (hidden once
+    sent, back if the send failed); the message keeps one short "Choices: a / b" line for where no buttons are drawn. The
+    block that carries the status bar's anchor stands while the question waits, as the count does: over an open chat without
+    replies it is a one-line pointer, where no chat is drawn the question in full with its choices.
+    The needs-you strip stays for a person's steps; a ticket whose run's question the master holds (3532b) is not listed.
+    The run page shows a series-led question read-only with a link to the series chat, read from the run's own read (its
+    pending question names the leading series, SeriesLedRun) and else from the ticket's hold (act Conversation), with its
+    now-label saying the series has it; a series of one keeps its answer form.
+  out: "Backend routing (3532b); the ticket thread, which already does it."
+
+steps:
+  - id: chat
+    action: "SeriesQuestionCard goes (and DialogQuestionCard's card-only props); SeriesQuickReplies under the message list, SeriesQuestionLine where none are drawn; heldTickets leaves out question tickets the master holds; SeriesQuestionText.Asked keeps one short choices line."
+  - id: run-page
+    action: "PendingQuestionInfo.SeriesId on the run's read; useRunTicket exposes the ticket's hold; RunNow draws the read-only question and the series link for either."
+  - id: tests
+    action: "SeriesRunPage.test and RunNow.test updated; seriesFixtures without questionTicket."
+
+tests:
+  - "SeriesRunPage.test: a waiting question with choices draws quick replies and no pinned card"
+  - "RunNow.test: a series-led question is read-only with a link to the series"
+
+done:
+  - "No pinned question card; quick replies send the choice (dashboard test)."
+  - "The run page shows a series-led question read-only with the series link (dashboard test)."
+  - "pnpm test and pnpm build are green; the spec gate passes."

@@ -25,10 +25,10 @@ public sealed class SeriesEditToolsTests
     public async Task AddTicket_ReachesTheActWithIds_AndTheNewTicketIsAMemberOfTheBeat()
     {
         var tools = await ToolsAsync();
-        _edits.Setup(e => e.AddTicketAsync(It.IsAny<SeriesRunRecord>(), "Index", "add it", new[] { "43" }, new[] { "44" }, It.IsAny<CancellationToken>()))
+        _edits.Setup(e => e.AddTicketAsync(It.IsAny<SeriesRunRecord>(), "add it", new[] { "43" }, new[] { "44" }, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SeriesCutAnswer("Filed SCRUM-46.", true, "46", "SCRUM-46"));
 
-        var said = await tools.AddTicketAsync("Index", "add it", ["SCRUM-43"], ["44"], "44 needs the index first");
+        var said = await tools.AddTicketAsync("add it", ["SCRUM-43"], ["44"], "44 needs the index first");
 
         said.Should().Be("Filed SCRUM-46.");
         SeriesTicketLookup.Find(_beat, "SCRUM-46")!.Requires.Should().Equal("43");
@@ -40,10 +40,10 @@ public sealed class SeriesEditToolsTests
     public async Task AddTicket_Refused_SaysNothing()
     {
         var tools = await ToolsAsync();
-        _edits.Setup(e => e.AddTicketAsync(It.IsAny<SeriesRunRecord>(), "x", "y", It.IsAny<IReadOnlyList<string>>(),
+        _edits.Setup(e => e.AddTicketAsync(It.IsAny<SeriesRunRecord>(), "y", It.IsAny<IReadOnlyList<string>>(),
             It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(new SeriesCutAnswer("Refused: a cycle.", false));
 
-        (await tools.AddTicketAsync("x", "y", reason: "why")).Should().Be("Refused: a cycle.");
+        (await tools.AddTicketAsync("y", reason: "why")).Should().Be("Refused: a cycle.");
         _beat.Acts.Should().BeEmpty();
         _beat.Facts.Should().HaveCount(3);
     }
@@ -65,9 +65,9 @@ public sealed class SeriesEditToolsTests
         var tools = await ToolsAsync();
         (await tools.LinkTicketsAsync("SCRUM-99", ["43"])).Should().Contain("'SCRUM-99' is not a ticket of this series");
         (await tools.LinkTicketsAsync("43", ["SCRUM-99"])).Should().Contain("'SCRUM-99' is not a ticket of this series");
-        (await tools.AddTicketAsync("x", "y", requiredBy: ["SCRUM-98"])).Should().Contain("'SCRUM-98' is not a ticket");
+        (await tools.AddTicketAsync("y", requiredBy: ["SCRUM-98"])).Should().Contain("'SCRUM-98' is not a ticket");
         var denied = await new SeriesEditTools(new SeriesBeat(SeriesRecords.Running(mayStartRuns: false), _beat.Facts, SeriesRecords.T),
-            _edits.Object, _store).AddTicketAsync("x", "y");
+            _edits.Object, _store).AddTicketAsync("y");
         denied.Should().Contain("runs.control");
         _edits.VerifyNoOtherCalls();
     }

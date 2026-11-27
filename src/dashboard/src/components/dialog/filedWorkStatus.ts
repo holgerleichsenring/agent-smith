@@ -18,7 +18,7 @@ export interface StatusWords {
   tone: MarkTone;
 }
 
-// RunSpecProjection.StatusOf writes exactly these five and nothing else.
+// RunSpecProjection.StatusOf writes exactly these six and nothing else.
 const SPEC_STATUS: Record<string, { word: TextKey; tone: MarkTone }> = {
   not_started: { word: "dialog.specStatus.not_started", tone: "" },
   in_progress: { word: "dialog.specStatus.in_progress", tone: "" },
@@ -28,6 +28,8 @@ const SPEC_STATUS: Record<string, { word: TextKey; tone: MarkTone }> = {
   // tone any more than they share a word.
   failed: { word: "dialog.specStatus.failed", tone: "bad" },
   handed_back: { word: "dialog.specStatus.handed_back", tone: "warn" },
+  // 2026-11-27-3532d: retired undelivered — settled, never built; its replacement carries the work.
+  superseded: { word: "dialog.specStatus.superseded", tone: "" },
 };
 
 /** What a spec's status column says, in words, and which mark carries it. */
@@ -35,8 +37,8 @@ export function specStatusWords(t: T, status: string): StatusWords {
   return wordsOf(t, SPEC_STATUS[status], status);
 }
 
-// RunSpecProjection.IsTerminal — the three states a spec does not leave again.
-const TERMINAL = new Set(["done", "failed", "handed_back"]);
+// RunSpecProjection.IsTerminal — the four states a spec does not leave again.
+const TERMINAL = new Set(["done", "failed", "handed_back", "superseded"]);
 
 /** Whether the spec has stopped. A spec still running has not reached its review yet; one
  *  that has stopped and carries no review row is a gap in the evidence, not a not-yet. */

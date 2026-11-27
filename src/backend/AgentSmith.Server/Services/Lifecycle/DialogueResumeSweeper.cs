@@ -11,7 +11,9 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// answer-before-checkpoint race, since both sides are rows by the next tick — and (b) applies the
 /// persisted DefaultAnswer when the days-scale deadline elapsed, so the run resumes headless (same
 /// timeout contract as the hot wait, longer clock). Runs under the housekeeping leader; scan
-/// latency (seconds) is noise against waits measured in hours or days.
+/// latency (seconds) is noise against waits measured in hours or days. 2026-11-27-3532b: the ticket's answer and the default
+/// are <see cref="ParkedAnswerFallback"/>'s, which takes neither for a series-led run; each project's series are read once per
+/// scan, and one checkpoint that fails is logged and skipped, never stopping the others' resumes.
 /// </summary>
 public sealed class DialogueResumeSweeper(
     IServiceProvider services,
@@ -19,6 +21,8 @@ public sealed class DialogueResumeSweeper(
     IDialogueAnswerInbox inbox,
     IRunResumer runResumer,
     IParkedTicketDialogue ticket,
+    ParkedAnswerFallback fallback,
+    Series.SeriesLedRun led,
     UnanswerableParkReporter unanswerableParks,
     SupersededParkCloser supersededParks,
     IRunListNudge runListNudge,
@@ -46,30 +50,33 @@ public sealed class DialogueResumeSweeper(
     {
         var resumed = 0;
         await supersededParks.CloseAsync(ct); // 2026-10-16-86e6b: a superseded checkpoint is abandoned, never resumed
+        var scan = led.Scan();
         foreach (var checkpoint in await checkpointStore.ListPendingAsync(ct))
         {
             ct.ThrowIfCancellationRequested();
-            if (await IsRunAbandonedAsync(checkpoint.RunId, ct))
+            try { if (await SweepAsync(checkpoint, scan, ct)) resumed++; }
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                // Cancelled / force-finished while parked — consume, never resume.
-                await checkpointStore.TryMarkResumedAsync(
-                    checkpoint.RunId, timeProvider.GetUtcNow(), ct);
-                continue;
+                logger.LogWarning(ex, "Resume scan of run {RunId} failed; the other parked runs go on", checkpoint.RunId);
             }
-            if (await TryResumeAsync(checkpoint, ct)) resumed++;
         }
         // a508: a park with no checkpoint has nothing to wait ON, so it is reported rather than waited out.
         await unanswerableParks.ReportAsync(ct);
         return resumed;
     }
 
-    private async Task<bool> TryResumeAsync(RunCheckpointRecord checkpoint, CancellationToken ct)
+    private async Task<bool> SweepAsync(RunCheckpointRecord checkpoint, Series.SeriesLedScan scan, CancellationToken ct)
     {
-        // p0461: the ticket is asked BEFORE the deadline default, so an answer written on
-        // the work item beats the headless fallback the same way a dashboard answer does.
+        if (!await IsRunAbandonedAsync(checkpoint.RunId, ct)) return await TryResumeAsync(checkpoint, scan, ct);
+        // Cancelled / force-finished while parked — consume, never resume.
+        await checkpointStore.TryMarkResumedAsync(checkpoint.RunId, timeProvider.GetUtcNow(), ct);
+        return false;
+    }
+
+    private async Task<bool> TryResumeAsync(RunCheckpointRecord checkpoint, Series.SeriesLedScan scan, CancellationToken ct)
+    {
         var answer = await inbox.GetAsync(checkpoint.DialogueJobId, checkpoint.QuestionId, ct)
-                     ?? await FromTicketAsync(checkpoint, ct)
-                     ?? await ApplyDeadlineDefaultAsync(checkpoint, ct);
+                     ?? await fallback.TakeAsync(checkpoint, scan, ct);
         if (answer is null) return false; // still waiting, deadline not reached
         if (!await runResumer.EnqueueResumeAsync(checkpoint, answer, ct)) return false;
         // 2026-09-22-7c41c: a parked run is outside the set the broadcaster drains, so nothing else
@@ -80,31 +87,6 @@ public sealed class DialogueResumeSweeper(
         // p0461: and the board stops saying "waiting for you" over a working run.
         await ticket.MoveToInProgressAsync(checkpoint, ct);
         return true;
-    }
-
-    // p0461: an answer the operator wrote on the ticket instead of in the dashboard.
-    private async Task<DialogAnswer?> FromTicketAsync(
-        RunCheckpointRecord checkpoint, CancellationToken ct) =>
-        await ticket.TryCollectAnswerAsync(checkpoint, ct)
-            ? await inbox.GetAsync(checkpoint.DialogueJobId, checkpoint.QuestionId, ct)
-            : null;
-
-    // Deadline elapsed → the persisted DefaultAnswer applies, written through the SAME
-    // first-wins inbox so a racing real answer beats the default.
-    private async Task<DialogAnswer?> ApplyDeadlineDefaultAsync(
-        RunCheckpointRecord checkpoint, CancellationToken ct)
-    {
-        var now = timeProvider.GetUtcNow();
-        if (now < checkpoint.AnswerDeadlineAt) return null;
-
-        var question = System.Text.Json.JsonSerializer.Deserialize<DialogQuestion>(checkpoint.QuestionJson);
-        var fallback = new DialogAnswer(
-            checkpoint.QuestionId, question?.DefaultAnswer ?? "", "timeout", now, "system");
-        await inbox.TryDeliverAsync(checkpoint.DialogueJobId, fallback, ct);
-        logger.LogWarning(
-            "Run {RunId} answer deadline elapsed — applying default answer '{Default}' headless",
-            checkpoint.RunId, fallback.Answer);
-        return await inbox.GetAsync(checkpoint.DialogueJobId, checkpoint.QuestionId, ct);
     }
 
     // Abandoned = terminal or cancel-requested. A run still 'running' is NOT: the checkpoint lands while the

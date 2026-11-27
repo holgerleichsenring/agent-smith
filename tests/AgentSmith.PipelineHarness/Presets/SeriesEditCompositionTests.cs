@@ -42,14 +42,14 @@ public sealed class SeriesEditCompositionTests
         await sp.GetRequiredService<DashboardDialogDispatcher>().DispatchAsync(
             "d-edit", "The ui needs a lookup index first, and the docs need nothing.", "sample.user", true, Project, default);
         harness.ChatClient
-            .EnqueueToolCall("add_ticket", """{"title":"Lookup index","body":"Add the lookup index the ui reads.","requires":["1"],"requiredBy":["2"],"reason":"the ui needs it"}""")
+            .EnqueueToolCall("add_ticket", """{"spec":"spec: 2026-11-27-1d0e\ngoal: \"Lookup index\"\n","requires":["1"],"requiredBy":["2"],"reason":"the ui needs it"}""")
             .EnqueueToolCall("link_tickets", """{"ticket":"3","removeRequires":["1"],"reason":"the docs need nothing"}""")
             .EnqueueText("I added #4 before #2 and freed #3.");
         var beat = await sp.GetRequiredService<IActRun>().RunAsync(Project, PipelinePresets.SeriesRunName,
             new Dictionary<string, object> { [ContextKeys.SeriesRunId] = series.Id });
         beat.IsSuccess.Should().BeTrue(beat.Message);
 
-        rig.Tracker.Created.Should().HaveCount(4).And.Subject.Last().Title.Should().Be("Lookup index");
+        rig.Tracker.Created.Should().HaveCount(4).And.Subject.Last().Title.Should().EndWith(": Lookup index", "3532a: filed from its spec");
         var kept = (await store.GetAsync(series.Id, default))!;
         kept.Tickets.Should().Contain(t => t.TicketId == "4" && !t.FollowUp, "the master's ticket is a member, not the check's follow-up");
         kept.Acts.Select(a => (a.Tool, a.Ticket)).Should().Equal(("add_ticket", "4"), ("link_tickets", "3"));

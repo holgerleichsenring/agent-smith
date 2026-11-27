@@ -164,11 +164,9 @@ export interface SeriesRunDetail {
   /** 2026-11-25-9992a: the keys of the tickets a run of the series is at work on now. */
   workingOn: string[];
   /** 2026-11-25-9992j: the waiting question's choices (empty without one) and the recommended choice's index; the chat
-   *  draws them as buttons, and a choice sent as a message is the answer. */
+   *  draws them as quick replies (2026-11-27-3532e), and a choice sent as a message is the answer. */
   questionChoices: string[];
   questionRecommended: number | null;
-  /** 2026-11-26-5201c: the key of the ticket whose run asked the waiting question; null or absent for the master's own. */
-  questionTicket?: string | null;
   /** 2026-11-25-433fa: the key of the ticket whose pull requests merge next; null when none is ready. */
   nextMerge?: string | null;
   /** 2026-11-25-433fa: how far the series is — merged over total, as the server words it (SeriesProgressWord). */

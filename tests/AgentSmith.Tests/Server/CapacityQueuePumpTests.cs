@@ -42,6 +42,22 @@ public sealed class CapacityQueuePumpTests : IDisposable
 
     public void Dispose() => _connection.Dispose();
 
+    // 2026-11-27-3532a: a set approved while the ticket waited — an add_ticket spec, a revision — reaches the run the pump claims.
+    [Fact]
+    public async Task Claim_Head_CarriesApprovedSetReadNow()
+    {
+        var approvals = new Mock<AgentSmith.Contracts.Specs.ISpecApprovalStore>();
+        var record = ApprovedSets.Record("github-42", ApprovedSets.Noon, tracker: "gh");
+        approvals.Setup(a => a.GetAsync("gh", "github-42", It.IsAny<CancellationToken>())).ReturnsAsync(record);
+        var harness = new Harness(_connection, ticketStatus: "Approved", approvals: approvals.Object);
+        await harness.EnqueueAsync("42", """{"ApprovedSpecSet":"stale"}""");
+
+        await harness.Pump.TickAsync(CancellationToken.None);
+
+        harness.LastClaim!.InitialContext![AgentSmith.Contracts.Commands.ContextKeys.ApprovedSpecSet].Should()
+            .Be(AgentSmith.Contracts.Specs.SpecApprovalJson.Write(record with { ReviewRounds = null }), "the set is read at the claim, not at the enqueue");
+    }
+
     [Fact]
     public async Task Pump_HeadFits_ClaimsWithReservedRunId_RowBecomesRunning()
     {
@@ -432,7 +448,8 @@ public sealed class CapacityQueuePumpTests : IDisposable
             IRunListNudge? nudge = null,
             bool finalizeThrows = false,
             ICapacityBudget? budget = null,
-            AgentSmith.Application.Services.Claim.RequiresUnmetGate? requires = null)
+            AgentSmith.Application.Services.Claim.RequiresUnmetGate? requires = null,
+            AgentSmith.Contracts.Specs.ISpecApprovalStore? approvals = null)
         {
             _queue = BuildDbQueue(connection);
             var config = new AgentSmithConfig
@@ -501,7 +518,9 @@ public sealed class CapacityQueuePumpTests : IDisposable
                     NullLogger<AgentSmith.Server.Services.ResumeRunLauncher>.Instance),
                 loader.Object, "config.yaml",
                 NullLogger<CapacityQueuePump>.Instance,
-                new CapacityQueueHead(budget ?? CapacityTestDoubles.AlwaysReserve(), _queue, requires));
+                new CapacityQueueHead(budget ?? CapacityTestDoubles.AlwaysReserve(), _queue, requires),
+                new QueueHeadClaim(approvals is null ? null : new AgentSmith.Application.Services.Specs.ApprovedSpecSetCarrier(
+                    approvals, NullLogger<AgentSmith.Application.Services.Specs.ApprovedSpecSetCarrier>.Instance)));
         }
 
         public Task<string> EnqueueAsync(string ticketId, string contextJson = "{}") =>

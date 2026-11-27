@@ -139,9 +139,8 @@ internal static class RelationalPersistenceExtensions
             new Services.Dialogue.DurableDialogueTransport(
                 inner, sp.GetRequiredService<IDialogueAnswerInbox>()));
         services.AddSingleton<Services.ResumeRunLauncher>();
-        // p0461: the ticket end of a parked run — an answer written on the work item, and
-        // the status move back once the run picks up.
-        services.AddSingleton<IParkedTicketDialogue, Services.Lifecycle.ParkedTicketDialogue>();
+        // p0461: the ticket end of a parked run — an answer on the work item, the status move back on resume; 3532b: none series-led
+        services.AddSingleton<IParkedTicketDialogue, Services.Lifecycle.ParkedTicketDialogue>().AddParkedAnswerFallback();
         // a508: a park that holds no answerable question is reported, not waited out.
         services.AddScoped<ParkedRunRepository>();
         services.AddSingleton<Services.Lifecycle.UnanswerableParkReporter>();

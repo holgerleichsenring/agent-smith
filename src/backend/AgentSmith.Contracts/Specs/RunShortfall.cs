@@ -35,7 +35,7 @@ public sealed record RunShortfall(
     {
         if (progress is null || string.IsNullOrWhiteSpace(reason)) return null;
         var delivered = progress.Specs.Where(p => p.State == SpecRunState.Done).ToList();
-        var notDelivered = progress.Specs.Where(p => p.State != SpecRunState.Done).ToList();
+        var notDelivered = progress.Specs.Where(p => !p.IsSettled).ToList(); // 2026-11-27-3532d: superseded is no shortfall
         return delivered.Count == 0 || notDelivered.Count == 0
             ? null
             : new RunShortfall(delivered, notDelivered, reason.Trim());

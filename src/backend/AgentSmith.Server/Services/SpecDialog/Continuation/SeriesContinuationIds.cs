@@ -26,6 +26,7 @@ public static class SeriesContinuationIds
         var ids = new Dictionary<string, string>(StringComparer.Ordinal);
         var specs = new List<TicketContinuationSpec>();
         var pastZ = false;
+        var retired = drafts.SelectMany(d => d.Supersedes).ToHashSet(StringComparer.Ordinal); // 2026-11-27-3532d
         foreach (var draft in drafts.Where(d => !ids.ContainsKey(d.SpecId)))
         {
             ids[draft.SpecId] = draft.SpecId;
@@ -34,7 +35,8 @@ public static class SeriesContinuationIds
                     ? "it already ran, so the changed text is discarded" : "it already ran"));
             else if (basis.TryGetValue(draft.SpecId, out var unstarted))
                 specs.Add(new(draft.SpecId, draft.Goal,
-                    unstarted.Yaml == draft.Yaml ? SpecDispositionKinds.Kept : SpecDispositionKinds.Recut));
+                    unstarted.Yaml == draft.Yaml ? SpecDispositionKinds.Kept : SpecDispositionKinds.Recut,
+                    retired.Contains(draft.SpecId) ? "retired: the spec that supersedes it is built in its place" : null));
             else
             {
                 var (next, index) = SeriesIdFactory.NextFree(state.Series ?? string.Empty, 0, taken);
@@ -49,7 +51,8 @@ public static class SeriesContinuationIds
                 : new(left.SpecId, left.Goal, epic ? SpecDispositionKinds.Dropped : SpecDispositionKinds.Kept,
                     epic ? "the approved cut leaves it out" : "a lone spec leaves the rest of the series as it is"));
 
-        var unstartedCount = specs.Count(s => s.Disposition != SpecDispositionKinds.Dropped && !executed.Contains(s.SpecId));
+        var unstartedCount = specs.Count(s => s.Disposition != SpecDispositionKinds.Dropped && !executed.Contains(s.SpecId)
+            && !retired.Contains(s.SpecId));
         var recorded = Reid(drafts.Where(d => !executed.Contains(d.SpecId)).DistinctBy(d => d.SpecId), ids);
         // 2026-10-13-8762u: the series cap and the member letters, read live; an invalid block refuses naming its field.
         var over = pastZ ? $"has used its {SeriesConfig.MemberLetters} member letters (a..z); an appended spec would need one more"

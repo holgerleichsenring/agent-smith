@@ -20,7 +20,7 @@ public sealed class RatifiedMockFiles(IConversationMockReader? reader)
         SpecApprovalRecord record, IReadOnlyDictionary<string, string>? sources, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(record);
-        var stamped = record.Set.UnexecutedTail.Where(s => s.Draft.RatifiedMock is not null).ToList();
+        var stamped = record.Set.Planned().Where(s => s.Draft.RatifiedMock is not null).ToList();
         if (stamped.Count == 0) return RatifiedMockSet.None;
         if (reader is null || record.Approval?.Conversation is not { Length: > 0 } conversation)
             return new RatifiedMockSet(new Dictionary<string, RepoFile>(), [NoStore]);

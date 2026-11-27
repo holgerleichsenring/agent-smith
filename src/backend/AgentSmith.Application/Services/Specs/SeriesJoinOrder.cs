@@ -8,6 +8,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// it — an edge to a spec that comes later (a cycle has one) is refused, as is a done/ set that is
 /// not a prefix of the order, because what ran must be the head of what is left to run. One
 /// sub-series keeps its manifest's order and is not re-checked: that is how it read before.
+/// 2026-11-27-3532d: a replacement stands right behind the spec it supersedes (<see cref="SpecSupersession.Ordered"/>) —
+/// where the set placed it, whatever its letter — and a retired spec never ran, so it is no gap in the executed prefix.
 /// </summary>
 public sealed class SeriesJoinOrder
 {
@@ -16,7 +18,7 @@ public sealed class SeriesJoinOrder
     {
         ArgumentNullException.ThrowIfNull(joined);
         if (joined.Count == 1) return (joined[0].Specs, joined[0].Executed, null);
-        var ordered = joined.SelectMany(r => r.Specs).OrderBy(p => p.SpecId, StringComparer.Ordinal).ToList();
+        var ordered = SpecSupersession.Ordered([.. joined.SelectMany(r => r.Specs).OrderBy(p => p.SpecId, StringComparer.Ordinal)]);
         var executed = joined.SelectMany(r => r.Executed).ToHashSet(StringComparer.Ordinal);
         var why = Duplicate(joined) ?? BackwardEdge(ordered) ?? Gap(ordered, executed);
         return why is not null
@@ -39,7 +41,7 @@ public sealed class SeriesJoinOrder
         var ids = ran.Select(p => p.SpecId).ToHashSet(StringComparer.Ordinal);
         var open = newest.SelectMany(m => m.Specs).Where(p => !ids.Contains(p.SpecId))
             .OrderBy(p => p.SpecId, StringComparer.Ordinal);
-        return ([.. ran, .. open], [.. ids.Order(StringComparer.Ordinal)]);
+        return (SpecSupersession.Ordered([.. ran, .. open]), [.. ids.Order(StringComparer.Ordinal)]);
     }
 
     private static string? Duplicate(IReadOnlyList<SubSeriesRead> joined) =>
@@ -55,13 +57,14 @@ public sealed class SeriesJoinOrder
         for (var i = 0; i < ordered.Count; i++)
             foreach (var required in ordered[i].Draft.Requires)
                 if (position.TryGetValue(required, out var at) && at >= i)
-                    return $"spec {ordered[i].SpecId} requires {required}, which does not come before it in id order";
+                    return $"spec {ordered[i].SpecId} requires {required}, which does not come before it in the series' order";
         return null;
     }
 
     private static string? Gap(IReadOnlyList<DerivedSpec> ordered, HashSet<string> executed)
     {
-        var firstOpen = ordered.FirstOrDefault(p => !executed.Contains(p.SpecId));
+        var retired = SpecSupersession.Retired(ordered);
+        var firstOpen = ordered.FirstOrDefault(p => !executed.Contains(p.SpecId) && !retired.Contains(p.SpecId));
         if (firstOpen is null) return null;
         var after = ordered.SkipWhile(p => p != firstOpen).FirstOrDefault(p => executed.Contains(p.SpecId));
         return after is null ? null

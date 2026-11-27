@@ -8,6 +8,7 @@ namespace AgentSmith.Application.Services.Series;
 /// 2026-11-25-9992f: the series master changes its series' cut itself (<see cref="ISeriesEditActs"/>): it adds a ticket — a
 /// prerequisite, or a part split off a ticket that grew too large — and adds or removes requirement edges between its
 /// tickets. Each takes the master's reason, is said with it (<see cref="SeriesActSay"/>) and logged as every act is.
+/// 2026-11-27-3532a: an added ticket is filed from a spec, approved under the series' plan.
 /// </summary>
 public sealed class SeriesEditTools(SeriesBeat beat, ISeriesEditActs edits, ISeriesRunStore store)
 {
@@ -18,23 +19,25 @@ public sealed class SeriesEditTools(SeriesBeat beat, ISeriesEditActs edits, ISer
         AIFunctionFactory.Create(LinkTicketsAsync, "link_tickets"),
     ];
 
-    [Description("Files a new ticket into the series from a title and a body, which its run works from — a prerequisite other tickets wait for "
-        + "(name them in requiredBy), or a part split off a ticket that grew too large (tell_ticket then narrows the original). It is filed "
-        + "unstarted with its requirement edges: it requires the tickets in requires, and each ticket in requiredBy requires it. "
-        + "It starts once what it requires has landed, or by start_ticket.")]
-    public async Task<string> AddTicketAsync([Description("The new ticket's title.")] string title,
-        [Description("What the ticket's run does, with the evidence that calls for it.")] string body,
+    [Description("Files a new ticket into the series from a spec (a spec yaml: spec, goal, steps, done), approved under the series' "
+        + "plan, so its run works from that spec — a prerequisite other tickets wait for (name them in requiredBy), or a part split off "
+        + "a ticket that grew too large (tell_ticket then narrows the original). It is filed unstarted with its requirement edges: it "
+        + "requires the tickets in requires, and each ticket in requiredBy requires it; the spec's own requires are not read. A spec "
+        + "that is not schema-valid files nothing and the answer names the schema's error. start_ticket starts it.")]
+    public async Task<string> AddTicketAsync(
+        [Description("The ticket's spec as yaml, the evidence that calls for it in its goal or facts; its goal titles the ticket.")] string spec,
         [Description("Keys or ids of the series' tickets the new ticket requires.")] string[]? requires = null,
         [Description("Keys or ids of the series' tickets that require the new ticket.")] string[]? requiredBy = null,
         [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default)
     {
         if (Denied() is { } denied) return denied;
         if (!TryIds(requires, out var needs, out var unknown) || !TryIds(requiredBy, out var neededBy, out unknown)) return unknown!;
-        var added = await edits.AddTicketAsync(beat.Record, title, body, needs, neededBy, ct);
+        var added = await edits.AddTicketAsync(beat.Record, spec, needs, neededBy, ct);
         if (!added.Changed || added.TicketId is not { } id) return added.Answer;
         if (await store.GetAsync(beat.Record.Id, ct) is { } read) beat.Record = read;
         var key = added.Key ?? id;
-        beat.Facts = [.. beat.Facts, new SeriesTicketFact(new SeriesTicket(id, key, title, false, beat.Now)) { Requires = needs }];
+        var member = beat.Record.Tickets.FirstOrDefault(t => t.TicketId == id) ?? new SeriesTicket(id, key, key, false, beat.Now); // its filed title
+        beat.Facts = [.. beat.Facts, new SeriesTicketFact(member) { Requires = needs }];
         beat.ActTicket = id;
         return SeriesActSay.Acted(beat, $"added {key}", reason, added.Answer);
     }

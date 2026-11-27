@@ -105,7 +105,7 @@ export interface AttemptCause {
   source?: AttemptSource | null;
 }
 
-/** done | carried | live | asked | failed | handed_back | not_started */
+/** done | carried | live | asked | failed | handed_back | superseded | not_started */
 export type TicketSeriesCellState = string;
 
 export interface TicketSeriesStrip {
@@ -430,7 +430,7 @@ export interface TicketSeriesSpec {
   repos: string[];
   steps: TicketSpecStep[];
   yaml: string;
-  /** not_started | in_progress | done | failed | handed_back | carried */
+  /** not_started | in_progress | done | failed | handed_back | superseded | carried */
   state: string;
   executedBy: string | null;
   executedByAttempt: number | null;

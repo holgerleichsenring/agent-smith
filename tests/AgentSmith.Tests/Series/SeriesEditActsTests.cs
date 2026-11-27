@@ -35,8 +35,13 @@ public sealed class SeriesEditActsTests
             .Callback<string, FilingRequest, string?>((_, r, s) => _filed.Add((r, s)))
             .ReturnsAsync(new FilingReport([new FiledTicket("https://jira/SCRUM-46", "Prerequisite") { TicketId = "46", Key = "SCRUM-46" }], null));
         return new SeriesEditActs(new TicketProjects(loader.Object, new ServerContext("c.yml")), _filing.Object,
-            new SeriesRequirementLinks(store ?? _facts, TimeProvider.System));
+            new SeriesRequirementLinks(store ?? _facts, TimeProvider.System),
+            new SeriesAddedSpec(new AgentSmith.Application.Services.SpecDialog.SpecDraftValidator(
+                new AgentSmith.Application.Services.Validation.SpecSchemaProvider()), new AgentSmith.Application.Services.SpecDialog.SpecDraftReader()));
     }
+
+    // 2026-11-27-3532a: add_ticket files a spec; its own requires name specs, never tickets, and are not read.
+    private const string Spec = "spec: 2026-11-27-ab12\ngoal: \"The index exists before the API reads it\"\nrequires: [2026-11-01-0001]\nrepos: [api]\n";
 
     private static SeriesRunRecord Series => SeriesRecords.Running();
 
@@ -50,13 +55,15 @@ public sealed class SeriesEditActsTests
     {
         Edge("44", "43", startsWhenMet: false);
 
-        var added = await Acts().AddTicketAsync(Series, "Prerequisite", "add the index first", ["43"], ["44"], default);
+        var added = await Acts().AddTicketAsync(Series, Spec, ["43"], ["44"], default);
 
         added.Should().Be(new SeriesCutAnswer(
             "Filed SCRUM-46 into the series, unstarted; it requires SCRUM-43; SCRUM-44 requires it; it starts once what it requires has landed, or by start_ticket.", true, "46", "SCRUM-46"));
         _filed.Should().ContainSingle().Which.Should().Match<(FilingRequest Request, string? Series)>(f => f.Series == "sr-1"
-            && !f.Request.MayStartRuns && f.Request.IsSeriesMasterAddition && f.Request.FollowUp!.Body == "add the index first"
-            && f.Request.Conversation == "conv-1" && f.Request.Principal == "operator");
+            && !f.Request.MayStartRuns && f.Request.IsSeriesMasterAddition && f.Request.FollowUp == null
+            && f.Request.ScopeRepos.SequenceEqual(new[] { "api" }) && f.Request.Conversation == "conv-1" && f.Request.Principal == "operator");
+        var draft = _filed[0].Request.Proposal.Should().BeOfType<AgentSmith.Contracts.Models.SpecOutcome>().Which.Draft;
+        (draft.SpecId, draft.Requires.Count).Should().Be(("2026-11-27-ab12", 0), "the spec's own requires are not read");
         Stored.Should().BeEquivalentTo([("44", "43", false), ("46", "43", true), ("44", "46", false)],
             "a new edge copies its dependent's StartsWhenMet, true when it has none");
     }
@@ -70,7 +77,7 @@ public sealed class SeriesEditActsTests
         store.Setup(s => s.AddAsync(It.IsAny<IReadOnlyList<TicketRequirementEdge>>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("the store is down"));
 
-        var added = await Acts(store.Object).AddTicketAsync(Series, "Prerequisite", "body", ["43"], [], default);
+        var added = await Acts(store.Object).AddTicketAsync(Series, Spec, ["43"], [], default);
 
         added.Changed.Should().BeTrue("the ticket was filed and joined the series");
         added.Answer.Should().StartWith("Filed SCRUM-46 into the series, unstarted, but its requirement edges were not stored")
@@ -82,10 +89,20 @@ public sealed class SeriesEditActsTests
     {
         Edge("43", "44", startsWhenMet: true);
 
-        var added = await Acts().AddTicketAsync(Series, "Middle", "body", ["43"], ["44"], default);
+        var added = await Acts().AddTicketAsync(Series, Spec, ["43"], ["44"], default);
 
         added.Changed.Should().BeFalse();
         added.Answer.Should().Contain("SCRUM-43 already waits for SCRUM-44").And.Contain("nothing was filed");
+        _filed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AddTicket_ASpecTheSchemaRefuses_FilesNothingAndSaysWhy()
+    {
+        var added = await Acts().AddTicketAsync(Series, "goal: \"no spec id\"\n", [], [], default);
+
+        added.Changed.Should().BeFalse();
+        added.Answer.Should().StartWith("Nothing was filed: the spec is not valid:").And.Contain("spec");
         _filed.Should().BeEmpty();
     }
 

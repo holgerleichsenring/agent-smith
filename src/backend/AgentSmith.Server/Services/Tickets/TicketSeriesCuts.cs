@@ -47,7 +47,8 @@ public static class TicketSeriesCuts
         if (cut is null) return new(null, [], 0);
         var entries = Entries(cut);
         var finished = records.Specs
-            .Where(s => s.Status == Done && string.CompareOrdinal(s.RunId, cut.RunId) >= 0).Select(s => s.SpecId)
+            .Where(s => s.Status is Done or Infrastructure.Persistence.Services.RunSpecProjection.Superseded // 3532d: settled
+                && string.CompareOrdinal(s.RunId, cut.RunId) >= 0).Select(s => s.SpecId)
             .Concat(Carried(records, cut.RunId)).ToHashSet(StringComparer.Ordinal);
         return new(cut, entries, entries.Count(e => !finished.Contains(e.SpecId)));
     }

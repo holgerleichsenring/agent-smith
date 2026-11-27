@@ -15,5 +15,8 @@ public sealed record RunAccounts(IReadOnlyList<SpecAccounts> Specs)
     public RunAccounts With(string specId, IReadOnlyList<SpecAccount> accounts) =>
         new([.. Specs.Where(p => p.SpecId != specId), new SpecAccounts(specId, accounts)]);
 
+    /// <summary>2026-11-27-3532d: the accounts without <paramref name="specId"/>'s — a retired spec answers for nothing.</summary>
+    public RunAccounts Without(string specId) => new([.. Specs.Where(p => p.SpecId != specId)]);
+
     public IReadOnlyList<SpecAccount> All => [.. Specs.SelectMany(p => p.Accounts)];
 }

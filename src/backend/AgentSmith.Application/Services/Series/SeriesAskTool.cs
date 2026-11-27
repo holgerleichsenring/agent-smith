@@ -10,7 +10,9 @@ namespace AgentSmith.Application.Services.Series;
 /// The series goes on meanwhile; the answer reaches the master in a later beat.
 /// <para>2026-11-25-96aea: a merge question (mergeOf) always offers "Merge it" and "Look at the pull request first" as buttons
 /// with the pull requests' links and is never taken by default — the person decides every merge in the dashboard. A series
-/// without a conversation asks nothing.</para></summary>
+/// without a conversation asks nothing.</para>
+/// <para>2026-11-27-3532b: with forTicket it carries a ticket's run question to the operator in the master's words; the answer
+/// names that ticket, whose run the master then answers with tell_ticket.</para></summary>
 public sealed class SeriesAskTool(SeriesBeat beat, ISeriesRunStore store, int defaultMinutes)
 {
     public const string Name = "ask_human";
@@ -19,12 +21,13 @@ public sealed class SeriesAskTool(SeriesBeat beat, ISeriesRunStore store, int de
 
     public AIFunction GetTool() => AIFunctionFactory.Create(AskHumanAsync, Name);
 
-    [Description("Asks the operator, in the conversation, one decision only they can make. Recommend a choice where you can: it is taken by default at the deadline if nobody answers. With mergeOf (a ticket or 'final') it is a merge question: the choices 'Merge it' and 'Look at the pull request first' and the pull requests' links are added, and it waits for the person. The series goes on meanwhile and the answer reaches you in a later beat.")]
+    [Description("Asks the operator, in the conversation, one decision only they can make. Recommend a choice where you can: it is taken by default at the deadline if nobody answers. With mergeOf (a ticket or 'final') it is a merge question: the choices 'Merge it' and 'Look at the pull request first' and the pull requests' links are added, and it waits for the person. With forTicket (a ticket's key or id) it carries that ticket's run question: its answer reaches you to answer the run with tell_ticket. The series goes on meanwhile and the answer reaches you in a later beat.")]
     public async Task<string> AskHumanAsync(
         [Description("The question.")] string question,
         [Description("The choices, each {label, description?}.")] IReadOnlyList<HumanToolHost.AskHumanChoice>? choices = null,
         [Description("0-based index of the recommended choice.")] int? recommended_index = null,
         [Description("For a merge question: the ticket's key or id, or 'final'.")] string? mergeOf = null,
+        [Description("For a ticket's run question you carry to the operator: the ticket's key or id.")] string? forTicket = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(beat.Record.Conversation))
@@ -34,13 +37,19 @@ public sealed class SeriesAskTool(SeriesBeat beat, ISeriesRunStore store, int de
         var asked = string.IsNullOrWhiteSpace(mergeOf)
             ? SeriesQuestions.Ask(question, choices?.Select(c => c.label).ToList() ?? [], recommended_index, beat.Now, defaultMinutes)
             : SeriesMergeQuestion.Of(beat, question, mergeOf);
+        if (!string.IsNullOrWhiteSpace(forTicket)) asked = Carrying(asked, forTicket);
         if (await store.UpdateAsync(beat.Record.Id,
                 r => r with { Question = asked, MasterQuestionsAsked = r.MasterQuestionsAsked + (r.Question is { Answer: null } ? 0 : 1) },
                 ct) is { } kept) // 2026-11-25-9992k: one replacing a waiting question is not a second ask
             beat.Record = kept;
-        beat.Said.Add(SeriesQuestionText.Asked(asked, null));
+        beat.Said.Add(SeriesQuestionText.Asked(asked));
         return asked.DeadlineAt is { } at
             ? $"Asked. Without an answer the series takes \"{asked.Recommended}\" at {at:u}."
             : "Asked. It waits for the operator's answer.";
     }
+
+    // 2026-11-27-3532b: the run and question the ticket's run is parked on now — the answer goes to exactly that question.
+    private SeriesQuestion Carrying(SeriesQuestion asked, string forTicket) => SeriesTicketLookup.Find(beat, forTicket) is { } fact
+        ? asked with { ForTicket = fact.Ticket.Key, ForRunId = fact.LatestRunId, ForQuestionId = fact.PendingQuestion?.QuestionId }
+        : asked with { ForTicket = forTicket.Trim() };
 }

@@ -47,11 +47,16 @@ internal sealed class SpecRevisionRig
     public MasterSpecRevision Revision() =>
         new(new SpecRevisionGate(Git()), Text(), new SpecRepoJoin(new AgentSmith.Application.Services.Handlers.SandboxTargets()),
             new SpecRevisionWriter(new SpecReviewRevision(Loop.Publisher.Object),
-            Decisions.Object, Progress.Object, NullLogger<SpecRevisionWriter>.Instance));
+            Decisions.Object, Progress.Object, NullLogger<SpecRevisionWriter>.Instance),
+            new SpecRetirement(new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader(), new SpecDraftIdRewriter()));
 
     public Task<string> ReviseAsync(
         string yaml, string reason = "the operator asked for a retry", Func<string, CancellationToken, Task<string>>? ensure = null) =>
         Revision().ReviseAsync(Pipeline, yaml, reason, CancellationToken.None, ensure);
+
+    /// <summary>2026-11-27-3532d: retires the current spec for <paramref name="yaml"/>.</summary>
+    public Task<string> RetireAsync(string yaml, string reason = "the spec cannot be implemented as written") =>
+        Revision().ReviseAsync(Pipeline, yaml, reason, CancellationToken.None, retire: true);
 
     public static SpecRevisionText Text() => new(new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader());
 

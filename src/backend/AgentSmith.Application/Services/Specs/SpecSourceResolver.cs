@@ -104,7 +104,7 @@ public sealed class SpecSourceResolver(
 
         // A ticket the framework filed from an approved set has no spec of its own: a branch
         // without one parks rather than derive a guess.
-        if (filedGate.MissingSet(ticket, new TicketKey(key), record, branch.State, vocabulary) is { } missing)
+        if (filedGate.MissingSet(ticket, new TicketKey(key), record, branch.State, vocabulary, pipeline.IsSeriesAutoStart()) is { } missing)
             return new Decision(SpecSource.Approved, null, false, Cause: cause, Handback: missing);
 
         return new Decision(SpecSource.Derived, null, NeedsModel: true, Cause: cause);

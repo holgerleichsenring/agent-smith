@@ -77,12 +77,13 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
         [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default) =>
         OnTicketAsync(ticket, "retried", reason, fact => acts.RetryAsync(beat.Record.Project, fact.Ticket.TicketId, beat.Record.Principal, ct));
 
-    [Description("Writes into a ticket's conversation as the series: a running attempt reads it with its next tool result; otherwise the ticket's steward answers and may revise the ticket's spec or rework it. Use it to pass on what the operator said or what a failure showed.")]
+    [Description("Answers a ticket whose run is parked on a question with the text: the run resumes with it; with questionId only that question, and a run that waits on another is named instead. Otherwise writes into the ticket's conversation as the series: a running attempt reads it with its next tool result; otherwise the ticket's steward answers and may revise the ticket's spec or rework it. Use it to pass on what the operator said or what a failure showed.")]
     public Task<string> TellTicketAsync(
         [Description("The ticket's key or id.")] string ticket, [Description("What the ticket's agent should know or do.")] string text,
-        [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default) =>
-        OnTicketAsync(ticket, "wrote to", reason, fact => acts.TellAsync(
-            beat.Record.Project, fact.Ticket.TicketId, text, beat.Record.Principal, beat.Record.MayStartRuns, ct));
+        [Description(SeriesActSay.Why)] string? reason = null,
+        [Description("The id of the run's question this answers, as its reason named it.")] string? questionId = null, CancellationToken ct = default) =>
+        OnTicketAsync(ticket, "wrote to", reason, fact => acts.TellAsync(new SeriesTell(beat.Record.Project, fact.Ticket.TicketId,
+            fact.Ticket.Key, text, beat.Record.Principal, beat.Record.MayStartRuns, questionId), ct));
 
     [Description("Ends the series: its tickets keep running on their own, the status reports stop, and the conversation goes back to the design partner. "
         + "To hold its tickets instead — 'halt', 'stop', 'wait' — pause_series.")]

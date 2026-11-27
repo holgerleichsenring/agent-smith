@@ -13,6 +13,7 @@ namespace AgentSmith.Tests.Handlers;
 /// <summary>
 /// 2026-11-18-9c1cd: every master offers at most 20 tools, each name once, and the same set on every turn of a
 /// conversation and every composition of a run — whatever the poster, the memory store, the name or the series.
+/// 2026-11-27-3532c: the series master is outside the cap (SeriesMasterActLogTests).
 /// </summary>
 public sealed class MasterToolSurfaceTests
 {

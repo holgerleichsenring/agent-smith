@@ -109,10 +109,9 @@ public sealed class PipelineExecutor(
                 logged = budget;
                 logger.LogInformation("Pipeline now works to {Budget}", budget);
             }
-            // p0327: publish the live step cursor (current node → end, spliced
-            // follow-ups included) so a checkpoint taken INSIDE a handler can
-            // serialize exactly the remaining work, starting with itself.
-            context.Set(ContextKeys.RemainingCommands, RemainingFrom(current));
+            // p0327: publish the live step cursor (current node → end, spliced follow-ups included) so a
+            // checkpoint taken INSIDE a handler can serialize exactly the remaining work, starting with itself.
+            context.Set(ContextKeys.RemainingCommands, RemainingFrom(current, context));
             context.Set(ContextKeys.PipelineExecutionCount, executionCount);
             announced = await plannedSteps.AnnounceChangedAsync(
                 context, startExecutionCount + 1, commands, announced, ct);
@@ -176,8 +175,9 @@ public sealed class PipelineExecutor(
     }
 
     // p0327: snapshot of the cursor node → tail, as plain records.
-    private static IReadOnlyList<PipelineCommand> RemainingFrom(LinkedListNode<PipelineCommand> current)
+    private static IReadOnlyList<PipelineCommand> RemainingFrom(LinkedListNode<PipelineCommand> current, PipelineContext context)
     {
+        Pipeline.SpecBlockRestamp.Apply(current, context); // 2026-11-27-3532d: a retired spec's steps carry its replacement
         var remaining = new List<PipelineCommand>();
         for (var node = current; node is not null; node = node.Next)
             remaining.Add(node.Value);

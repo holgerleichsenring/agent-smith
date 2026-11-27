@@ -23,6 +23,10 @@ public sealed record PendingQuestionInfo(
     /// <summary>2026-11-23-31dch: who can answer it; a question stored before the field existed is the target's.</summary>
     public IReadOnlyList<string> Answerers { get; init; } = [AgentSmith.Domain.Models.QuestionAnswerers.Target];
 
+    /// <summary>2026-11-27-3532e: the series whose master holds the question (SeriesLedRun), on the run's own read; null when a
+    /// person answers it on the run and ticket pages.</summary>
+    public string? SeriesId { get; init; }
+
     /// <summary>
     /// 2026-09-17-042ej: a stored question that cannot be deserialized is ABSENT, not an
     /// exception. One malformed row used to take down whichever read joined it — and on the

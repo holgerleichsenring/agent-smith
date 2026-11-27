@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
+import { holdSeriesHref, isAsked } from "@/components/tickets/holds/holdRoutes";
 import { RetryUnchanged, type RetrySettled } from "@/components/tickets/detail/RetryUnchanged";
 import { useSandboxActivity } from "@/hooks/useSandboxActivity";
 import { useDateLocale, useT } from "@/hooks/useT";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import { runPath, runTracePath } from "@/lib/runPath";
+import { seriesRunPath } from "@/lib/seriesRunAddress";
 import type { RunEvent, RunSnapshot } from "@/types/hub-events";
 import { clockOf, endedView, kindWord, liveLines, nowLabel, nowMode, pullRequestLinks, waitLines, type NowLine } from "./runNowLines";
 import { statusJoin, statusRest, type RunStatusLine } from "./runStatusLine";
@@ -20,6 +22,9 @@ import { VerifyPassLines } from "./VerifyPassLines";
 // acts that fit it: its pull requests, Retry unchanged, the setting that lifts a stop, the ticket and the Why page.
 // 2026-11-18-d6d2d: Retry only on the ticket's latest attempt; an older one links to the latest instead. A Retry this
 // page requested follows the new attempt once the ticket names it; a refusal reads the ticket again.
+// 2026-11-27-3532e: a series-led run's question is its series master's — the run's own read names the series (its pending
+// question's seriesId), else the ticket's hold routes to the series' chat: shown read-only with the link to that chat, and
+// the label says the series has it. A series of one's question keeps its answer form.
 
 interface Props {
   runId: string;
@@ -45,10 +50,12 @@ export function RunNow({ runId, snapshot, status, events, steps, ticket }: Props
   }, [t, locale, snapshot, mode, steps, events, ticket?.attempt, beat]);
   if (!snapshot || !view || !mode) return null;
   const question = mode === "waiting" ? snapshot.pendingQuestion ?? null : null;
+  const series = !question ? null : question.seriesId ? `${seriesRunPath(question.seriesId)}?section=talk`
+    : isAsked(ticket?.hold) ? holdSeriesHref(ticket?.hold, seriesRunPath) : null;
   const prs = mode === "ended" ? pullRequestLinks(snapshot) : [];
   return (
     <section className="rl-now" data-testid="run-now" data-mode={mode} aria-live="polite">
-      <span className="rl-lbl" data-testid="run-now-label">{nowLabel(t, snapshot)}</span>
+      <span className="rl-lbl" data-testid="run-now-label">{series ? t("runs.log.now.seriesHas") : nowLabel(t, snapshot)}</span>
       {mode === "ended" && status && <StatusLine line={status} at={clockOf(snapshot.finishedAt, locale)} />}
       {view.lines.map((l) => <Line key={l.key} line={l} />)}
       {view.said && (
@@ -66,7 +73,12 @@ export function RunNow({ runId, snapshot, status, events, steps, ticket }: Props
       )}
       {question && (
         <div className="rl-question" data-testid="run-question">
-          <PendingQuestionCard runId={runId} question={question} />
+          {series ? (
+            <div className="q-item q-head" data-testid="run-question-text">
+              <div className="qt">{question.text}</div>
+              <div className="qm"><Link href={series} data-testid="run-question-series">{t("runs.log.now.seriesChat")}</Link></div>
+            </div>
+          ) : <PendingQuestionCard runId={runId} question={question} />}
         </div>
       )}
       {mode === "ended" && (

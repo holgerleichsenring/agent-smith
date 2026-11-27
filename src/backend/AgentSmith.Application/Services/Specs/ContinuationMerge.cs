@@ -9,6 +9,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// one; an appended spec takes the next free member id past every id on the branch. A spec that ran
 /// since the approval's basis is kept as it ran, and its re-cut or drop is reported as discarded.
 /// Branch specs the basis never saw stay after the appended ones and are named.
+/// 2026-11-27-3532d: an appended spec that supersedes a kept one is its replacement and stands right behind it; when
+/// the retired spec ran since the approval, the retirement is discarded with its replacement. An appended spec whose
+/// id moves takes every unstarted spec's requires with it, a re-cut one's included.
 /// </summary>
 public sealed class ContinuationMerge(SpecDraftIdRewriter rewriter)
 {
@@ -47,10 +50,18 @@ public sealed class ContinuationMerge(SpecDraftIdRewriter rewriter)
         if (unseen.Count > 0)
             notes.Add($"spec(s) {string.Join(", ", unseen.Select(s => s.SpecId))} reached the branch after the "
                 + "approval was given and stay after the approved ones");
-        return ([.. seen, .. Appended(branch, approved, continuation, approvedById), .. unseen], notes);
+        var (appended, moved) = Appended(branch, approved, continuation, approvedById);
+        var (standing, discarded) = ContinuationReplacements.Standing(branch, appended, notes);
+        // A re-cut spec cites the approved id: a discarded replacement's maps to the spec that stands in its stead.
+        foreach (var (approvedId, standsInstead) in discarded) moved[approvedId] = standsInstead;
+        // Only a re-cut spec can require an appended one: a kept spec's text is the branch's, and a spec that ran stays.
+        var relinked = seen.Select(s => kinds[s.SpecId] == SpecDispositionKinds.Recut
+            && !branch.Executed.Contains(s.SpecId, StringComparer.Ordinal) ? Rewired(s, moved) : s).ToList();
+        // A replacement a run wrote since the approval stands behind the spec it retired, as the approved ones do.
+        return (SpecSupersession.Ordered([.. ContinuationReplacements.Placed(relinked, standing), .. unseen]), notes);
     }
 
-    private IReadOnlyList<DerivedSpec> Appended(
+    private (IReadOnlyList<(string ApprovedId, DerivedSpec Spec)> Specs, Dictionary<string, string> Moved) Appended(
         SpecSet branch, SpecSet approved, SeriesContinuation continuation,
         IReadOnlyDictionary<string, DerivedSpec> approvedById)
     {
@@ -68,14 +79,16 @@ public sealed class ContinuationMerge(SpecDraftIdRewriter rewriter)
             appended.Add(spec);
         }
         var moved = ids.Where(p => p.Key != p.Value).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
-        return [.. appended.Select(spec => spec with
-        {
-            Draft = spec.Draft with
-            {
-                SpecId = rewriter.RewriteValue(spec.Draft.SpecId, moved),
-                Requires = [.. spec.Draft.Requires.Select(r => rewriter.RewriteValue(r, moved))],
-                Yaml = rewriter.Rewrite(spec.Draft.Yaml, moved),
-            },
-        })];
+        return ([.. appended.Select(spec => (spec.SpecId, Rewired(spec, moved)))], moved);
     }
+
+    private DerivedSpec Rewired(DerivedSpec spec, IReadOnlyDictionary<string, string> moved) => moved.Count == 0 ? spec : spec with
+    {
+        Draft = spec.Draft with
+        {
+            SpecId = rewriter.RewriteValue(spec.Draft.SpecId, moved),
+            Requires = [.. spec.Draft.Requires.Select(r => rewriter.RewriteValue(r, moved))],
+            Yaml = rewriter.Rewrite(spec.Draft.Yaml, moved),
+        },
+    };
 }
