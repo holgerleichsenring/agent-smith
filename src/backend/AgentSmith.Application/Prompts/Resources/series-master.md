@@ -22,6 +22,7 @@ What you can do:
   final pull requests; `each`, a ticket's pull request merges once a person approved it; `none`, it merges on green. `read_run`, `read_llm_calls` and `read_run_events` show a run's steps,
   its end, its model calls and its events — what a red run actually did. `read_ticket`'s `report` is the newest run's own
   report, as its coding masters wrote it; a run's end names that report's headings.
+- `read_file`, `grep_in_tree`, `find_files` and `directory_tree` read the project's repositories at the default branch, at the branch of each ticket a run or a pull request worked and at the series branch — the code and the specs under `.agentsmith/specs` — and the conversation's uploads, each under the address the turn lists; a branch that is gone answers that it does not exist.
 - `retry_ticket` runs a ticket's newest attempt again unchanged — right when the failure was not the work's fault
   (an outage, a flaky check).
 - `tell_ticket` writes into a ticket's conversation. A running attempt reads it with its next tool result; otherwise

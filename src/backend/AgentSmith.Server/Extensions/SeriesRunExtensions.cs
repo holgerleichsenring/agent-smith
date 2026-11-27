@@ -18,6 +18,7 @@ public static class SeriesRunExtensions
         services.AddScoped<SeriesTicketMessage>().AddScoped<SeriesRunCancel>().AddScoped<ISeriesTicketActs, SeriesTicketActs>();
         services.AddScoped<ISeriesConversation, SeriesConversation>().AddScoped<ISeriesRunLaunch, SeriesRunLaunch>();
         services.AddScoped<ISeriesRecordReads, SeriesRecordReads>(); // 0207e: the admin assistant's run reads, lent
+        services.AddTransient<ISeriesSourceScopes, SeriesSourceScopes>(); // 2026-11-27-3532c: the repositories and uploads it reads
         services.AddSingleton<SeriesRunSweeper>().AddScoped<SeriesRunViewReader>(); // 0207e: the panel's read
         services.AddSeriesWakes();
         services.TryAddTransient<SeriesRunPullRequests>(); // 2026-11-23-31dcb: the series page's reads

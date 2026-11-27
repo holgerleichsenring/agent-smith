@@ -6,7 +6,8 @@ public static partial class PipelinePresets
     /// run id over the durable series record, so none outlives the wall-time watchdog and any worker takes it.</summary>
     public const string SeriesRunName = "series-run";
 
-    /// <summary>The master runs no skill from the catalog (its body is the server's own) and needs no sandbox.</summary>
+    /// <summary>The master runs no skill from the catalog (its body is the server's own). 2026-11-27-3532c: it reads
+    /// the series' repositories and uploads through read-only scopes its beat opens and disposes, which reserve no capacity.</summary>
     public static readonly IReadOnlyList<string> SeriesRun =
     [
         CommandNames.ReadSeries,

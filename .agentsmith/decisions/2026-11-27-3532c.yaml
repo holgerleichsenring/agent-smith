@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-3532c
+
+decisions:
+  - category: Architecture
+    chose: "The series master reads through the design turn's FilesystemToolHost reads (read_file, grep_in_tree, find_files, directory_tree, AgenticToolSurface.SpecDialogReads) over a map of lazy read-only scopes the beat opens per beat (SeriesSourceMap, behind the optional port ISeriesSourceScopes)"
+    over: "A new series read tool; reading files through the tracker or the host API; holding the scopes across beats"
+    reason: "The operator asked for reuse of the existing read-only tools. A scope spawns nothing until its first read and disposes to nothing unread, so a beat that reads nothing costs nothing; the handler opens the map inside the loop's try and disposes it in a finally — a judged, failed or cancelled loop alike — and a failure opening it takes the failed loop's MasterFailedAt back-off."
+  - category: Architecture
+    chose: "Addresses: <repo> (default branch), <repo>@<ticket key> opened at TicketBranchNamer.Compose(ticket id) for each ticket the beat's facts show a run (LatestRunId) or a pull request for, <repo>@series at the record's IntegrationBranch when it has one, reference:<name> per upload of the record's conversation; the readable addresses are listed in the beat's prompt and left out of the kept thread, like the table"
+    over: "Addressing a ticket branch by its id; listing only repositories and letting the master compose branches"
+    reason: "The master names tickets by key; the branch is named by id. RepoPathRouter matches the longest key followed by '/', so '@' keys and GitLab slash names route. A ticket nothing worked has no branch and is not listed — read from the facts the beat already holds, not guessed; a worked ticket whose branch is gone answers NoSuchRevision from the materialiser. An address is kept once (SeriesSourceMap drops a second, logged), so the prompt lists exactly what the reads route to."
+  - category: Security
+    chose: "The repositories are the project's (project.Repos) for every series beat; no read-time access rule is added"
+    over: "Narrowing to the repositories the conversation scoped; a per-read permission check"
+    reason: "decider: claude. A beat has no conversation scope of its own and access is checked per project when the series is filed and acted on over HTTP; the series master already acts on every ticket of the project's series. Reads write nothing and reach no other project's repositories, so no existing rule is bypassed."
+  - category: Architecture
+    chose: "Repository scopes are created with conversationId: null; uploads are listed with ReferenceSetRepository.ListAsync and opened with IReferenceSetSandboxFactory.Create directly, which takes the sandbox its conversation holds and gives it back on dispose, as a design turn does"
+    over: "SpecDialogReadOnlyScopes.OpenAsync (opens templates too, and coverage/provenance a beat does not file); naming the conversation on repository scopes"
+    reason: "A repository scope named by no conversation is the beat's own and never takes a design conversation's held checkout of a different revision. The reference factory always holds keyed by conversation, address and set (ReferenceSetSandbox.cs:103-113), so a series beat shares the conversation's upload sandbox rather than spawning a second. Templates are out of scope. A record with an empty Conversation (most series of one) opens no uploads; a composition with no durable store has no ReferenceSetRepository and opens none."
+  - category: Implementation
+    chose: "A project with no repositories gets no reads; the default key is the first repository at its default branch; the reads are not wrapped in BoundedResultTool"
+    over: "An empty FilesystemToolHost (its Route indexes the default runner and crashes); bounding the results"
+    reason: "The design turn does not bound these reads, and a bound is a cap the operator ruled out for this series. They are wrapped in MidTurnMessageAIFunction like the other series tools and come last, so the tools before them keep their order."
+  - category: Architecture
+    chose: "Read containers reserve no capacity, like the design turn's and SeriesVerification's scopes; the SeriesRun preset comment no longer says it needs no sandbox"
+    over: "Counting series read scopes against agent.max_concurrent_runs or a new limit"
+    reason: "Limits only by the environment (the operator's principle for this series); a scope spawns only on a read."
+  - category: Scope
+    chose: "The 2026-11-18-9c1cd cap of 20 tools no longer applies to the series master: TheMastersSurface_IsAtMostTwentyTools becomes TheMastersSurface_OffersEachToolOnce (unique names, the act tools present), and the comments in SeriesMasterHandler, MasterToolComposition and MasterToolSurfaceTests name it outside the rule, which keeps holding for the other masters"
+    over: "Keeping the cap and merging the reads into fewer tools; dropping record reads to make room"
+    reason: "decider: operator. No counts, no caps; limits only by the environment — the principle the operator gave for this series."
+  - category: Implementation
+    chose: "The tool composition moves out of SeriesMasterHandler into SeriesMasterSurface; the handler's constructor gains only the optional ISeriesSourceScopes, registered in SeriesRunExtensions"
+    over: "Registering the surface in DI and changing every handler construction"
+    reason: "The handler sat near the 120-line limit; the optional port follows ISeriesRecordReads, so test compositions without it keep working and give no reads."
+  - category: Implementation
+    chose: "Uploads that cannot be listed (any exception but cancellation) are logged as a warning and the beat reads none; each scope's dispose is guarded and logged, the rest still disposed"
+    over: "Failing the beat on an upload listing; disposing in sequence unguarded"
+    reason: "The uploads are an addition to the master's reads; a store hiccup must not cost the beat its turn, and one scope that fails to dispose must neither leak the others nor fail a beat that already judged."
+  - category: Implementation
+    chose: "HeldSandboxRegister.Hold removes (force remove, logged) a different sandbox its key already holds; the same sandbox held again changes nothing. The removal runs unawaited from the sync Hold, and HeldSandboxRemoval.OneAsync logs and swallows a failed remove"
+    over: "Overwriting the entry (the orphaned container lived until a reaper rail lapsed); making Hold async through IHeldSandboxRegister and every Keep caller"
+    reason: "A series beat and a design turn reading the same upload both take-miss, spawn and Keep under one key; the last kept stays held and the displaced one is taken down instead of orphaned. Hold stays sync because SourceScopeHold.Keep, its one caller, is sync in every scope's dispose."
