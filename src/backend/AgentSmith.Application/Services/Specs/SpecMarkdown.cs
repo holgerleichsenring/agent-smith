@@ -51,14 +51,14 @@ public static class SpecMarkdown
 
     private static void AppendSpecs(StringBuilder sb, SpecSet set)
     {
-        sb.AppendLine();
-        sb.AppendLine("## Specs");
+        sb.AppendLine().AppendLine("## Specs");
         foreach (var spec in set.Specs)
         {
-            var executed = set.Executed.Contains(spec.SpecId, StringComparer.Ordinal)
-                ? " _(executed)_" : string.Empty;
+            var retired = set.Retired().Contains(spec.SpecId);
+            var executed = set.Executed.Contains(spec.SpecId, StringComparer.Ordinal) ? " _(executed)_"
+                : retired ? $" _(superseded by {set.Specs.Last(s => s.Draft.Supersedes.Contains(spec.SpecId)).SpecId})_" : string.Empty; // 3532d
             sb.AppendLine($"- **{spec.SpecId}** — {spec.Draft.Goal}{executed}");
-            if (spec.Draft.Done.Count == 0) continue;
+            if (spec.Draft.Done.Count == 0 || retired) continue;
             sb.AppendLine("  - Definition of done:");
             foreach (var criterion in spec.Draft.Done)
                 sb.AppendLine($"    - {criterion}");

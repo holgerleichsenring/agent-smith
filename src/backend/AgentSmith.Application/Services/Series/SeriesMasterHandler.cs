@@ -29,7 +29,8 @@ public sealed class SeriesMasterHandler(
     SeriesFinalMerge finals, SeriesFinalCi finalCi, SeriesBudgetQuestion budgets, // 2026-11-25-9992g
     ISeriesEditActs edits, // 2026-11-25-9992f
     ILogger<SeriesMasterHandler> logger, ISeriesRecordReads? records = null, TimeProvider? clock = null,
-    AgentSmith.Contracts.Runs.IRunReportReader? reports = null) // 2026-11-26-a12ed
+    AgentSmith.Contracts.Runs.IRunReportReader? reports = null, // 2026-11-26-a12ed
+    ISeriesSpecRetirement? retirement = null) // 2026-11-27-3532d
     : ICommandHandler<SeriesMasterContext>
 {
     public const string MasterName = "series-master";
@@ -85,7 +86,8 @@ public sealed class SeriesMasterHandler(
             "Starts the series check again (on the series branch when it has one, else the default branch) — for a check that ended without a verdict.");
         // 2026-11-25-e94ec: an act marks the beat, whose reply is posted only then (SeriesBeat.MasterSpeaks); a read does not.
         var prs = new SeriesPullRequestTools(beat, context, pullRequests, finals, finalCi).GetTools(); // 2026-11-25-9992e
-        var cut = new SeriesEditTools(beat, edits, store).GetTools(); // 2026-11-25-9992f
+        var cut = new SeriesEditTools(beat, edits, store).GetTools() // 2026-11-25-9992f
+            .Concat(retirement is null ? [] : new SeriesSpecTools(beat, retirement).GetTools()); // 2026-11-27-3532d
         var acted = new SeriesActTools(beat, acts, store, pause).GetTools().Append(ask).Append(check).Concat(prs).Concat(cut)
             .Select(f => (AIFunction)new SeriesActedFunction(f, beat, store, logger, clock));
         IList<AITool> tools = [.. new SeriesReadTools(beat, reports).GetTools().Concat(acted)

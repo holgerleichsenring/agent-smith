@@ -26,6 +26,20 @@ public sealed class SeriesJoinUnitTests
     }
 
     [Fact]
+    public void Of_AReplacementInAnotherRepository_StandsBehindTheRetiredSpecAndTheExecutedPrefixHolds()
+    {
+        // 2026-11-27-3532d: x1a retired in Server for x1c in Client; x1b requires x1c; x1c ran, x1a never does.
+        var server = Read("Server", "x1a") with { Specs = [.. Read("Server", "x1a").Specs, .. Read("Server", "x1b", requires: "x1c").Specs] };
+        var client = Read("Client", "x1c", supersedes: "x1a") with { Executed = ["x1c"] };
+
+        var (specs, executed, why) = new SeriesJoinOrder().Of([server, client]);
+
+        why.Should().BeNull();
+        specs.Select(s => s.SpecId).Should().Equal("x1a", "x1c", "x1b");
+        executed.Should().Equal("x1c");
+    }
+
+    [Fact]
     public void Join_UnreadableRepoAmongSeveral_NamesTheRepository()
     {
         var joined = new SeriesJoin(new SeriesNewestManifest(), new SeriesJoinOrder()).Join(
@@ -68,10 +82,11 @@ public sealed class SeriesJoinUnitTests
             .Should().NotContain("series_repos", "today's writes stay byte-for-byte what they were");
     }
 
-    private static SubSeriesRead Read(string repo, string id, string? requires = null) =>
+    private static SubSeriesRead Read(string repo, string id, string? requires = null, string? supersedes = null) =>
         new(repo, SubSeriesState.Found)
         {
             Base = "x1",
-            Specs = [new DerivedSpec(new SpecDraft(id, "g", $"spec: {id}", requires is null ? [] : [requires]), id, string.Empty, [])],
+            Specs = [new DerivedSpec(new SpecDraft(id, "g", $"spec: {id}", requires is null ? [] : [requires])
+                { Supersedes = supersedes is null ? [] : [supersedes] }, id, string.Empty, [])],
         };
 }

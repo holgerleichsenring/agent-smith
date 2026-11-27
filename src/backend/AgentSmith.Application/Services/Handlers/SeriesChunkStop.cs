@@ -45,7 +45,8 @@ public sealed class SeriesChunkStop(ITicketProviderFactory tickets, ILogger<Seri
     {
         var built = progress.Specs.Count(p => p.State == SpecRunState.Done);
         var next = progress.Specs.First(p => p.NextAttempt).SpecId;
-        return $"Series in progress: {built} of {progress.Specs.Count} specs built; the next attempt continues with {next}.";
+        var standing = progress.Specs.Count(p => p.State != SpecRunState.Superseded); // 2026-11-27-3532d: a retired spec is never built
+        return $"Series in progress: {built} of {standing} specs built; the next attempt continues with {next}.";
     }
 
     private static string Comment(SpecSequenceProgress progress) =>

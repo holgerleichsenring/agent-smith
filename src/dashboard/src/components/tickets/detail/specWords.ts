@@ -14,6 +14,8 @@ export const SPEC_STATE: Record<string, [string, TextKey]> = {
   not_started: ["q", "tickets.spec.state.not_started"],
   failed: ["bad", "tickets.spec.state.failed"],
   handed_back: ["person", "tickets.spec.state.handed_back"],
+  // 2026-11-27-3532d: retired undelivered; the spec that supersedes it is built in its place.
+  superseded: ["q", "tickets.spec.state.superseded"],
   carried: ["ok", "tickets.spec.state.carried"],
 };
 

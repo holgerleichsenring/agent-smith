@@ -704,6 +704,7 @@ export const coreMessages = {
   "dialog.specStatus.done": { en: "done", de: "fertig" },
   "dialog.specStatus.failed": { en: "failed", de: "fehlgeschlagen" },
   "dialog.specStatus.handed_back": { en: "handed back", de: "zurückgegeben" },
+  "dialog.specStatus.superseded": { en: "retired", de: "abgelöst" },
   "dialog.prStatus.opened": { en: "opened", de: "geöffnet" },
   "dialog.prStatus.awaiting_ci": { en: "waiting for CI", de: "wartet auf CI" },
   "dialog.prStatus.no_changes": { en: "no changes", de: "keine Änderungen" },
@@ -781,6 +782,7 @@ export const coreMessages = {
   "tickets.strip.cell.asked": { en: "asking a question", de: "stellt eine Frage" },
   "tickets.strip.cell.failed": { en: "failed", de: "fehlgeschlagen" },
   "tickets.strip.cell.handed_back": { en: "handed back", de: "zurückgegeben" },
+  "tickets.strip.cell.superseded": { en: "retired", de: "abgelöst" },
   "tickets.strip.cell.not_started": { en: "not started", de: "nicht gestartet" },
   // --- runs: a run waiting for its model place, on the ticket page and the run page (2026-11-22-50d7a) ---
   "run.modelWait.head": { en: "Waiting for the model since {at}", de: "Wartet seit {at} auf das Modell" },

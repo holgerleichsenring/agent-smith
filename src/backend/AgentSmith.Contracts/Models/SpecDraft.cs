@@ -70,6 +70,12 @@ public sealed record SpecDraft(
     /// <c>ratified_mock</c> key; the file <c>{spec}-mock-v{n}.html</c> lies beside the spec. Null when none.
     /// </summary>
     public int? RatifiedMock { get; init; }
+
+    /// <summary>
+    /// 2026-11-27-3532d: the specs this one replaces, read from its <c>supersedes</c> key — each was retired undelivered,
+    /// keeps its record in the set, and this spec takes its place. Empty on a spec that replaces none.
+    /// </summary>
+    public IReadOnlyList<string> Supersedes { get; init; } = [];
 }
 
 /// <summary>

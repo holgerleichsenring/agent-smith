@@ -22,7 +22,7 @@ public sealed class SeriesFiles(SeriesManifest manifest)
     public IReadOnlyList<SpecSetFile> Render(SpecSet set)
     {
         var files = new List<SpecSetFile>(1 + (set.Specs.Count * 2)) { Manifest(set) };
-        foreach (var spec in set.UnexecutedTail)
+        foreach (var spec in set.Planned()) // 2026-11-27-3532d: a retired spec keeps its file
         {
             files.Add(new SpecSetFile(
                 SeriesPaths.Spec(SeriesPaths.Planned, spec.FileStem), spec.Draft.Yaml.TrimEnd() + "\n"));

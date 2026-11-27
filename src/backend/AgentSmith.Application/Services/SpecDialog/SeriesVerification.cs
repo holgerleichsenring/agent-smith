@@ -28,7 +28,9 @@ public sealed class SeriesVerification(
         ArgumentNullException.ThrowIfNull(series);
         ArgumentNullException.ThrowIfNull(pipeline);
         if (series.Failure is { } failure) return failure;
-        var unstarted = series.Specs.Where(s => !s.Ran).Select(s => s.Draft).ToList();
+        // 2026-11-27-3532d: a retired spec is never built, so it is not verified; its replacement is.
+        var retired = series.Specs.SelectMany(s => s.Draft.Supersedes).ToHashSet(StringComparer.Ordinal);
+        var unstarted = series.Specs.Where(s => !s.Ran && !retired.Contains(s.Draft.SpecId)).Select(s => s.Draft).ToList();
         if (unstarted.Count == 0) return "Every spec of the series already ran; nothing is left to verify.";
         if (series.ShaByRepo.Count == 0
             || !pipeline.TryGet<ResolvedProject>(ContextKeys.SpecDialogProject, out var project) || project is null)
