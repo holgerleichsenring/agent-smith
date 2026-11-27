@@ -29,6 +29,8 @@ interface Props {
   integrationBranch?: string | null;
   at: CSSProperties;
   onClose: () => void;
+  /** 2026-11-27-ecf2a: what opened it — a graph node or a row of the rail's list; Escape gives focus back to it. */
+  anchor?: HTMLElement | null;
 }
 
 const CI_WORDS: Record<string, TextKey> = {
@@ -36,7 +38,7 @@ const CI_WORDS: Record<string, TextKey> = {
   green: "series.details.ci.green", red: "series.details.ci.red",
 };
 
-export function SeriesTicketDetails({ ticket, project, seriesId, integrationBranch = null, at, onClose }: Props) {
+export function SeriesTicketDetails({ ticket, project, seriesId, integrationBranch = null, at, onClose, anchor = null }: Props) {
   const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const [starting, setStarting] = useState(false);
@@ -51,13 +53,14 @@ export function SeriesTicketDetails({ ticket, project, seriesId, integrationBran
   useEffect(() => {
     const node = () => document.getElementById(seriesNodeId(ticket.ticketId));
     const key = (e: KeyboardEvent) => {
-      const inside = ref.current?.contains(document.activeElement) || node() === document.activeElement;
-      if (e.key === "Escape" && inside) { onClose(); node()?.focus(); }
+      const inside = ref.current?.contains(document.activeElement) || node() === document.activeElement
+        || (!!anchor && anchor === document.activeElement);
+      if (e.key === "Escape" && inside) { onClose(); (anchor ?? node())?.focus(); }
     };
     const down = (e: MouseEvent) => {
       const target = e.target as Node;
       const links = document.getElementById(seriesNodeLinksId(ticket.ticketId));
-      if (!ref.current?.contains(target) && !node()?.contains(target) && !links?.contains(target)) onClose();
+      if (!ref.current?.contains(target) && !node()?.contains(target) && !links?.contains(target) && !anchor?.contains(target)) onClose();
     };
     // 2026-11-26-b186: placed in viewport coordinates, so any scroll (the overview's, the page's) leaves it behind — close it.
     const scrolled = (e: Event) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
@@ -69,7 +72,7 @@ export function SeriesTicketDetails({ ticket, project, seriesId, integrationBran
       document.removeEventListener("keydown", key); document.removeEventListener("mousedown", down);
       document.removeEventListener("scroll", scrolled, true);
     };
-  }, [ticket.ticketId, onClose]);
+  }, [ticket.ticketId, onClose, anchor]);
   const why = ticket.kind === "merged" ? t("series.node.merged") : ticket.hold ? holdSentence(t, ticket.hold) : t("series.node.notStarted");
   return (
     <div ref={ref} className={`sr-menu ${ticket.kind}`} style={at} role="dialog" aria-label={`${ticket.key} ${ticket.title}`}

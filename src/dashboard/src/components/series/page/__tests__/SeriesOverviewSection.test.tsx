@@ -124,7 +124,8 @@ describe("SeriesOverviewSection", () => {
     for (const gone of ["series-chips", "series-action-list", "series-list-yours", "series-list-needed", "series-act-outcome"])
       expect(screen.queryByTestId(gone)).toBeNull();
     expect(within(screen.getByTestId("series-graph")).queryAllByRole("button").every((b) => b.classList.contains("sr-node"))).toBe(true);
-    const acts = screen.queryAllByRole("button").filter((b) => !b.classList.contains("sr-node"));
+    // 2026-11-27-ecf2a: the rail's filters and rows only show; none acts.
+    const acts = screen.queryAllByRole("button").filter((b) => !["sr-node", "sr-filter-btn", "sr-trow"].some((c) => b.classList.contains(c)));
     expect(acts.filter((b) => /merge|retry|try again|hold/i.test(b.textContent ?? ""))).toHaveLength(0);
   });
 
@@ -246,14 +247,45 @@ describe("SeriesOverviewSection", () => {
     expect(within(await open("56")).queryByTestId("series-details-lastact-56")).toBeNull();
   });
 
-  it("CourseSelect_LightsTheChosenTicketsCourse_AndAllLightsEverything", async () => {
+  // 2026-11-27-ecf2a: a row of the rail's list lights its ticket's course; the course select is gone.
+  it("RailRow_Hovered_LightsExactlyItsCourse_AndLeavingTheListClearsIt", async () => {
     render(<SeriesRunPage id="sr-1" />);
-    fireEvent.change(await screen.findByTestId("series-graph-from"), { target: { value: "61" } });
+    fireEvent.mouseEnter(await screen.findByTestId("series-row-61"));
 
-    expect(screen.getByTestId("series-node-56")).toHaveClass("dim");
-    expect(screen.getByTestId("series-node-48")).not.toHaveClass("dim");
-    fireEvent.change(screen.getByTestId("series-graph-from"), { target: { value: "" } });
+    for (const id of ["61", "50", "48"]) expect(screen.getByTestId(`series-node-${id}`)).not.toHaveClass("dim");
+    for (const id of ["56", "59", "51", "55", "63", "62"]) expect(screen.getByTestId(`series-node-${id}`)).toHaveClass("dim");
+    expect(screen.getByTestId("series-node-61")).toHaveClass("hovered");
+    expect(screen.getByTestId("series-edge-50>61")).toHaveClass("on");
+    expect(screen.getByTestId("series-edge-48>50")).toHaveClass("on");
+    expect(screen.getByTestId("series-edge-50>51")).toHaveClass("dim");
+    expect(screen.queryByTestId("series-graph-from")).toBeNull();
+
+    fireEvent.mouseLeave(screen.getByRole("list", { name: "Tickets of the series" }));
     expect(screen.getByTestId("series-node-56")).not.toHaveClass("dim");
+    expect(screen.getByTestId("series-edge-50>61")).not.toHaveClass("on");
+  });
+
+  it("RailRow_Clicked_OpensThatTicketsDetails_AndHoveringTheGraphLightsNothing", async () => {
+    render(<SeriesRunPage id="sr-1" />);
+    fireEvent.mouseEnter(await screen.findByTestId("series-node-56"));
+    expect(document.querySelectorAll(".sr-node.dim, .sr-edge.on")).toHaveLength(0);
+
+    fireEvent.click(screen.getByTestId("series-row-59"));
+    expect(screen.getByTestId("series-details-59")).toBeInTheDocument();
+    fireEvent.mouseLeave(screen.getByRole("list", { name: "Tickets of the series" }));
+    expect(screen.getByTestId("series-node-56")).toHaveClass("dim"); // the open row keeps its course lit
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("series-details-59")).toBeNull();
+    expect(screen.getByTestId("series-row-59")).toHaveFocus();
+  });
+
+  it("RailRow_ClickedTwice_ClosesItsDetails", async () => {
+    render(<SeriesRunPage id="sr-1" />);
+    fireEvent.click(await screen.findByTestId("series-row-59"));
+    fireEvent.mouseDown(screen.getByTestId("series-row-59"));
+    fireEvent.click(screen.getByTestId("series-row-59"));
+
+    expect(screen.queryByTestId("series-details-59")).toBeNull();
   });
 
   it("Details_CloseOnEscape_AndOnAClickOutside", async () => {

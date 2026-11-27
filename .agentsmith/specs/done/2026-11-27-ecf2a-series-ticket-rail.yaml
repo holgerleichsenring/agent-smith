@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-ecf2a
+goal: "The series page's left rail holds a progress meter, counts, Open/All/Merged filters and the ticket list; hovering a row lights its dependency path in the graph."
+
+applies_to: "dashboard (series page: SeriesRunPage, SeriesSectionBar, SeriesTicketList, SeriesGraph, SeriesOverviewSection, series.css)"
+
+requires: [2026-11-26-f511b]
+
+facts:
+  - claim: "The rail holds only the way back, the series' size, name and state, and its facts at the foot; .tk-bar is 236px wide and shared with the ticket page."
+    evidence: "src/dashboard/src/components/series/page/SeriesSectionBar.tsx:19-42; src/dashboard/src/styles/ticket-thread.css:12"
+  - claim: "The 'Show course from' select only feeds the lit set (seriesCourse: the ticket, everything upstream and downstream); the Hide graph button sits beside it."
+    evidence: "src/dashboard/src/components/series/page/SeriesOverviewSection.tsx:22-25; src/dashboard/src/components/series/page/SeriesGraph.tsx:65-74; src/dashboard/src/components/series/page/seriesOrderLayout.ts:107-120"
+  - claim: "A click on a node opens SeriesTicketDetails, placed from the node's rect, closed by any scroll; Escape gives focus back to the node."
+    evidence: "src/dashboard/src/components/series/page/SeriesGraph.tsx:51-60,75; src/dashboard/src/components/series/page/SeriesTicketDetails.tsx:52-71"
+  - claim: "Folded, the overview draws no graph."
+    evidence: "src/dashboard/src/components/series/page/SeriesOverviewSection.tsx:28-37"
+  - claim: "At 760px and below the shell stacks the rail above the page."
+    evidence: "src/dashboard/src/styles/ticket-thread.css:37-43"
+
+scope:
+  in: |
+    On the series page only (.sr-page > .tk-bar) the rail is about minmax(300px, 380px) wide and holds the way back, the
+    series name (the page's h1, moved from the main column, whose top row keeps the status line), the state, a thin meter
+    split by ticket state, a counts line ("{merged} of {total} merged · {you} need you · {waiting} waiting"), Open / All /
+    Merged filters (default All), the ticket list (scrolling by itself), and the facts at its foot. Buckets from
+    ticket.kind: merged; needs you = question, approval, draft, failed; waiting = waiting; moving = now, needed, running,
+    pr. A row is a status dot, the key, the title and a short state under it (none when merged; "waits on #X" for a
+    waiting ticket with unmerged requires inside the series; else the kind's words). Rows run in reverse series order
+    (deepest first, as the mock). Hovering a row lights the ticket's course: its nodes and edges stay, the rest dim, the
+    course's edges get the path stroke, the hovered node an ink outline, and the graph box scrolls sideways to it (and the
+    overview vertically only when the node is outside it) unless details are open; leaving the list clears it. Hovering
+    the graph does nothing. Clicking a row opens SeriesTicketDetails beside the row; one open state for node and row lives
+    in SeriesPane, and Escape gives focus back to where it opened. Folded, hover lights nothing and a row still opens its
+    details. The course select goes (it only lit the course), with its keys, CSS and test; Hide graph stays in the graph's
+    head. At 760px and below the head stays on top and the list and facts go under the graph and the chat. i18n en and de.
+  out: "Persisting the filter; arrow-key navigation through the list; hover in the graph; the repo chips (2026-11-27-ecf2b)."
+
+steps:
+  - id: words
+    action: "seriesTicketRows.ts (pure): seriesTicketBucket(kind), the bucket counts, the row's short state, the filter and the row order."
+  - id: list
+    action: "SeriesTicketList: meter, counts, filters, rows (dot, key, title, state); mouseenter on a row and mouseleave of the list report the ticket; a click opens the details at the row."
+  - id: rail
+    action: "SeriesSectionBar renders the h1 and the list between head and facts; SeriesRunPage's SeriesPane holds hovered and opened ({ticketId, from}) and drops the h1 from the main column."
+  - id: graph
+    action: "SeriesGraph drops the select, takes lit and hovered, adds the path stroke and the hovered outline, scrolls to the hovered node; the menu renders from SeriesPane's open state; SeriesTicketDetails takes the element to give focus back to."
+  - id: css
+    action: "series.css: the rail width and its scrolling list scoped to .sr-page, the row grid, the meter, the path stroke (no dash animation under reduced motion), the phone order."
+  - id: tests
+    action: "vitest: buckets, short state, filter and order; hover lights exactly the course and leave clears it; a row click opens the details; the h1 is in the rail; no course select."
+  - id: render
+    action: "Production build against fixtures; screenshots at 1440x900, 1920x1080 and 390x844 compared with the approved mock."
+
+tests:
+  - "seriesTicketBucket puts each kind in merged, moving, needs you or waiting"
+  - "a waiting ticket's short state names the unmerged tickets it waits on"
+  - "the Merged filter lists only merged tickets, Open only the rest, rows deepest first"
+  - "hovering a row dims every node outside its course and leaving the list clears it"
+  - "clicking a row opens that ticket's details"
+  - "the series name is the rail's heading and the graph has no course select"
+
+done:
+  - "Hovering a row leaves exactly its course undimmed and the course's edges lit; leaving restores the graph (test)."
+  - "The filters split the list by merged and open; a row click opens SeriesTicketDetails (test)."
+  - "pnpm test and pnpm build are green; screenshots at 1440x900 and 1920x1080 are in the scratchpad and compared with the mock."

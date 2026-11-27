@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef } from "react";
 import { useT } from "@/hooks/useT";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
 import { seriesTicketBadges, type SeriesBadge } from "./seriesCiState";
@@ -8,32 +8,25 @@ import { SERIES_NODE_KINDS, seriesNeededChain, waitingPullRequests } from "./ser
 import { NODE_H, NODE_W, seriesNodeId, seriesNodeLinksId, seriesOrderLayout } from "./seriesOrderLayout";
 
 // 2026-11-23-f562: the Overview's order graph — repo lanes, depth columns, every ticket in ONE colour by its hold
-// (ticket.kind, the server's), edges orthogonal and the needed-merge chain's edges in the accent, a legend and the course select.
-// Clicking a ticket opens its details (drawn by the caller below the node, outside the scrolling box so it is never clipped);
-// the graph scrolls sideways in its own box, and scrolling it closes them. 2026-11-25-9992j: a ticket a run works on now
-// carries the working mark, and each node its host's marks (conflict, CI).
+// (ticket.kind, the server's), edges orthogonal and the needed-merge chain's edges in the accent, and a legend.
+// Clicking a ticket opens its details (drawn by the page, outside the scrolling box so it is never clipped); the graph
+// scrolls sideways in its own box, and scrolling it closes them. 2026-11-25-9992j: a ticket a run works on now carries the
+// working mark, and each node its host's marks (conflict, CI).
+// 2026-11-27-ecf2a: the course select is gone — a row of the rail's list lights its ticket's course instead: the course's
+// edges take the path stroke, the pointed-at node an outline, and the box scrolls to it. Pointing at the graph does nothing.
 
 interface Props {
   detail: SeriesRunDetail;
-  /** The tickets lit — a course or a hovered row's chain; null lights everything. */
+  /** The tickets lit — the pointed-at row's course; null lights everything. */
   lit: Set<string> | null;
-  from: string | null;
-  onFrom: (ticketId: string | null) => void;
+  /** 2026-11-27-ecf2a: the ticket whose row is pointed at; the graph scrolls to it while no details are open. */
+  hovered?: string | null;
   openId: string | null;
-  onNode: (ticketId: string) => void;
+  onNode: (ticketId: string, node: HTMLElement) => void;
   onClose: () => void;
-  /** Where the menu sits: just below the node, in viewport coordinates (2026-11-26-b186: the overview scrolls and would clip it). */
-  menu: (ticket: SeriesRunTicket, at: MenuAt) => ReactNode;
   /** 2026-11-26-b186: folds the graph to one line; absent, no button. */
   onHide?: () => void;
 }
-
-const MENU_W = 260;
-/** Below a node with less room than this under it, the menu opens above it. */
-const MENU_ROOM = 320;
-
-/** Where the menu sits in the viewport: under the node, or over it when the node is near the window's foot. */
-export type MenuAt = { left: number; top: number } | { left: number; bottom: number };
 
 // 2026-11-25-9992j: the small marks a node carries for its host — a conflict, red CI, CI running, a build not started.
 const MARK_TONE: Record<SeriesBadge, string> = { conflict: "bad", approval: "person", ciRed: "bad", ciRunning: "run", ciNotStarted: "need" };
@@ -43,36 +36,41 @@ function isWorkedOn(detail: SeriesRunDetail, ticket: SeriesRunTicket): boolean {
   return ticket.working || detail.workingOn.includes(ticket.key);
 }
 
-export function SeriesGraph({ detail, lit, from, onFrom, openId, onNode, onClose, menu, onHide }: Props) {
+/** 2026-11-27-ecf2a: brings the node into the box sideways (centred, as the mock) and into the overview's height when it is
+ *  outside it — only when it is not in view already, so moving along the list does not shake the graph, and at once: a
+ *  smooth scroll still running would close the details a click on the row opens meanwhile. */
+function scrollToNode(box: HTMLElement, ticketId: string) {
+  const node = document.getElementById(seriesNodeId(ticketId));
+  if (!node) return;
+  const left = node.offsetLeft;
+  if (left < box.scrollLeft || left + NODE_W > box.scrollLeft + box.clientWidth)
+    box.scrollTo?.({ left: Math.max(0, left - box.clientWidth / 2 + NODE_W / 2), behavior: "auto" });
+  const overview = box.closest<HTMLElement>(".sr-overview");
+  if (!overview || overview.scrollHeight <= overview.clientHeight) return;
+  const own = node.getBoundingClientRect();
+  const view = overview.getBoundingClientRect();
+  const off = own.top < view.top ? own.top - view.top - 8 : own.bottom > view.bottom ? own.bottom - view.bottom + 8 : 0;
+  if (off !== 0) overview.scrollBy?.({ top: off, behavior: "auto" });
+}
+
+export function SeriesGraph({ detail, lit, hovered = null, openId, onNode, onClose, onHide }: Props) {
   const t = useT();
   const layout = useMemo(() => seriesOrderLayout(detail), [detail]);
   const chain = useMemo(() => seriesNeededChain(detail), [detail]);
   const on = (id: string) => !lit || lit.has(id);
-  const open = layout.nodes.find((node) => node.ticket.ticketId === openId);
-  const panel = useRef<HTMLElement>(null);
-  const [at, setAt] = useState<MenuAt | null>(null);
-  useLayoutEffect(() => {
-    const node = openId ? document.getElementById(seriesNodeId(openId)) : null;
-    if (!node || !panel.current) { setAt(null); return; }
-    const own = node.getBoundingClientRect();
-    const left = Math.max(8, Math.min(own.left, window.innerWidth - MENU_W - 8));
-    setAt(window.innerHeight - own.bottom >= MENU_ROOM || own.top < MENU_ROOM
-      ? { left, top: own.bottom + 6 } : { left, bottom: window.innerHeight - own.top + 6 });
-  }, [openId, layout]);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (hovered && !openId && box.current) scrollToNode(box.current, hovered);
+  }, [hovered, openId]);
   return (
-    <section ref={panel} className="sr-graph-panel" aria-label={t("series.graph.title")} title={t("series.graph.hint")}>
-      <div className="sr-graph-head">
-        <div className="sr-graph-from">
-          <label htmlFor="sr-graph-from">{t("series.graph.from")}</label>
-          <select id="sr-graph-from" value={from ?? ""} onChange={(e) => onFrom(e.target.value || null)} data-testid="series-graph-from">
-            <option value="">{t("series.graph.all", { count: detail.tickets.length })}</option>
-            {detail.tickets.map((ticket) => <option key={ticket.ticketId} value={ticket.ticketId}>{ticket.key} {ticket.title}</option>)}
-          </select>
-          {onHide && <button type="button" className="d-link" aria-expanded={true} onClick={onHide} data-testid="series-graph-toggle">
-            {t("series.graph.hide")}</button>}
+    <section className="sr-graph-panel" aria-label={t("series.graph.title")} title={t("series.graph.hint")}>
+      {onHide && (
+        <div className="sr-graph-head">
+          <button type="button" className="d-link" aria-expanded={true} onClick={onHide} data-testid="series-graph-toggle">
+            {t("series.graph.hide")}</button>
         </div>
-      </div>
-      <div className="sr-graph-box" data-testid="series-graph" onScroll={() => { if (openId) onClose(); }}>
+      )}
+      <div ref={box} className="sr-graph-box" data-testid="series-graph" onScroll={() => { if (openId) onClose(); }}>
         <div className="sr-graph" style={{ width: layout.width, height: layout.height }}>
           {layout.lanes.map((lane) => (
             <div key={lane.repo ?? ""} className="sr-lane" style={{ top: lane.top }} data-testid={`series-lane-${lane.repo ?? "none"}`}>
@@ -82,9 +80,10 @@ export function SeriesGraph({ detail, lit, from, onFrom, openId, onNode, onClose
           <svg width={layout.width} height={layout.height} aria-hidden="true">
             {layout.lines.map(({ edge, d }) => {
               const needed = chain.has(edge.ticketId) && chain.has(edge.requiredTicketId);
+              const course = on(edge.ticketId) && on(edge.requiredTicketId);
               return (
                 <path key={`${edge.requiredTicketId}>${edge.ticketId}`} d={d}
-                  className={`sr-edge${needed ? " needed" : ""}${on(edge.ticketId) && on(edge.requiredTicketId) ? "" : " dim"}`}
+                  className={`sr-edge${needed ? " needed" : ""}${!course ? " dim" : lit ? " on" : ""}`}
                   data-testid={`series-edge-${edge.requiredTicketId}>${edge.ticketId}`} />
               );
             })}
@@ -99,9 +98,9 @@ export function SeriesGraph({ detail, lit, from, onFrom, openId, onNode, onClose
             return (
               <Fragment key={ticket.ticketId}>
               <button id={seriesNodeId(ticket.ticketId)} type="button" style={{ left: x, top: y, width: NODE_W, height: NODE_H }}
-                className={`sr-node ${kind}${working ? " working" : ""}${dim}`} data-kind={kind}
+                className={`sr-node ${kind}${working ? " working" : ""}${dim}${hovered === ticket.ticketId ? " hovered" : ""}`} data-kind={kind}
                 aria-label={`${ticket.key} ${ticket.title}: ${said.filter(Boolean).join(", ")}`} aria-haspopup="dialog"
-                aria-expanded={openId === ticket.ticketId} onClick={(e) => { e.stopPropagation(); onNode(ticket.ticketId); }}
+                aria-expanded={openId === ticket.ticketId} onClick={(e) => { e.stopPropagation(); onNode(ticket.ticketId, e.currentTarget); }}
                 data-testid={`series-node-${ticket.ticketId}`} data-working={working || undefined}>
                 <span className="sr-node-id">
                   <span>{ticket.key}{alsoIn.length > 0 ? ` ${t("series.graph.alsoIn", { repos: alsoIn.join(" + ") })}` : ""}</span>
@@ -133,7 +132,6 @@ export function SeriesGraph({ detail, lit, from, onFrom, openId, onNode, onClose
       <div className="sr-legend" data-testid="series-graph-legend">
         {SERIES_NODE_KINDS.map((kind) => <span key={kind}><i className={`sr-dot ${kind}`} />{t(`series.kind.${kind}`)}</span>)}
       </div>
-      {open && at && menu(open.ticket, at)}
     </section>
   );
 }

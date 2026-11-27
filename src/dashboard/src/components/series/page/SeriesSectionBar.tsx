@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useDateLocale, useT } from "@/hooks/useT";
 import { SERIES_PATH } from "@/lib/seriesRunAddress";
@@ -15,8 +16,10 @@ import { openQuestionCount, SERIES_QUESTION_ID } from "./SeriesQuestionBlock";
 // the page is one pane, the graph says where the series stands.
 // 2026-11-26-5201c: the questions that wait are a link to them, above the chat's input, and count every one drawn there.
 // 2026-11-26-f511a: "N need you" — the block now holds approvals and failures too.
+// 2026-11-27-ecf2a: the bar is the series' rail — the name is the page's heading, and the ticket list (children) stands
+// between the head and the facts.
 
-export function SeriesSectionBar({ detail }: { detail: SeriesRunDetail }) {
+export function SeriesSectionBar({ detail, children }: { detail: SeriesRunDetail; children?: ReactNode }) {
   const t = useT();
   const locale = useDateLocale();
   const questions = openQuestionCount(detail);
@@ -26,12 +29,13 @@ export function SeriesSectionBar({ detail }: { detail: SeriesRunDetail }) {
       <Link className="tk-bar-back" href={SERIES_PATH} data-testid="series-back">{t("series.page.back")}</Link>
       <div className="tk-bar-id" data-testid="series-head">
         <span className="tk-bar-key">{t("series.page.kind", { count: detail.counts.total })}</span>
-        <span className="tk-bar-title">{detail.name}</span>
+        <h1 className="tk-bar-title" data-testid="series-title">{detail.name}</h1>
         <span className={`tk-bar-state ${stateTone(detail)}`} data-testid="series-state-word">
           {seriesStateWord(detail.state, t)}
           {questions > 0 && <> · <a href={`#${SERIES_QUESTION_ID}`} data-testid="series-question-link">{t("series.page.needsYou", { count: questions })}</a></>}
         </span>
       </div>
+      {children}
       <div className="tk-bar-facts" data-testid="series-facts">
         <span>{t("series.fact.project", { project: detail.project })}</span>
         {detail.repos.length > 0 && <span data-testid="series-repos">{detail.repos.join(" · ")}</span>}

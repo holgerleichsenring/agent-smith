@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-ecf2a
+
+decisions:
+  - category: Architecture
+    chose: "The series rail as the approved mock draws it: about minmax(300px, 380px) wide, the name as its heading, a thin meter by ticket state, a counts line, Open / All / Merged, the ticket list (dot, key, title, short state), the facts at its foot; the graph and the chat on the right"
+    over: "Keeping the 236px bar with name and state only; a ticket table under the graph"
+    reason: "decider: operator, 2026-11-27 — approved the mock (series-graph-mock.html) with 'exactly like this'. The dashboard's own tokens, components and i18n draw it."
+  - category: Architecture
+    chose: "Pointing at a row lights the ticket's course (upstream and downstream nodes and edges, the rest dimmed) and scrolls the graph to the node; pointing at the graph does nothing; a click on a row opens the ticket's details"
+    over: "Hover in the graph itself; the 'Show course from' select"
+    reason: "decider: operator — hover in the graph was too restless. The select only fed the lit set (SeriesOverviewSection, seriesCourse), so the rows replace it and it is removed with its keys, CSS and test."
+  - category: Architecture
+    chose: "Meter buckets from ticket.kind: merged; needs you = question, approval, draft, failed; waiting; moving = now, needed, running, pr. Rows deepest first; a waiting ticket's short state names the unmerged tickets it waits on, every other open one says its kind's words, a merged one nothing"
+    over: "Reusing series.counts (merged · PRs waiting · not started) and SeriesProgress (landed, waiting, held)"
+    reason: "decider: claude — the mock's counts read merged · needs you · waiting, and the kinds are the server's one state of a ticket (SeriesTicketState); draft takes the person's colour on the graph, so it counts as needing a person here too."
+  - category: Implementation
+    chose: "One open state for the details in SeriesPane ({ticket, from node|row, anchor}); a row opens them beside the row, a node under it; Escape gives focus back to the anchor; a second click on the same anchor closes them; an open row keeps its course lit"
+    over: "Opening a row's details at its graph node; two dialog states, one per surface"
+    reason: "decider: claude, from the spec and diff reviews — the node may be scrolled or folded away, and the details close on any scroll; anchoring at the row needs no scroll and works with the graph folded. Opening moves focus off the row, which would otherwise clear the course."
+  - category: Implementation
+    chose: "The graph scrolls to the pointed-at node at once, and only when the node is out of view; not while details are open"
+    over: "A smooth scroll as in the mock"
+    reason: "decider: claude, from the diff review — a smooth scroll still running when the row is clicked fires scroll events that close the details just opened."
+  - category: Architecture
+    chose: "At 760px and below the head (back, name, state) stays on top and the list and the facts go under the graph and the chat (display: contents on the rail, flex order)"
+    over: "Moving the whole rail, name included, under the chat as the mock does at 820px"
+    reason: "decider: claude — the operator asked for the list under graph and chat; the page's name stays where a phone reader starts, and 760px is the shell's own breakpoint."
