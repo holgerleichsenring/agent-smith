@@ -1,4 +1,5 @@
 import { use } from "react";
+import { redirect } from "next/navigation";
 import { AccessStudio } from "@/components/access/AccessStudio";
 import { ConnectionsView } from "@/components/system/ConnectionsView";
 import { InstallationIdentityView } from "@/components/system/InstallationIdentityView";
@@ -6,14 +7,22 @@ import { DataArchiveView } from "@/components/system/DataArchiveView";
 import { ConfigStudio, type StudioSection } from "@/components/config/ConfigStudio";
 import { SettingsStudio } from "@/components/config/SettingsStudio";
 import { isConfigEntityKind } from "@/components/config/entities";
-import { SETTING_KEYS, isSettingKey } from "@/components/config/settings";
+import { SettingsGroupStudio } from "@/components/config/SettingsGroupStudio";
+import {
+  SETTINGS_NAV,
+  groupOf,
+  isSettingGroup,
+  isSettingKey,
+  settingHref,
+  settingsNavHref,
+} from "@/components/config/settings";
 
 // p0345: the Configuration studio route. The optional catch-all slug selects the
 // section — /config → agents (default), /config/{kind} → that catalog,
 // /config/changes → the audit view — so selection is URL-stable and deep-linkable,
 // mirroring the /system route's slug-driven master/detail.
-// p0353: /config/settings/{key} → the global settings singleton's typed form (a bare
-// /config/settings falls to the first key), rendered inside the same studio shell.
+// p0353: /config/settings/{key} → the global settings singleton's typed form, rendered inside the
+// same studio shell (2026-11-28-9bd1: or a group of them — see SettingsPage).
 // 2026-08-27-1ed6: /config/installation → what this installation runs, and
 // /config/connection-check → whether its dependencies answer. Both used to hang off
 // /system, where the running system is watched; an installation is not a subsystem of
@@ -23,6 +32,8 @@ import { SETTING_KEYS, isSettingKey } from "@/components/config/settings";
 
 interface PageProps {
   params: Promise<{ slug?: string[] }>;
+  /** 2026-11-28-9bd1: ?open={key} names the section of a settings group to open and scroll to. */
+  searchParams?: Promise<{ open?: string | string[] }>;
 }
 
 function sectionFromSlug(slug?: string[]): StudioSection {
@@ -32,8 +43,9 @@ function sectionFromSlug(slug?: string[]): StudioSection {
   return "agents";
 }
 
-export default function ConfigPage({ params }: PageProps) {
+export default function ConfigPage({ params, searchParams }: PageProps) {
   const { slug } = use(params);
+  const query = searchParams ? use(searchParams) : {};
   // 2026-08-26-7a51: /config/access → who may do what. Its own surface and its own
   // permission, because config.write must not be enough to grant somebody admin.
   if (slug?.[0] === "access") return <AccessStudio />;
@@ -55,11 +67,23 @@ export default function ConfigPage({ params }: PageProps) {
       </DiagnosticPage>
     );
   }
-  if (slug?.[0] === "settings") {
-    const key = isSettingKey(slug[1]) ? slug[1] : SETTING_KEYS[0];
-    return <SettingsStudio settingKey={key} />;
-  }
+  if (slug?.[0] === "settings") return <SettingsPage segment={slug[1]} open={query.open} />;
   return <ConfigStudio section={sectionFromSlug(slug)} />;
+}
+
+// 2026-11-28-9bd1: /config/settings/{group} is a group of sections, /config/settings/{key} a page of
+// its own. A key that became a section redirects to its group with that section open, so a bookmark
+// or a link in a ticket still lands on it; a bare or unknown segment goes to the first rail entry.
+function SettingsPage({ segment, open }: { segment?: string; open?: string | string[] }) {
+  if (isSettingGroup(segment)) {
+    const key = Array.isArray(open) ? open[0] : open;
+    return <SettingsGroupStudio key={segment} groupId={segment} open={isSettingKey(key) ? key : null} />;
+  }
+  if (isSettingKey(segment)) {
+    if (groupOf(segment)) return redirect(settingHref(segment));
+    return <SettingsStudio settingKey={segment} />;
+  }
+  return redirect(settingsNavHref(SETTINGS_NAV[0]));
 }
 
 // The two moved read-outs render exactly the DOM they rendered under /system — the same

@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-9bd1
+goal: "The settings rail lists three groups and five pages instead of eighteen pages; a group page holds its former pages as sections that open and count what differs from the default."
+
+applies_to: "dashboard (components/config settings rail and studio, app/config route, lib/places); default (one read-only settings route)"
+
+requires: [2026-11-16-0440c, 2026-11-23-5669d]
+
+facts:
+  - claim: "The rail lists every settings key as its own entry, in SETTING_KEYS order, linking /config/settings/{key}."
+    evidence: "src/dashboard/src/components/config/ConfigSectionNav.tsx:49; src/dashboard/src/components/config/settings.ts:13"
+  - claim: "/config/settings/{key} renders one SettingsStudio; an unknown or missing key falls to the first key."
+    evidence: "src/dashboard/src/app/config/[[...slug]]/page.tsx:58"
+  - claim: "SettingsStudio loads one doc, keeps a draft, and saves it with a dirty-gated Save that a settingRefusal blocks; a load refusal renders a RefusalSurface."
+    evidence: "src/dashboard/src/components/config/SettingsStudio.tsx:21"
+  - claim: "The top-bar search goes to a page by the names in PLACES/PLACE_KEYS, which derive the settings places from SETTING_KEYS."
+    evidence: "src/dashboard/src/lib/places.ts:70; src/dashboard/src/components/shell/AppTopBar.tsx:29"
+  - claim: "The server exposes each settings doc's assembled value but not its default; a singleton read off an empty RawAgentSmithConfig is the model default."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigSettingsEndpoints.cs:30; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigSettingsAccess.cs:23"
+  - claim: "An old /system path already leads to its /config page through redirect() in the route."
+    evidence: "src/dashboard/src/app/system/installation/page.tsx:6"
+
+scope:
+  in: |
+    Rail: Runs & limits (orchestrator, primary_provider, limits, pipeline_cost_cap, queue, deployment), Workflow (dialogue,
+    spec_review, preconditions, holds, branch_cleanup), Sandbox, Series, Ticket limits (the tickets key renamed), PoCs, Skills,
+    Diagnostics (pipeline_data_flow, trace). Access and This installation unchanged.
+    A group page at /config/settings/{group}: each member a collapsible section with its heading, subtitle and unchanged form;
+    a section whose saved value differs from the default opens and its heading says "N changed" (leaf paths that differ, an
+    array counted once); "Show only changed values" hides the sections with nothing changed; one Save writes every dirty
+    section through the existing PUT, dirty-gated and blocked by any section's refusal, as the page Save is today.
+    Group slugs runs, workflow, diagnostics (never a SettingKey). /config/settings/{member key} redirects to
+    /config/settings/{group}?open={key} (the route's searchParams prop, passed down as open); that section opens and scrolls
+    into view. A bare /config/settings redirects to the first rail entry. A group Save that fails part-way keeps the failed
+    section's draft and its error, the saved ones reload. The filter never hides a section with an unsaved edit.
+    Search finds every former name (the old paths stay places and redirect) and the group names; "Tickets" was shared with
+    /tickets and the rename to "Ticket limits" ends that collision. NeedsAttentionView's holds link points at the group.
+    GET /api/config/settings/{type}/default (config.read, the same Editable() list, so role_mapping stays a 404) returns the
+    model default; without it a section shows no count. Installer-written values (deployment pin, dialogue dashboard URL)
+    count as changed, truthfully; a partial perTier map counts its missing tiers.
+  out: "Deleting or moving any field; changing a form, its validation or help text; field-level filtering inside a form; any permission change."
+
+steps:
+  - id: route
+    action: "Backend: public ConfigSettingsDefaults.Read(type) over an empty RawAgentSmithConfig and GET /api/config/settings/{type}/default; route-permission baseline and ConfigStudioRouteSplitTests lines; test."
+  - id: model
+    action: "settings.ts: SETTING_GROUPS and SETTINGS_NAV (groups + standalone keys), groupOf(key); configApi.fetchSettingDefault; changedCount(value, default) helper."
+  - id: studio
+    action: "SettingsGroupStudio + SettingsSection: per-section useSetting + default, draft, collapsible, count, filter, one group Save; SettingsStudio unchanged for the five standalone keys."
+  - id: wiring
+    action: "page.tsx redirects a member key, renders a group with ?open; ConfigSectionNav renders SETTINGS_NAV; places name the groups; dictionary keys en+de incl. 'Ticket limits'."
+  - id: tests
+    action: "vitest: redirects, changedCount, open-by-default + 'N changed', filter, every member's fields render in its group and a group Save PUTs each dirty doc; ConfigSectionNav, places, ShellGerman and NeedsAttention tests updated."
+  - id: evidence
+    action: "Screenshots at 1440x900 of the rail and one group page."
+
+tests:
+  - "settingsGroups.test.ts: ChangedCount_CountsDifferingLeaves_ArrayOnce; EveryKey_IsInExactlyOneNavEntry"
+  - "SettingsGroupStudio.test.tsx: Section_WithAChange_OpensAndSaysNChanged; Filter_HidesUnchangedSections; GroupSave_PutsEachDirtyDoc; EveryMemberField_RendersInItsGroup; OpenParam_OpensThatSection"
+  - "page.test.tsx: OldSettingPath_RedirectsToItsGroupWithTheSectionOpen"
+  - "SettingsDefaultTests: Default_OfEveryGroupedType_EqualsAnUntouchedStoresValue; DefaultRoute_RoleMapping_Is404"
+
+done:
+  - "The rail shows the three groups and five pages above Access (test)."
+  - "Every former /config/settings/{key} lands on its group with that section open (test)."
+  - "Every former field renders in its group and a group Save sends the edited docs (test)."
+  - "Screenshots of the rail and a group page at 1440x900 exist."
+  - "The spec gate is green."

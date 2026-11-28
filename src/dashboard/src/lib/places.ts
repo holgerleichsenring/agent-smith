@@ -1,5 +1,13 @@
 import { ENTITY_KINDS, ENTITY_LABEL, ENTITY_LABEL_KEY } from "@/components/config/entities";
-import { SETTING_KEYS, SETTING_LABEL, SETTING_LABEL_KEY } from "@/components/config/settings";
+import {
+  SETTING_GROUPS,
+  SETTING_KEYS,
+  SETTING_LABEL,
+  SETTING_LABEL_KEY,
+  SETTINGS_NAV,
+  settingsNavLabel,
+  settingsNavName,
+} from "@/components/config/settings";
 import type { TextKey } from "@/lib/i18n/translate";
 
 // 2026-08-27-1ed6: the header says WHERE YOU ARE, and this is the one table it reads.
@@ -60,17 +68,20 @@ const FIXED_PLACES: Record<string, string> = {
   "/config/changes": "Changes",
   "/config/installation": "Installation",
   "/config/connection-check": "Connection check",
-  "/config/settings": SETTING_LABEL[SETTING_KEYS[0]],
+  "/config/settings": settingsNavName(SETTINGS_NAV[0]),
 };
 
 function catalogPlaces(): Record<string, string> {
   return Object.fromEntries(ENTITY_KINDS.map((kind) => [`/config/${kind}`, ENTITY_LABEL[kind]]));
 }
 
+// 2026-11-28-9bd1: every former settings page stays a place, so the search still finds it by its
+// name; a page that became a section of a group redirects there with that section open.
 function settingsPlaces(): Record<string, string> {
-  return Object.fromEntries(
-    SETTING_KEYS.map((key) => [`/config/settings/${key}`, SETTING_LABEL[key]]),
-  );
+  return Object.fromEntries([
+    ...SETTING_GROUPS.map((group) => [`/config/settings/${group.id}`, group.name]),
+    ...SETTING_KEYS.map((key) => [`/config/settings/${key}`, SETTING_LABEL[key]]),
+  ]);
 }
 
 /** 2026-11-23-5669a: the dictionary key of each place, so the search names it in the chosen language. 2026-11-22-5485b:
@@ -101,8 +112,9 @@ export const PLACE_KEYS: Readonly<Record<string, TextKey>> = {
   "/config/installation": "shell.place.installation",
   "/config/connection-check": "shell.place.connectionCheck",
   "/config": ENTITY_LABEL_KEY[ENTITY_KINDS[0]],
-  "/config/settings": SETTING_LABEL_KEY[SETTING_KEYS[0]],
+  "/config/settings": settingsNavLabel(SETTINGS_NAV[0]),
   ...Object.fromEntries(ENTITY_KINDS.map((kind) => [`/config/${kind}`, ENTITY_LABEL_KEY[kind]])),
+  ...Object.fromEntries(SETTING_GROUPS.map((group) => [`/config/settings/${group.id}`, group.label])),
   ...Object.fromEntries(SETTING_KEYS.map((key) => [`/config/settings/${key}`, SETTING_LABEL_KEY[key]])),
 };
 

@@ -92,36 +92,38 @@ describe("ConfigSectionNav", () => {
     expect(screen.getByTestId("section-nav-item-Secrets")).toHaveAttribute("href", "/config/secrets");
   });
 
-  it("ConfigNav_ConfigRoute_ShowsSettingsGroupWithTypedFormRoutes", async () => {
+  // 2026-11-28-9bd1: three groups of the small pages, beside the pages of their own.
+  it("ConfigNav_ConfigRoute_ShowsTheSettingsGroupsAndPages", async () => {
     renderNav();
     expect(screen.getByTestId("section-nav-group-Settings")).toBeInTheDocument();
-    // One entry per settings singleton, routing to its typed form.
-    expect(screen.getByTestId("section-nav-item-Orchestrator")).toHaveAttribute(
-      "href",
-      "/config/settings/orchestrator",
-    );
-    expect(screen.getByTestId("section-nav-item-Pipeline cost cap")).toHaveAttribute(
-      "href",
-      "/config/settings/pipeline_cost_cap",
-    );
-  });
-
-  // 2026-10-13-8762w: the spec review and the series are settings singletons, listed right after Dialogue.
-  it("SettingsStudio_ConfigNav_ListsSpecReviewAndSeries", async () => {
-    renderNav();
-    const review = screen.getByTestId("section-nav-item-Spec review");
-    const series = screen.getByTestId("section-nav-item-Series");
-    expect(review).toHaveAttribute("href", "/config/settings/spec_review");
-    expect(series).toHaveAttribute("href", "/config/settings/series");
     const order = (el: Element) => [...document.querySelectorAll("[data-testid^='section-nav-item-']")].indexOf(el);
-    expect(order(review)).toBe(order(screen.getByTestId("section-nav-item-Dialogue")) + 1);
-    expect(order(series)).toBe(order(review) + 1);
+    const rail = [
+      ["Runs & limits", "/config/settings/runs"],
+      ["Workflow", "/config/settings/workflow"],
+      ["Sandbox", "/config/settings/sandbox"],
+      ["Series", "/config/settings/series"],
+      ["Ticket limits", "/config/settings/tickets"],
+      ["PoCs", "/config/settings/pocs"],
+      ["Skills", "/config/settings/skills"],
+      ["Diagnostics", "/config/settings/diagnostics"],
+    ];
+    const first = order(screen.getByTestId("section-nav-item-Runs & limits"));
+    rail.forEach(([label, href], i) => {
+      const item = screen.getByTestId(`section-nav-item-${label}`);
+      expect(item).toHaveAttribute("href", href);
+      expect(order(item)).toBe(first + i);
+    });
+    // A former page that became a section has no rail entry of its own.
+    for (const gone of ["Orchestrator", "Queue", "Dialogue", "Spec review", "Holds", "Trace", "Tickets"]) {
+      expect(screen.queryByTestId(`section-nav-item-${gone}`)).toBeNull();
+    }
   });
 
   it("ConfigNav_SettingsRoute_MarksTheActiveSettingsItem", async () => {
-    usePathname.mockReturnValue("/config/settings/orchestrator");
+    usePathname.mockReturnValue("/config/settings/workflow");
     renderNav();
-    expect(screen.getByTestId("section-nav-item-Orchestrator")).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("section-nav-item-Workflow")).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("section-nav-item-Runs & limits")).toHaveAttribute("data-active", "false");
   });
 
   it("ConfigNav_ConfigRoute_TheInstallationGroupShowsTheChangesCount", async () => {
