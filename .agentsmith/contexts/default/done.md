@@ -4,6 +4,7 @@ One line per finished spec, newest first: `- {id}: {what shipped, in what area} 
 Search it for the area you touch; never read it front to back. Merged with merge=union (.gitattributes):
 add or replace your own line, never reorder the others.
 
+- 2026-11-28-9bd1: SETTINGS NAV GROUPS (dashboard ConfigSectionNav, SettingsGroupStudio, settings.ts; GET settings/{type}/default). The rail lists Runs & limits, Workflow and Diagnostics beside five own pages; a group page holds its former pages as sections that open and count changes from the default; old paths redirect. -> .agentsmith/specs/done/2026-11-28-9bd1-settings-nav-groups.yaml
 - 2026-11-28-b1db: SERIES QUESTION NO DEFAULT (SeriesAskTool onlyAPerson, SeriesQuestions.CarriesEnvironment, SeriesQuestionText). A run's environment question the master carries, or one only a person can act on, has no deadline and is never taken by default; the parked run is told nothing until the operator replies. -> .agentsmith/specs/done/2026-11-28-b1db-series-question-no-default.yaml
 
 - 2026-11-27-ecf2e: SERIES MASTER FOLLOWUPS (ReadSeriesHandler, SeriesLeads, SpecDialogRunDivert, TicketSeriesWait.StartRefused, MasterReportAccount). A series of one asks in its ticket's chat; a start refused for want of runs.control holds as a person's step; a self-written spec says so in its report. -> .agentsmith/specs/done/2026-11-27-ecf2e-series-master-followups.yaml

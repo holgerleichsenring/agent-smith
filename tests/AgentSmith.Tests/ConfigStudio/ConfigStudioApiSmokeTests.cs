@@ -385,6 +385,12 @@ public sealed class ConfigStudioApiSmokeTests
             // Unknown settings type → 404, not a 500.
             (await http.GetAsync("/api/config/settings/nope")).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
+            // 2026-11-28-9bd1: the default stays the model's after a save; role_mapping is not a settings page here.
+            (await http.GetStringAsync("/api/config/settings/orchestrator/default")).Should().Contain("\"maxRunWallTimeSeconds\"")
+                .And.NotContain("4200");
+            (await http.GetAsync("/api/config/settings/role_mapping/default")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+            (await http.GetAsync("/api/config/settings/nope/default")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
             await app.StopAsync();
         }
         finally
