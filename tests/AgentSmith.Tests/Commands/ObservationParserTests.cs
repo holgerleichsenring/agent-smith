@@ -189,16 +189,4 @@ public sealed class ObservationParserTests
         values.Should().Contain(ObservationConcern.Risk);
         values.Should().HaveCount(7);
     }
-
-    [Fact]
-    public void ObservationLink_RelationshipValues_AreConstrained()
-    {
-        var values = Enum.GetValues<ObservationRelationship>();
-
-        values.Should().Contain(ObservationRelationship.Duplicates);
-        values.Should().Contain(ObservationRelationship.Contradicts);
-        values.Should().Contain(ObservationRelationship.DependsOn);
-        values.Should().Contain(ObservationRelationship.Extends);
-        values.Should().HaveCount(4);
-    }
 }

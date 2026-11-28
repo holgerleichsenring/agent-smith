@@ -9,20 +9,6 @@ public sealed class CompactionConfig
     public bool IsEnabled { get; set; } = true;
 
     /// <summary>
-    /// DEPRECATED no-op (p0357). The iteration branch never reset its counter, so past
-    /// the threshold EVERY call compacted — per-iteration cache invalidation plus a
-    /// summarizer call per iteration, and long runs spent their life in the amnesia
-    /// regime. Token pressure (<see cref="MaxContextTokensTriggerRatio"/>) is the only
-    /// trigger now. Still parsed so existing agentsmith.yml files load; a non-default
-    /// value logs a deprecation warning at startup and is otherwise ignored.
-    /// </summary>
-    public int ThresholdIterations { get; set; } = DefaultThresholdIterations;
-
-    /// <summary>The historical default — used only to detect an explicitly configured
-    /// (and now ignored) value for the deprecation warning.</summary>
-    public const int DefaultThresholdIterations = 8;
-
-    /// <summary>
     /// p0357: default raised 80k → 200k — use the window the models actually have.
     /// 80k starved large multi-repo runs whose pinned head alone (skill + plan +
     /// principles + ledger + ticket) is a five-figure token count.

@@ -47,7 +47,7 @@ public static partial class CommandNames
         // run records persisted before the retirement keeps its labels.
         ["GeneratePlanCommand"] = "Generating plan",
         ["PlanOpenQuestionsCommand"] = "Posting Plan open questions",
-        [Approval] = "Awaiting approval",
+        ["ApprovalCommand"] = "Awaiting approval", // retired 2026-11-28-34d9c; old records still read
         [AgenticExecute] = "Executing plan",
         [AgenticMaster] = "Running master skill", [AdminAssistantTurn] = "Running the admin assistant", [ApplyConfigChanges] = "Applying configuration changes", [WriteSecret] = "Writing a secret value", // f3a8a, c, d
         [LoadCachedCodeMap] = "Loading cached code map", [GroundSpecDialog] = "Grounding the design conversation",
@@ -61,9 +61,9 @@ public static partial class CommandNames
         [CommitAndPR] = "Creating pull request",
         [InitCommit] = "Committing init files",
         [InitComplete] = "Completing init pull requests", [CompletePullRequests] = "Merging the pull requests", [CleanupWorkBranches] = "Removing finished branches", [RefreshBranchBase] = "Merging the landed base", [DeployToEnvironment] = "Delivering the version to the environment", [PocIntake] = "Checking the PoC archive", [PocCodeScan] = "Scanning the PoC", [PocSourceCommit] = "Committing the PoC", [PocPipelineBuild] = "Building the PoC image", [PocTargetInstall] = "Installing the PoC build pipeline", [WritePocVariables] = "Writing the PoC variables", [SealPocVariables] = "Sealing the PoC secrets", [GitOpsCommit] = "Committing the PoC manifests", [PocRolloutFollow] = "Following the PoC rollout", [PocAct] = "Checking the PoC act", [PocExtend] = "Extending the PoC", [PurgePocUploads] = "Purging old PoC uploads", // 713ec, 023fa, 023fb, 3863c, 933db, 933dc, 933dd, 933dg
-        [GenerateTests] = "Generating tests", [GenerateDocs] = "Generating docs",
+        ["GenerateTestsCommand"] = "Generating tests", ["GenerateDocsCommand"] = "Generating docs", // retired 2026-11-28-34d9c; old records still read
         [Triage] = "Triaging ticket",
-        [SwitchSkill] = "Switching skill",
+        ["SwitchSkillCommand"] = "Switching skill", // retired 2026-11-28-34d9c; old records still read
         [SkillRound] = "Skill round",
         [ConvergenceCheck] = "Checking convergence",
         [CompileDiscussion] = "Compiling discussion",
@@ -76,20 +76,20 @@ public static partial class CommandNames
         [SpawnSpectral] = "Running Spectral lint",
         [SpawnZap] = "Running ZAP scan",
         [ApiSecuritySkillRound] = "API security skill round",
-        [CompileFindings] = "Compiling findings",
+        ["CompileFindingsCommand"] = "Compiling findings", // retired 2026-11-28-34d9c; old records still read
         [CollectMasterFindings] = "Collecting master findings",
         [LoadSkills] = "Loading skills",
         [DeliverFindings] = "Delivering findings",
         [StaticPatternScan] = "Scanning for security patterns",
         [GitHistoryScan] = "Scanning git history for secrets",
         [DependencyAudit] = "Auditing dependencies",
-        [CompressSecurityFindings] = "Compressing security findings",
+        ["CompressSecurityFindingsCommand"] = "Compressing security findings", // retired 2026-11-28-34d9c; old records still read
         [MergeMasterFindings] = "Merging master findings",
         [RatifyScanContract] = "Stating what the scan looks for",
         [SubstantiateFindings] = "Substantiating findings against the source",
         [AccountScanCoverage] = "Accounting for the scan's coverage",
         [AccountSurfaceDifference] = "Reading what the clients exercise",
-        [CompressApiScanFindings] = "Compressing API scan findings",
+        ["CompressApiScanFindingsCommand"] = "Compressing API scan findings", // retired 2026-11-28-34d9c; old records still read
         [SecurityTrend] = "Analyzing security trends",
         [SecuritySnapshotWrite] = "Writing security snapshot",
         [Ask] = "Asking human",
@@ -105,7 +105,7 @@ public static partial class CommandNames
         [LoadCatalog] = "Loading skill catalog",
         [PipelineNameInitializer] = "Publishing pipeline name",
         [BootstrapCheck] = "Checking bootstrap files",
-        [RunVerifyPhase] = "Running verify phase",
+        ["RunVerifyPhaseCommand"] = "Running verify phase", // retired 2026-11-28-34d9c; old records still read
         [VerifySpec] = "Building and running tests", // p0393
         [CheckSpecPremises] = "Checking what the spec rests on", // 2026-09-17-0e79c
         [BootstrapGate] = "Verifying bootstrap files",

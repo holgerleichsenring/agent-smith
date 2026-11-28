@@ -54,13 +54,13 @@ public static partial class CommandBeats
             [CommandNames.ReviewSpecs] = RunBeat.Plan,
             [CommandNames.SpecSequence] = RunBeat.Plan,
             [CommandNames.SelectSpec] = RunBeat.Plan,
-            [CommandNames.EmptyPlanCheck] = RunBeat.Plan,
+            ["EmptyPlanCheckCommand"] = RunBeat.Plan, // retired 2026-11-28-34d9c; old records still read
         // p0394a: GeneratePlan/PlanOpenQuestions are retired, but persisted run
         // records from earlier runs still carry these steps — they keep their
         // beat so old trails render, keyed by literal name.
         ["GeneratePlanCommand"] = RunBeat.Plan,
         ["PlanOpenQuestionsCommand"] = RunBeat.Plan,
-            [CommandNames.Approval] = RunBeat.Plan,
+            ["ApprovalCommand"] = RunBeat.Plan, // retired 2026-11-28-34d9c; old records still read
             // 2026-09-17-0e79c: it runs between SelectSpec and the master, and decides whether
             // the spec is built at all — Verify would light the rail's last beat before Building.
             [CommandNames.CheckSpecPremises] = RunBeat.Plan,
@@ -75,10 +75,10 @@ public static partial class CommandBeats
             [CommandNames.MasterOpenQuestions] = RunBeat.Building,
             [CommandNames.SkillRound] = RunBeat.Building,
             [CommandNames.FilterRound] = RunBeat.Building,
-            [CommandNames.SwitchSkill] = RunBeat.Building,
+            ["SwitchSkillCommand"] = RunBeat.Building, // retired 2026-11-28-34d9c; old records still read
             [CommandNames.RunFinalPhase] = RunBeat.Building,
-            [CommandNames.GenerateTests] = RunBeat.Building,
-            [CommandNames.GenerateDocs] = RunBeat.Building,
+            ["GenerateTestsCommand"] = RunBeat.Building, // retired 2026-11-28-34d9c; old records still read
+            ["GenerateDocsCommand"] = RunBeat.Building, // retired 2026-11-28-34d9c; old records still read
             [CommandNames.CompileDiscussion] = RunBeat.Building,
             [CommandNames.CompileKnowledge] = RunBeat.Building,
             [CommandNames.BootstrapDispatch] = RunBeat.Building,
@@ -101,17 +101,17 @@ public static partial class CommandBeats
             [CommandNames.RunReviewPhase] = RunBeat.Verify,
             [CommandNames.SubstantiateFindings] = RunBeat.Verify, // p0429
             [CommandNames.AccountScanCoverage] = RunBeat.Verify, // p0429
-            [CommandNames.RunVerifyPhase] = RunBeat.Verify,
+            ["RunVerifyPhaseCommand"] = RunBeat.Verify, // retired 2026-11-28-34d9c; old records still read
             [CommandNames.CommitSpecWork] = RunBeat.Verify, // p0437
             [CommandNames.VerifySpec] = RunBeat.Verify, // p0393
             [CommandNames.ReviewSpecDiff] = RunBeat.Verify, // 2026-09-17-042eh
             [CommandNames.ConvergenceCheck] = RunBeat.Verify,
-            [CommandNames.CompileFindings] = RunBeat.Verify,
+            ["CompileFindingsCommand"] = RunBeat.Verify, // retired 2026-11-28-34d9c; old records still read
             [CommandNames.CollectMasterFindings] = RunBeat.Verify,
             [CommandNames.MergeMasterFindings] = RunBeat.Verify,
             [CommandNames.CompilePrReviewFindings] = RunBeat.Verify,
-            [CommandNames.CompressApiScanFindings] = RunBeat.Verify,
-            [CommandNames.CompressSecurityFindings] = RunBeat.Verify,
+            ["CompressApiScanFindingsCommand"] = RunBeat.Verify, // retired 2026-11-28-34d9c; old records still read
+            ["CompressSecurityFindingsCommand"] = RunBeat.Verify, // retired 2026-11-28-34d9c; old records still read
             [CommandNames.SecurityTrend] = RunBeat.Verify,
         };
         foreach (var (command, beat) in OutcomeBeats()) beats[command] = beat;

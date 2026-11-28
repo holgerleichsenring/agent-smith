@@ -84,7 +84,6 @@ public static class PipelineHandlersExtensions
         services.AddTransient<PrReviewFindingSelector>();
         services.AddTransient<PrReviewCommentRenderer>();
         services.AddTransient<ICommandHandler<PostPrCommentsContext>, PostPrCommentsHandler>();
-        services.AddTransient<ICommandHandler<EmptyPlanCheckContext>, EmptyPlanCheckHandler>();
         // p0393a: turn the ticket into an ordered SET of specs after AnalyzeCode —
         // deriver (the one LLM call, judgement only), deterministic segmenter/extractor,
         // reader + writer over the ticket branch, publisher (commit, pointer, draft PR),
@@ -107,7 +106,6 @@ public static class PipelineHandlersExtensions
             .AddTransient<Tools.TicketActToolsFactory>().AddTransient<SpecDialog.SeriesVerification>().AddSingleton<Tools.DesignWorkToolGate>().AddTransient<Sandbox.WorkCloneOpener>(); // fcd7b, 4778
         services.AddSingleton<Polling.PipelineResolver>();
         services.AddSingleton<ScannerObservationFactory>();
-        services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>().AddMasterPasses(); // 9a59f
         services.AddTransient<ITicketDocumentMaterializer, TicketDocumentMaterializer>();
         services.AddTransient<GitBranchPusher>(); // p0422
@@ -120,12 +118,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<LandedRungTarget>(); // 2026-11-26-5201f
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
         services.AddInitProjectHandlers().AddBranchCleanupHandlers().AddDeploymentHandlers().AddPocHandlers(); // p0490 init tail; 2026-11-17-713ec, 2026-11-18-3863c, 2026-11-23-933db
-        services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
         services.AddTransient<ICommandHandler<PersistWorkBranchContext>, PersistWorkBranchHandler>();
-        services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();
-        services.AddTransient<ICommandHandler<GenerateDocsContext>, GenerateDocsHandler>();
-        // p0355: scopes the test/doc passes to the repos that actually changed.
-        services.AddTransient<RepoDiffPartitioner>().AddTransient<PostExecutePassTools>();
         services.AddTransient<ICommandHandler<AcquireSourceContext>, AcquireSourceHandler>().AddTransient<ISandboxBinaryFileWriter, SandboxBinaryFileWriter>();
         services.AddTransient<ICommandHandler<BootstrapDocumentContext>, BootstrapDocumentHandler>();
         services.AddTransient<ICommandHandler<DeliverOutputContext>, DeliverOutputHandler>();
@@ -154,7 +147,6 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();
         services.AddTransient<ICommandHandler<SpawnSpectralContext>, SpawnSpectralHandler>();
         services.AddTransient<ICommandHandler<SpawnZapContext>, SpawnZapHandler>();
-        services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
         services.AddSingleton<IMasterOutputSchemaResolver, MasterOutputSchemaResolver>();
         services.AddSingleton<IScanMasterPromptFactory, ScanMasterPromptFactory>();
         // p0315b: spec-dialog — transcript prompt, spec draft gate, tier-1 cached code map, reply hand-back.

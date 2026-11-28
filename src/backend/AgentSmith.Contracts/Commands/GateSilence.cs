@@ -54,7 +54,7 @@ public static class GateSilence
             // PlanOpenQuestionsHandler: plan complete, no clarification round-trip.
             "Plan complete and ticket has a body; no clarification needed",
         ],
-        [CommandNames.EmptyPlanCheck] =
+        ["EmptyPlanCheckCommand"] = // retired 2026-11-28-34d9c
         [
             // EmptyPlanCheckHandler pass path ("empty-plan-check: ..."); the skip
             // path says "empty-plan-skip:" and must speak.

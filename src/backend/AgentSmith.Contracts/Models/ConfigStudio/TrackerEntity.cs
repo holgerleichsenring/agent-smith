@@ -55,4 +55,4 @@ public sealed record TrackerEntity(
 }
 
 /// <summary>Per-tracker polling cadence (mirrors the raw <c>polling:</c> block).</summary>
-public sealed record TrackerPollingSettings(bool Enabled, int IntervalSeconds, int JitterPercent);
+public sealed record TrackerPollingSettings(bool Enabled, int IntervalSeconds);

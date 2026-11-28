@@ -97,7 +97,6 @@
           "type": "integer",
           "description": "Pipeline runs a consumer executes at once. Default 4."
         },
-        "consume_block_seconds": { "type": "integer", "description": "How long one queue read blocks. Default 5." },
         "shutdown_grace_seconds": {
           "type": "integer",
           "description": "How long a stopping consumer waits for its runs. Default 30."
@@ -813,10 +812,6 @@
           "additionalProperties": false,
           "properties": {
             "is_enabled": { "type": "boolean", "description": "Default true." },
-            "threshold_iterations": {
-              "type": "integer",
-              "description": "Deprecated and ignored: compaction fires on token pressure only. A non-default value is warned about."
-            },
             "max_context_tokens": { "type": "integer", "description": "Default 200000." },
             "max_context_tokens_trigger_ratio": {
               "type": "number",
@@ -1001,8 +996,7 @@
           "description": "p0140c: per-tracker polling cadence. Pollers run once per tracker (not per project). N projects sharing one tracker → one polling cycle. Omit when this tracker is webhook-only.",
           "properties": {
             "enabled": { "type": "boolean", "description": "Default false." },
-            "interval_seconds": { "type": "integer", "minimum": 1, "description": "Default 60." },
-            "jitter_percent": { "type": "integer", "minimum": 0, "description": "Default 10." }
+            "interval_seconds": { "type": "integer", "minimum": 1, "description": "Default 60." }
           },
           "additionalProperties": false
         },
@@ -1131,16 +1125,6 @@
             "github": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: a bot user's token, a GitLab project/group access token, an Azure DevOps bot user PAT, or with app_id a GitHub App's private key." }, "app_id": { "type": "string", "description": "GitHub App id or client id." }, "installation_id": { "type": "string", "description": "The App's installation on the repositories' owner." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } },
             "gitlab": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: a bot user's token, a GitLab project/group access token, an Azure DevOps bot user PAT, or with app_id a GitHub App's private key." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } },
             "azure_devops": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: an Azure DevOps bot user PAT, or with tenant_id and client_id a service principal's client secret." }, "tenant_id": { "type": "string", "description": "The Microsoft Entra tenant of the service principal." }, "client_id": { "type": "string", "description": "The application (client) id of the service principal's app registration." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } }
-          }
-        },
-        "polling": {
-          "type": "object",
-          "description": "Deprecated: polling belongs on the tracker (trackers.<name>.polling).",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": { "type": "boolean" },
-            "interval_seconds": { "type": "integer" },
-            "jitter_percent": { "type": "integer" }
           }
         },
         "sandbox": {

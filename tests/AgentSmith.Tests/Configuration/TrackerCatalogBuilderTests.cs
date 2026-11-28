@@ -26,7 +26,6 @@ public sealed class TrackerCatalogBuilderTests
                 {
                     Enabled = true,
                     IntervalSeconds = 120,
-                    JitterPercent = 25,
                 },
             }
         };
@@ -35,7 +34,6 @@ public sealed class TrackerCatalogBuilderTests
         var tracker = built.Should().ContainKey("tr1").WhoseValue;
         tracker.Polling.Enabled.Should().BeTrue();
         tracker.Polling.IntervalSeconds.Should().Be(120);
-        tracker.Polling.JitterPercent.Should().Be(25);
     }
 
     [Fact]

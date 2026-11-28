@@ -4,6 +4,7 @@ using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.Factories;
 

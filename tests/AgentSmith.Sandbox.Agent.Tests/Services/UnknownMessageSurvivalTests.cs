@@ -4,6 +4,7 @@ using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AgentSmith.Sandbox.Agent.Tests.TestSupport;
 
 namespace AgentSmith.Sandbox.Agent.Tests.Services;
 

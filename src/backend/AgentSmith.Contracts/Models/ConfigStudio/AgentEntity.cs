@@ -57,7 +57,6 @@ public sealed record AgentCacheSettings(bool IsEnabled, string Strategy);
 /// </summary>
 public sealed record AgentCompactionSettings(
     bool IsEnabled,
-    int ThresholdIterations,
     int MaxContextTokens,
     int KeepRecentIterations,
     // 2026-11-17-b34eb: nullable — a client that does not send them leaves the stored ratios alone.

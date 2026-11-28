@@ -154,10 +154,13 @@ public sealed class EventSequenceCompletenessTests
 
     private static async Task ExerciseGateHandlers(IEventPublisher publisher)
     {
-        var handler = new EmptyPlanCheckHandler(publisher, new AgentSmithMetrics(), NullLogger<EmptyPlanCheckHandler>.Instance);
+        var handler = new BootstrapGateHandler(
+            RunStateConceptsTestFactory.Default, publisher, NullLogger<BootstrapGateHandler>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, RunId);
-        await handler.ExecuteAsync(new EmptyPlanCheckContext(pipeline), CancellationToken.None);
+        pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
+            PipelineName: "code", Agent: new AgentConfig(), SkillsPath: "skills", CodingPrinciplesPath: null));
+        await handler.ExecuteAsync(new BootstrapGateContext(pipeline), CancellationToken.None);
     }
 
     private sealed class ScopedRunContext(string runId) : IRunContextAccessor

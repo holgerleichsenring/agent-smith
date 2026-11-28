@@ -25,7 +25,7 @@ Defaults are `max_context_tokens: 200000` and `max_context_tokens_trigger_ratio:
 
 The estimate is a `chars / 4` count over message text and tool results. It only decides when to fold.
 
-`threshold_iterations` is still parsed so old files load, but it does nothing. A non-default value logs a deprecation warning at startup.
+`threshold_iterations` is retired: a file that still sets it loads, and the configuration probe reports it as an advisory.
 
 ## What the model sees after a fold
 

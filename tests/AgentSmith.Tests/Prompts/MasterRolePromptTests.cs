@@ -62,14 +62,4 @@ public sealed class MasterRolePromptTests
         ScanReadFloor.Of("pr-review-master", agent).Should().Be(0);
         ScanReadFloor.Of("security-master", agent).Should().Be(6);
     }
-
-    [Fact]
-    public void ChangePassSystemPrompt_Tests_StatesItsJobWithoutTheCodingMaster()
-    {
-        var prompt = new AgentPromptBuilder().BuildChangePassSystemPrompt(ChangePass.Tests, "PRINCIPLES", null);
-
-        prompt.Should().StartWith("## Coding Principles\nPRINCIPLES", "the coding master's order, so the prefix is shared")
-            .And.Contain("You add tests for a change another pass of this run already made")
-            .And.NotContain("{").And.NotContain("attempts");
-    }
 }

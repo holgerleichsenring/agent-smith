@@ -296,7 +296,6 @@ export const configMessages = {
   "config.polling.backendDefault": { en: "backend default applies", de: "Standard des Backends gilt" },
   "config.polling.configure": { en: "Configure polling", de: "Polling einrichten" },
   "config.polling.interval": { en: "poll interval (seconds)", de: "Polling-Intervall (Sekunden)" },
-  "config.polling.jitter": { en: "jitter (%)", de: "Jitter (%)" },
   "config.polling.remove": { en: "Remove polling override", de: "Polling-Überschreibung entfernen" },
 
   // --- sandbox: trusted image registries ---
@@ -415,12 +414,34 @@ export const configMessages = {
   "config.setting.series": { en: "Series", de: "Serien" },
   "config.setting.preconditions": { en: "Preconditions", de: "Vorbedingungen" },
   "config.setting.branchCleanup": { en: "Branch cleanup", de: "Branch-Bereinigung" },
-  "config.setting.tickets": { en: "Tickets", de: "Tickets" },
+  "config.setting.tickets": { en: "Ticket limits", de: "Ticket-Limits" },
   "config.setting.holds": { en: "Holds", de: "Holds" },
   "config.setting.pocs": { en: "PoCs", de: "PoCs" },
   "config.setting.skills": { en: "Skills", de: "Skills" },
   "config.setting.pipelineDataFlow": { en: "Pipeline data flow", de: "Datenfluss der Pipeline" },
   "config.setting.trace": { en: "Trace", de: "Trace" },
+  // 2026-11-28-9bd1: the settings groups and what a group page says about its sections.
+  "config.settingGroup.runs": { en: "Runs & limits", de: "Runs & Limits" },
+  "config.settingGroup.runs.sub": {
+    en: "how long a run may take, what it may spend and call, the queue it waits in and the image it runs",
+    de: "wie lange ein Run dauern darf, was er ausgeben und aufrufen darf, seine Warteschlange und sein Image",
+  },
+  "config.settingGroup.workflow": { en: "Workflow", de: "Ablauf" },
+  "config.settingGroup.workflow.sub": {
+    en: "the waits, re-checks and sweeps around a ticket's work",
+    de: "das Warten, erneute Prüfen und Aufräumen rund um die Arbeit an einem Ticket",
+  },
+  "config.settingGroup.diagnostics": { en: "Diagnostics", de: "Diagnose" },
+  "config.settingGroup.diagnostics.sub": {
+    en: "what a run records about itself",
+    de: "was ein Run über sich selbst aufzeichnet",
+  },
+  "config.settingGroup.changed": { en: "{count} changed", de: "{count} geändert" },
+  "config.settingGroup.onlyChanged": { en: "Show only changed values", de: "Nur geänderte Werte zeigen" },
+  "config.settingGroup.noneChanged": {
+    en: "Every value here is its default.",
+    de: "Jeder Wert hier hat seinen Standardwert.",
+  },
   "config.setting.orchestrator.sub": { en: "the run wall-time ceiling", de: "die Obergrenze der Laufzeit eines Runs" },
   "config.setting.sandbox.sub": {
     en: "sandbox agent image, per-step / per-command timeouts and trusted image registries",
@@ -890,7 +911,6 @@ export const configMessages = {
   },
   "config.tuning.compaction.add": { en: "Add compaction settings", de: "Compaction-Einstellungen hinzufügen" },
   "config.tuning.compaction.enabled": { en: "compaction", de: "Compaction" },
-  "config.tuning.compaction.threshold": { en: "threshold iterations", de: "Schwelle (Iterationen)" },
   "config.tuning.compaction.maxContext": { en: "max context tokens", de: "Max. Kontext-Tokens" },
   "config.tuning.compaction.keepRecent": { en: "keep recent iterations", de: "letzte Iterationen behalten" },
   "config.tuning.compaction.trigger.label": { en: "trigger ratio", de: "Auslöse-Anteil" },
@@ -1322,7 +1342,6 @@ export const configMessages = {
     en: "the sole backpressure knob for downstream pipeline execution",
     de: "der einzige Regler für den Gegendruck bei der nachgelagerten Pipeline-Ausführung",
   },
-  "config.queue.block": { en: "Consume block (seconds)", de: "Blockieren beim Lesen (Sekunden)" },
   "config.queue.shutdown": { en: "Shutdown grace (seconds)", de: "Schonfrist beim Herunterfahren (Sekunden)" },
   "config.queue.retry.label": { en: "Redis retry interval (seconds)", de: "Wiederholintervall für Redis (Sekunden)" },
   "config.queue.retry.help": {

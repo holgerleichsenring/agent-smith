@@ -33,6 +33,14 @@ internal static class ConfigSettingsEndpoints
                 : Results.NotFound(new { error = $"Unknown settings type '{type}'." }))
            .Needs(Permissions.ConfigRead);
 
+        // 2026-11-28-9bd1: the value a settings doc holds when nobody set it, so a group page can
+        // say which sections differ from it. The same editable list and permission as the read.
+        app.MapGet("/api/config/settings/{type}/default", (string type, IConfigStore store) =>
+            Editable(store).Contains(type)
+                ? Results.Ok(ConfigSettingsDefaults.Read(type))
+                : Results.NotFound(new { error = $"Unknown settings type '{type}'." }))
+           .Needs(Permissions.ConfigRead);
+
         app.MapPut("/api/config/settings/{type}",
             async (string type, [FromBody] JsonElement doc, IConfigStore store,
                 [FromServices] ConfigChangedSignal signal, HttpContext ctx) =>

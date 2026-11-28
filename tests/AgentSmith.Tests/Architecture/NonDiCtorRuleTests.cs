@@ -1,6 +1,6 @@
 using AgentSmith.Infrastructure.Persistence.Extensions;
 using System.Reflection;
-using AgentSmith.Application.Services.RedisDisabled;
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;

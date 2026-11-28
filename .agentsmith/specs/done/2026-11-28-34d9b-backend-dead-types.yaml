@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-34d9b
+goal: "The backend loses 37 types no production code references, with their tests; eight test-only fixtures move from production into the test projects unchanged."
+
+applies_to: "default (Application, Contracts, Infrastructure, Infrastructure.Core, Server, Sandbox.Agent; tests)"
+
+requires: [2026-11-28-34d9a]
+
+facts:
+  - claim: "Each of the 37 files declares a type whose name appears nowhere in src/ outside the file itself or another file in the same list; a word scan over src/backend and tests/ was re-run on origin/main at 0.233.1."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/OpenAiCompatibleClient.cs; src/backend/AgentSmith.Application/Services/Handlers/SwaggerSpecTextRenderer.cs; src/backend/AgentSmith.Contracts/Models/AgentExecutionResult.cs"
+  - claim: "src/ has no assembly scanning; the only reflection over type names resolves persisted checkpoint entries, and no production code constructs any of the 37 types, so no current checkpoint can name one."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:93; src/backend/AgentSmith.Application/Services/Resume/CheckpointType.cs"
+  - claim: "The replay fixtures and NullRedisJobQueue, NullRedisLeaderLease and NullStepInFlightMarker are constructed only by tests; the Redis-disabled mode registers NullConfigReloadSignal alone and the sandbox's marker is HeartbeatLoop."
+    evidence: "tests/AgentSmith.PipelineHarness/Replay/ReplayedRun.cs:35; tests/AgentSmith.Tests/Server/ServerDiLifetimeTests.cs:424; src/backend/AgentSmith.Sandbox.Agent/Services/HeartbeatLoop.cs:16"
+  - claim: "DeprecatedFieldAttribute has no production user but a test discovers it by reflection and the Contracts README names it as the convention for a retired event field."
+    evidence: "tests/AgentSmith.Tests/Events/EventSchemaCompatibilityTests.cs:69; src/backend/AgentSmith.Contracts/README.md:15"
+
+scope:
+  in: |
+    Delete: OpenAiCompatibleClient, HumanQuestionToolHandler, ToolParams, SwaggerSpecTextRenderer, SchemaFlattener,
+    ResilientHttpClientFactory (with ResilienceHandler), TokenUsageTracker (with PhaseUsage), TokenUsageSummary,
+    ObservationBusProjector, SourceAnchoringPreamble, RecordingAIFunction, FilterCoverageObservationFactory,
+    StorageReaderRegistry, ProjectMapPromptRenderer, VerifyNotesFormatter, TurnReply, SarifUploadCompressor and the
+    contracts AgentExecutionResult, AnalysisResult, CiRedFinding, ContextValidationResult, IRunEventReader,
+    ISkillPromptStrategy, IStorageWriter, ObservationLink, OutputForm, PrJobRequest, QueryIntent, RationaleEntry,
+    ScoutResult, SecurityScanRequest, SkillEvaluation, SkillMdFormat, SlackCommandPayload, NullPromptRecorder, and the two
+    they alone read (CiRedPullRequest, SkillCandidate); the tests
+    of those types, and their rows in the architecture baselines.
+    Move, unchanged in behaviour: ReplayChatClient, ReplayChatClientFactory, RecordedTraceFiles,
+    RecordedTraceExhaustedException, NullRedisJobQueue, NullRedisLeaderLease and RedisUnavailableException into AgentSmith.Tests (the harness
+    references it), NullStepInFlightMarker into AgentSmith.Sandbox.Agent.Tests.
+  out: "DeprecatedFieldAttribute, the EF design-time factories, static registration classes, any type a production file names; pipeline steps (2026-11-28-34d9c) and config keys (2026-11-28-34d9d)."
+
+steps:
+  - id: verify
+    action: "Re-run the word scan on origin/main; a fresh reviewer looks for one live reference per file (DI, reflection, nameof, JSON, binding, extension methods)."
+  - id: delete
+    action: "Delete the 37 files, their test files and the test methods of them in shared files; drop their baseline rows."
+  - id: move
+    action: "Move the eight fixtures into the test projects under a test namespace and point their users at it."
+  - id: prove
+    action: "dotnet build and the full suite green; test counts differ only by the tests of deleted types."
+
+tests:
+  - "No new test: the change deletes code. The deleted tests are listed in decisions/2026-11-28-34d9b.yaml."
+
+done:
+  - "No production project declares any of the 37 types or the eight fixtures; the fixtures compile in the test projects."
+  - "dotnet build, the full suite, the CLI dry-runs and the harness presets are green; the test count drops only by the tests of deleted types."
+  - "A fresh reviewer of the diff finds nothing at runtime that still reaches a deleted type."

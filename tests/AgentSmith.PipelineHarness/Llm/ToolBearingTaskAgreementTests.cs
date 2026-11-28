@@ -12,6 +12,7 @@ using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.PipelineHarness.Llm;
 

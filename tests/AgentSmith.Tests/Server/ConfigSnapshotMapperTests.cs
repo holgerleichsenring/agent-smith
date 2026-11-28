@@ -55,7 +55,6 @@ public sealed class ConfigSnapshotMapperTests
                     Name = "ops", Pipeline = "code", Agent = agent, Tracker = tracker,
                     Repos = [repo],
                     Pipelines = [new PipelineDefinition { Name = "code" }, new PipelineDefinition { Name = "security-scan" }],
-                    Polling = new PollingConfig { Enabled = false, IntervalSeconds = 999 },
                     JiraTrigger = new JiraTriggerConfig
                     {
                         TriggerStatuses = ["To Do", "In Progress"],
@@ -166,7 +165,7 @@ public sealed class ConfigSnapshotMapperTests
     {
         var trigger = Snap(BuildConfig()).Projects.Should().ContainSingle().Subject.Trigger;
 
-        trigger.PollingEnabled.Should().BeTrue("the tracker entry polls; the project's own block says otherwise and is ignored");
+        trigger.PollingEnabled.Should().BeTrue("the tracker entry polls");
         trigger.PollingIntervalSeconds.Should().Be(120);
     }
 

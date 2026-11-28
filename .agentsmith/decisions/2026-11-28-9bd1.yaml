@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-9bd1
+
+decisions:
+  - category: Architecture
+    chose: "The settings rail lists Runs & limits (orchestrator, primary provider, limits, pipeline cost cap, queue, deployment), Workflow (dialogue, spec review, preconditions, holds, branch cleanup) and Diagnostics (pipeline data flow, trace) as groups; Sandbox, Series, Ticket limits, PoCs and Skills stay pages of their own"
+    over: "Eighteen pages in one list; one settings page holding every section"
+    reason: "decider: operator (2026-11-28, approved design) — most entries were small limit or cadence pages whose defaults stay; the five that stay alone are large forms or ones the operator visits on their own."
+  - category: Implementation
+    chose: "Inside a group each former page is a collapsible section with its title and one-line description; a section whose saved value differs from the default opens and says 'N changed'; a 'Show only changed values' filter; one Save per group"
+    over: "Tabs per former page; a Save per section"
+    reason: "decider: operator — the approved design. The Save keeps today's rules: disabled with nothing to save or while any section refuses its draft; each edited doc is its own PUT, so a refused one keeps its draft and error while the others land."
+  - category: Implementation
+    chose: "Rename the Tickets settings page to 'Ticket limits' (de 'Ticket-Limits')"
+    over: "Ticket timing; keeping 'Tickets'"
+    reason: "decider: operator, name checked by claude — the page holds the requires-link deadline, the dependents wake window and cap, and the pull-request re-read interval, staleness and caps: bounds on the ticket follow-up work, which 'limits' covers. 'Tickets' was also the ticket list's name, so the search kept only one of the two."
+  - category: Architecture
+    chose: "GET /api/config/settings/{type}/default returns the model default (a singleton read off an empty RawAgentSmithConfig), under config.read and the same editable list as the read"
+    over: "Default values written into the dashboard; a defaults block on every GET"
+    reason: "decider: claude — a copy of the defaults in TypeScript drifts on the first changed default; a read-only route beside the existing read is no second write path. An untouched store reads exactly the default for every type (SettingsDefaultTests), so a fresh install shows nothing changed. Without the route (an older server) a section shows no count."
+  - category: Implementation
+    chose: "Count changed values as differing leaves, an array once, null equal to absent; the filter works per section and never hides a section with an unsaved edit"
+    over: "Field-level hiding inside each form"
+    reason: "decider: claude — the forms stay unchanged (the spec forbids touching fields, help or validation); per-field hiding would need every form to learn the default. Installer-written values (deployment pin, dialogue dashboard URL) honestly count as changed."
+  - category: Implementation
+    chose: "A former page's path /config/settings/{key} redirects to /config/settings/{group}?open={key}; the old paths stay places so search finds them; group slugs runs, workflow, diagnostics; rail order groups first, own pages, Diagnostics last"
+    over: "Hash anchors (#queue); dropping the old places"
+    reason: "decider: claude — the query reaches the server-rendered route as its searchParams prop and survives redirect(); bookmarks, ticket links and the search all land on the section, which opens and scrolls into view."

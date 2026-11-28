@@ -48,7 +48,7 @@ The CLI reads this shape directly, and a server takes it through `agent-smith co
 
 deployment:
   registry: holgerleichsenring
-  version: 0.233.2
+  version: 0.234.1
 
 agents:
   azure-openai-default:
@@ -110,7 +110,6 @@ trackers:
     polling:
       enabled: true
       interval_seconds: 60
-      jitter_percent: 10
 
 projects:
   azuredevops-todolist:

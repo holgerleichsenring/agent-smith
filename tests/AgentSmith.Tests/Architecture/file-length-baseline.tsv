@@ -61,7 +61,6 @@
 177	AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs
 177	AgentSmith.Cli/Services/ConsoleDialogueTransport.cs
 177	AgentSmith.Infrastructure.Core/Services/ConceptVocabularyLoader.cs
-175	AgentSmith.Application/Services/Handlers/SwaggerSpecTextRenderer.cs
 175	AgentSmith.Application/Services/Tools/ProgressLedgerToolHost.cs
 175	AgentSmith.Cli/Commands/ValidateConceptsCommand.cs
 174	AgentSmith.Application/Services/Handlers/AnalyzeProjectHandler.cs
@@ -85,7 +84,6 @@
 154	AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketStatusTransitioner.cs
 149	AgentSmith.Server/Services/Handlers/SlackModalSubmissionHandler.cs
 151	AgentSmith.Application/Services/Handlers/RunResultSectionWriter.cs
-150	AgentSmith.Application/Services/Handlers/SchemaFlattener.cs
 150	AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs
 136	AgentSmith.Server/Services/CapacityQueuePump.cs
 150	AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs

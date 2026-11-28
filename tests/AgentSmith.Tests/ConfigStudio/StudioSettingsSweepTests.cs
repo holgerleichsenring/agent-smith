@@ -85,7 +85,7 @@ public sealed class StudioSettingsSweepTests
         var entity = new AgentEntity() with
         {
             Id = "a", Provider = "openai",
-            Compaction = new AgentCompactionSettings(true, 8, 200000, 3, SummaryBudgetRatio: 0.15),
+            Compaction = new AgentCompactionSettings(true, 200000, 3, SummaryBudgetRatio: 0.15),
         };
 
         var agent = RawConfigPatch.Agent(entity, existing);

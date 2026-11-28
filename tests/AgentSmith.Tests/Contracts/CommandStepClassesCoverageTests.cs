@@ -64,7 +64,7 @@ public sealed class CommandStepClassesCoverageTests
         GateSilence.IsNoOpSummary(
             CommandNames.ScopeRepos, "Scoped run to 2 of 5 repos: api, worker").Should().BeFalse();
         GateSilence.IsNoOpSummary(
-            CommandNames.EmptyPlanCheck, "empty-plan-skip: reason=empty_plan").Should().BeFalse();
+            "EmptyPlanCheckCommand", "empty-plan-skip: reason=empty_plan").Should().BeFalse();
     }
 
     private static IReadOnlyList<(string Name, string Value)> ReflectCommandNameConstants()

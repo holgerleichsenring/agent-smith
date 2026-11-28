@@ -8,7 +8,6 @@ namespace AgentSmith.Contracts.Models.Configuration;
 public sealed class QueueConfig
 {
     public int MaxParallelJobs { get; set; } = 4;
-    public int ConsumeBlockSeconds { get; set; } = 5;
     public int ShutdownGraceSeconds { get; set; } = 30;
 
     // Server subsystems poll IConnectionMultiplexer.IsConnected at this cadence

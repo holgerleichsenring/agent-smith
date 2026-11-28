@@ -52,7 +52,6 @@ internal static class ConfigCatalogMapper
             new AgentCacheSettings(agent.Cache.IsEnabled, agent.Cache.Strategy),
             new AgentCompactionSettings(
                 agent.Compaction.IsEnabled,
-                agent.Compaction.ThresholdIterations,
                 agent.Compaction.MaxContextTokens,
                 agent.Compaction.KeepRecentIterations,
                 agent.Compaction.MaxContextTokensTriggerRatio, // 2026-11-17-b34eb
@@ -85,7 +84,7 @@ internal static class ConfigCatalogMapper
             tracker.TriggerStatuses.Count > 0 ? tracker.TriggerStatuses : null,
             tracker.PipelineFromLabel is { Count: > 0 } labels ? labels : null,
             tracker.Polling is { } polling
-                ? new TrackerPollingSettings(polling.Enabled, polling.IntervalSeconds, polling.JitterPercent)
+                ? new TrackerPollingSettings(polling.Enabled, polling.IntervalSeconds)
                 : null,
             tracker.NeedsClarificationStatus,
             tracker.NotImplementableStatus,

@@ -163,12 +163,12 @@ public sealed class CompactingChatClientTests
     public async Task Compaction_NeverFiresOnIterationCount_OnlyOnTokenPressure()
     {
         // p0357: many iterations under the token budget must NEVER compact — the old
-        // iteration trigger (never-reset counter >= threshold_iterations) is gone.
+        // iteration trigger (never-reset counter, threshold_iterations) is gone.
         var inner = new RecordingInner();
         var sum = new Summarizer();
         var config = new CompactionConfig
         {
-            IsEnabled = true, ThresholdIterations = 1,           // deliberately provocative — ignored
+            IsEnabled = true,
             MaxContextTokens = 1_000_000, MaxContextTokensTriggerRatio = 0.7,
         };
         var sut = new CompactingChatClient(inner, config, Hooks(), sum.Summarize);

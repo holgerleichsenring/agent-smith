@@ -20,7 +20,6 @@
 2	AgentSmith.Application/Services/Events/SandboxStepFacts.cs
 1	AgentSmith.Application/Services/Events/ToolArgumentFacts.cs
 1	AgentSmith.Application/Services/GitBranchPusher.cs
-1	AgentSmith.Application/Services/Handlers/ApprovalHandler.cs
 1	AgentSmith.Application/Services/Handlers/BootstrapContextRetirement.cs
 1	AgentSmith.Application/Services/Handlers/BootstrapDocumentHandler.cs
 1	AgentSmith.Application/Services/Handlers/BootstrapMetaFiles.cs
@@ -32,20 +31,15 @@
 1	AgentSmith.Application/Services/Handlers/InlineHandbackAsk.cs
 1	AgentSmith.Application/Services/Handlers/MasterReengagementLoop.cs
 1	AgentSmith.Application/Services/Handlers/MissingGitInImage.cs
-1	AgentSmith.Application/Services/Handlers/NucleiTopSelector.cs
 1	AgentSmith.Application/Services/Handlers/PrReviewFindingSelector.cs
 2	AgentSmith.Application/Services/Handlers/RunDirectoryReader.cs
-2	AgentSmith.Application/Services/Handlers/SchemaFlattener.cs
 1	AgentSmith.Application/Services/Handlers/SecuritySnapshotBuilder.cs
 2	AgentSmith.Application/Services/Handlers/SourceScopeRefreshSteps.cs
-2	AgentSmith.Application/Services/Handlers/SpectralTopSelector.cs
 1	AgentSmith.Application/Services/Handlers/StageRelevance.cs
 2	AgentSmith.Application/Services/Handlers/TargetProbeRunner.cs
 2	AgentSmith.Application/Services/Handlers/VerifyCommandRunner.cs
-1	AgentSmith.Application/Services/Handlers/VerifyNotesFormatter.cs
 1	AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs
 3	AgentSmith.Application/Services/Handlers/WorkingStateSection.cs
-1	AgentSmith.Application/Services/Handlers/ZapTopSelector.cs
 1	AgentSmith.Application/Services/Lifecycle/ActiveRunReaper.cs
 1	AgentSmith.Application/Services/Lifecycle/EnqueuedReconciler.cs
 1	AgentSmith.Application/Services/Lifecycle/PipelineRunWatchdog.cs
@@ -152,7 +146,6 @@
 6	AgentSmith.Contracts/Memory/MemoryStandingWeights.cs
 3	AgentSmith.Contracts/Memory/ProjectMemoryRecord.cs
 1	AgentSmith.Contracts/Models/Configuration/BuildIdentity.cs
-1	AgentSmith.Contracts/Models/Configuration/CompactionConfig.cs
 1	AgentSmith.Contracts/Models/Configuration/ModelPricing.cs
 1	AgentSmith.Contracts/Models/Configuration/PreconditionsConfig.cs
 1	AgentSmith.Contracts/Models/Configuration/RoleMappingConfig.cs
@@ -230,9 +223,7 @@
 2	AgentSmith.Infrastructure/Services/Providers/Agent/CompactionSummaryRequest.cs
 1	AgentSmith.Infrastructure/Services/Providers/Agent/ContextPressureFinalizingChatClient.cs
 2	AgentSmith.Infrastructure/Services/Providers/Agent/ForwardedViewFit.cs
-1	AgentSmith.Infrastructure/Services/Providers/Agent/HumanQuestionToolHandler.cs
 2	AgentSmith.Infrastructure/Services/Providers/Agent/LargestToolResult.cs
-2	AgentSmith.Infrastructure/Services/Providers/Agent/ResilientHttpClientFactory.cs
 2	AgentSmith.Infrastructure/Services/Providers/Design/DesignProviderExtensions.cs
 1	AgentSmith.Infrastructure/Services/Providers/Design/FigmaClient.cs
 1	AgentSmith.Infrastructure/Services/Providers/Discovery/GitHubRepoDiscoveryProvider.cs
