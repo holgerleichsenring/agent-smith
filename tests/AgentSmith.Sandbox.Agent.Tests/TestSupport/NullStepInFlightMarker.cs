@@ -1,4 +1,6 @@
-namespace AgentSmith.Sandbox.Agent.Services;
+using AgentSmith.Sandbox.Agent.Services;
+
+namespace AgentSmith.Sandbox.Agent.Tests.TestSupport;
 
 /// <summary>
 /// p0201: no-op <see cref="IStepInFlightMarker"/> used by unit tests of

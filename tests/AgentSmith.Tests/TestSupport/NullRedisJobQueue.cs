@@ -1,7 +1,7 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 
-namespace AgentSmith.Application.Services.RedisDisabled;
+namespace AgentSmith.Tests.TestSupport;
 
 /// <summary>
 /// Fallback IRedisJobQueue for Redis-less CLI runs. Manual pipelines (security-scan, fix

@@ -35,14 +35,12 @@
 1	AgentSmith.Application/Services/Handlers/NucleiTopSelector.cs
 1	AgentSmith.Application/Services/Handlers/PrReviewFindingSelector.cs
 2	AgentSmith.Application/Services/Handlers/RunDirectoryReader.cs
-2	AgentSmith.Application/Services/Handlers/SchemaFlattener.cs
 1	AgentSmith.Application/Services/Handlers/SecuritySnapshotBuilder.cs
 2	AgentSmith.Application/Services/Handlers/SourceScopeRefreshSteps.cs
 2	AgentSmith.Application/Services/Handlers/SpectralTopSelector.cs
 1	AgentSmith.Application/Services/Handlers/StageRelevance.cs
 2	AgentSmith.Application/Services/Handlers/TargetProbeRunner.cs
 2	AgentSmith.Application/Services/Handlers/VerifyCommandRunner.cs
-1	AgentSmith.Application/Services/Handlers/VerifyNotesFormatter.cs
 1	AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs
 3	AgentSmith.Application/Services/Handlers/WorkingStateSection.cs
 1	AgentSmith.Application/Services/Handlers/ZapTopSelector.cs
@@ -230,9 +228,7 @@
 2	AgentSmith.Infrastructure/Services/Providers/Agent/CompactionSummaryRequest.cs
 1	AgentSmith.Infrastructure/Services/Providers/Agent/ContextPressureFinalizingChatClient.cs
 2	AgentSmith.Infrastructure/Services/Providers/Agent/ForwardedViewFit.cs
-1	AgentSmith.Infrastructure/Services/Providers/Agent/HumanQuestionToolHandler.cs
 2	AgentSmith.Infrastructure/Services/Providers/Agent/LargestToolResult.cs
-2	AgentSmith.Infrastructure/Services/Providers/Agent/ResilientHttpClientFactory.cs
 2	AgentSmith.Infrastructure/Services/Providers/Design/DesignProviderExtensions.cs
 1	AgentSmith.Infrastructure/Services/Providers/Design/FigmaClient.cs
 1	AgentSmith.Infrastructure/Services/Providers/Discovery/GitHubRepoDiscoveryProvider.cs

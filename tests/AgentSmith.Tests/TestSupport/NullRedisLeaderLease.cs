@@ -1,6 +1,6 @@
 using AgentSmith.Contracts.Services;
 
-namespace AgentSmith.Application.Services.RedisDisabled;
+namespace AgentSmith.Tests.TestSupport;
 
 /// <summary>
 /// Fallback IRedisLeaderLease for Redis-less CLI runs. Leader election is server-only;

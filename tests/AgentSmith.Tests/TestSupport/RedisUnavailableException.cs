@@ -1,4 +1,4 @@
-namespace AgentSmith.Application.Services.RedisDisabled;
+namespace AgentSmith.Tests.TestSupport;
 
 /// <summary>
 /// Thrown by Null-Redis service implementations when an operation that genuinely needs

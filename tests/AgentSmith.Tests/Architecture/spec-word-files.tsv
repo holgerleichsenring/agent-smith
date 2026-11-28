@@ -46,7 +46,6 @@ src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs	per-phase	1
 src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs	phase	6
 src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs	phases	4
 src/backend/AgentSmith.Application/Services/Prompts/AgentPromptBuilder.cs	phase	1
-src/backend/AgentSmith.Application/Services/Prompts/SourceAnchoringPreamble.cs	phase	1
 src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs	PHASE	1
 src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs	phase	1
 src/backend/AgentSmith.Application/Services/SpecDialog/SpecTicketRenderer.cs	phase	2
@@ -122,8 +121,6 @@ src/backend/AgentSmith.Infrastructure.Persistence/Services/SpecRename/SpecRename
 src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs	Phase	2
 src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs	phase	1
 src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs	phase	1
-src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/TokenUsageTracker.cs	per-phase	1
-src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/TokenUsageTracker.cs	phase	3
 src/backend/AgentSmith.Infrastructure/Services/Workers/ExternalWorkerChatClient.cs	Phase	1
 src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerProcessGuard.cs	phase	1
 src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerRequestComposer.cs	Phase	1
@@ -177,8 +174,6 @@ tests/AgentSmith.Tests/Persistence/SpecRename/SpecShape.cs	phases	1
 tests/AgentSmith.Tests/Persistence/SpecRename/StoredSpecNameRewriteTests.cs	Phase	2
 tests/AgentSmith.Tests/Persistence/SpecRename/StoredSpecNameRewriteTests.cs	phase	1
 tests/AgentSmith.Tests/Providers/Tickets/TicketProviderCreateTests.cs	phase	14
-tests/AgentSmith.Tests/Providers/TokenUsageTrackerTests.cs	phase	2
-tests/AgentSmith.Tests/Providers/TokenUsageTrackerTests.cs	phases	7
 tests/AgentSmith.Tests/Rework/DeriveSpecAppendTests.cs	phase	2
 tests/AgentSmith.Tests/Services/PipelineCostTrackerCostTruthTests.cs	Phases	2
 tests/AgentSmith.Tests/Services/PipelineCostTrackerCostTruthTests.cs	per-phase	1

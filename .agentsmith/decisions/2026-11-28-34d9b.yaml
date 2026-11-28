@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-34d9b
+
+decisions:
+  - category: Scope
+    chose: "Dead means the type's name occurs as a word in no src/ file outside its own file or another file of the same list, re-measured on origin/main at 0.233.1, plus no DI, reflection, nameof, JSON or binding route"
+    over: "Trusting the measurement at v0.224.0"
+    reason: "decider: operator (re-verify on current main). The re-measurement found the listed types and the small contracts still dead; after the first deletion two more became dead (CiRedPullRequest, read only by CiRedFinding; SkillCandidate, read only by SkillEvaluation) and went with them; a second scan found nothing further."
+  - category: Scope
+    chose: "Keep DeprecatedFieldAttribute, the EF design-time factories and the static registration classes"
+    over: "Deleting every type without a production reference"
+    reason: "decider: claude — DeprecatedFieldAttribute is discovered by EventSchemaCompatibilityTests through reflection and the Contracts README names it as the convention for a retired event field; design-time factories are found by EF tooling; registration classes are called as extension methods, which never name the class. None is provably dead."
+  - category: Implementation
+    chose: "NullPromptRecorder is deleted, not moved"
+    over: "Moving it into the tests with the other Null* classes"
+    reason: "decider: claude — no test uses it either, so it is dead rather than test-only."
+  - category: Implementation
+    chose: "The replay fixtures, NullRedisJobQueue, NullRedisLeaderLease and RedisUnavailableException move to AgentSmith.Tests/TestSupport (namespace AgentSmith.Tests.TestSupport), NullStepInFlightMarker to AgentSmith.Sandbox.Agent.Tests/TestSupport; their bodies are unchanged"
+    over: "A new fixtures project; keeping their production namespaces in the test assembly"
+    reason: "decider: claude — AgentSmith.PipelineHarness references AgentSmith.Tests, so one public home serves both; NullStepInFlightMarker implements an internal interface and the Sandbox.Agent InternalsVisibleTo names its own test project. RedisUnavailableException was thrown only by NullRedisJobQueue and caught nowhere, so it moved with it."
+  - category: Implementation
+    chose: "Delete the tests of deleted types; keep CacheConfigTests, which shared TokenUsageTrackerTests.cs, in a file of its own; drop the baseline rows of deleted files (file length, hard-coded limits, spec words)"
+    over: "Deleting whole test files"
+    reason: "decider: claude, from the diff review — CacheConfigTests tests the live CacheConfig defaults. AgentSmith.Tests 14461 tests before; 53 removed, all of deleted types: TokenUsageTrackerTests 6, SwaggerSpecTextRendererTests 11, ObservationBusProjectorTests 9, SourceAnchoringPreambleTests 8, StorageReaderRegistryTests 5, ProjectMapPromptRendererTests 3, VerifyNotesFormatterDedupTests 5, TurnReplyTests 1, ResilientHttpClientFactoryTests 3, SarifOutputStrategyTests.CompressToBase64Gzip_ProducesNonEmptyString, ObservationParserTests.ObservationLink_RelationshipValues_AreConstrained."
+  - category: Review
+    chose: "A fresh reviewer challenged both lists before the change and a second reviewed the diff"
+    over: "Deleting on the scan alone"
+    reason: "decider: operator (review is a step). The challenge found no live reference; it noted a checkpoint naming an unresolvable type refuses to resume, and no production code ever put one of these types in a run's context. The diff review found the dropped CacheConfigTests, restored."

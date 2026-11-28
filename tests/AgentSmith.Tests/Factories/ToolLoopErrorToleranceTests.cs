@@ -8,6 +8,7 @@ using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using static AgentSmith.Tests.Factories.ToolLoopErrorToleranceSupport;
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.Factories;
 

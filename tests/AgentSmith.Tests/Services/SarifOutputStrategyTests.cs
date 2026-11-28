@@ -76,14 +76,4 @@ public sealed class SarifOutputStrategyTests
     {
         SarifOutputStrategy.MapSeverity(input).Should().Be(expected);
     }
-
-    [Fact]
-    public void CompressToBase64Gzip_ProducesNonEmptyString()
-    {
-        var json = "{\"test\": true}";
-        var compressed = SarifUploadCompressor.ToBase64Gzip(json);
-
-        compressed.Should().NotBeNullOrEmpty();
-        Convert.FromBase64String(compressed).Should().NotBeEmpty();
-    }
 }

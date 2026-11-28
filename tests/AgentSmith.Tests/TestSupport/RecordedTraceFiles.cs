@@ -1,6 +1,6 @@
 using AgentSmith.Contracts.Runs;
 
-namespace AgentSmith.Application.Services.Trace;
+namespace AgentSmith.Tests.TestSupport;
 
 /// <summary>
 /// p0427: moves a recorded run between the store it was recorded into and a directory of

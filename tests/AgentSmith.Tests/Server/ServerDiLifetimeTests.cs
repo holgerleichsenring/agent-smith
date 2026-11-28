@@ -1,6 +1,6 @@
 using AgentSmith.Infrastructure.Persistence.Extensions;
 using System.Collections.Concurrent;
-using AgentSmith.Application.Services.RedisDisabled;
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;

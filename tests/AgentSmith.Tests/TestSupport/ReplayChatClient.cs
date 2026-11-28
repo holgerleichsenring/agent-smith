@@ -1,7 +1,7 @@
 using AgentSmith.Contracts.Runs;
 using Microsoft.Extensions.AI;
 
-namespace AgentSmith.Application.Services.Trace;
+namespace AgentSmith.Tests.TestSupport;
 
 /// <summary>
 /// p0427: answers from a recorded run instead of calling a provider, in the order the run

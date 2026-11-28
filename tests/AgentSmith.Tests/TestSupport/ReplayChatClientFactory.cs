@@ -1,9 +1,10 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Services.Factories;
 using Microsoft.Extensions.AI;
 
-namespace AgentSmith.Infrastructure.Services.Factories;
+namespace AgentSmith.Tests.TestSupport;
 
 /// <summary>
 /// p0427: the chat-client factory of a REPLAYED run — one client for every task, wrapped

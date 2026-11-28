@@ -1,4 +1,4 @@
-namespace AgentSmith.Application.Services.Trace;
+namespace AgentSmith.Tests.TestSupport;
 
 /// <summary>
 /// p0427: the replay was asked for an answer the recording does not contain.
