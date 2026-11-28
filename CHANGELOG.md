@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.234.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.234.1...v0.234.2) (2026-11-28)
+
+
+### Bug Fixes
+
+* **series:** a delivering series reads as its final pull request waiting for review, asks its merge question at the bottom of the chat, and says its check in a few lines (2026-11-28-d1ffc) ([4178933](https://github.com/holgerleichsenring/agent-smith/commit/41789337c7f81cbfea88e4cb89e680ffc8a34049))
+* **series:** series check stages feed credentials, question default is a setting, final review wording (2026-11-28-d1ff) ([899ff58](https://github.com/holgerleichsenring/agent-smith/commit/899ff589e2e2570dff8daa6f9d654f5486c06bd5))
+
 ## [0.234.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.234.0...v0.234.1) (2026-11-28)
 
 
