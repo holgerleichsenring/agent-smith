@@ -36,7 +36,7 @@ public sealed class ApiSecurityScanPresetTests
         masterIdx.Should().BeGreaterThanOrEqualTo(0);
         deliverIdx.Should().Be(masterIdx + 3);
         preset.IndexOf(CommandNames.SubstantiateFindings).Should().Be(deliverIdx - 1);
-        preset.Should().NotContain(CommandNames.CompressApiScanFindings);
+        preset.Should().NotContain("CompressApiScanFindingsCommand");
         preset.Should().NotContain(CommandNames.LoadSkills);
     }
 

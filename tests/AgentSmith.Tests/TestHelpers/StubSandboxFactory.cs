@@ -42,6 +42,10 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     /// and says its output — empty by default, so every git command keeps its stub answer.</summary>
     public Dictionary<string, (int ExitCode, string Output)> GitAnswers { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>2026-11-28-d1ffa: files, repo-relative, every sandbox lists under the path a listing names and reads back — null
+    /// by default, so every listing stays the synthetic one.</summary>
+    public Dictionary<string, string>? ListedFiles { get; set; }
+
     private readonly List<(string PathPart, string CommandPrefix, (int ExitCode, string Output)? Answer)> _afterWrites = [];
 
     /// <summary>2026-11-18-c8e2c: once a sandbox is written a file whose path contains <paramref name="pathPart"/>, a shell
@@ -88,7 +92,7 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     {
         var sandbox = new StubSandbox(
             MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles, SourceFiles, ShellAnswers,
-            AdvancesHeadOnCommit, GitAnswers, root) { OnStep = Observe };
+            AdvancesHeadOnCommit, GitAnswers, root, ListedFiles) { OnStep = Observe };
         Spawned.Add((spec, sandbox));
         return sandbox;
     }

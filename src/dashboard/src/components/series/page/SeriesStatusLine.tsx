@@ -24,7 +24,29 @@ export function SeriesStatusLine({ detail }: { detail: SeriesRunDetail }) {
     <p className="sr-status" role="status" aria-label={t("series.status.label")} title={t("series.conversation.sub")}
       data-testid="series-status-line">
       {statusParts(detail, t).join(" · ")}
+      <FinalLinks detail={detail} />
     </p>
+  );
+}
+
+/** 2026-11-28-d1ffc: the final pull requests of a series that delivers, each a link — what the state word says waits. */
+export function finalPullRequests(detail: SeriesRunDetail) {
+  return (detail.deliveries ?? []).filter((delivery) => delivery.url.length > 0);
+}
+
+export function FinalLinks({ detail, testPrefix = "series-final-link" }: { detail: SeriesRunDetail; testPrefix?: string }) {
+  if (detail.state !== "delivering") return null;
+  return (
+    <>
+      {finalPullRequests(detail).map((delivery) => (
+        <span key={delivery.repo}>
+          {" "}
+          <a href={delivery.url} target="_blank" rel="noreferrer" data-testid={`${testPrefix}-${delivery.repo}`}>
+            {delivery.repo} #{delivery.number}
+          </a>
+        </span>
+      ))}
+    </>
   );
 }
 
@@ -32,8 +54,10 @@ export function SeriesStatusLine({ detail }: { detail: SeriesRunDetail }) {
  *  ones waiting on a person, the next merge and how far it is (none and all say nothing the count does not). */
 export function statusParts(detail: SeriesRunDetail, t: T): string[] {
   const parts: string[] = [];
-  if (detail.state !== "running") parts.push(seriesStateWord(detail.state, t));
-  parts.push(t("series.status.merged", { merged: detail.counts.landed, total: detail.counts.total }));
+  if (detail.state !== "running") parts.push(seriesStateWord(detail.state, t, finalPullRequests(detail).length));
+  // 2026-11-28-d1ffc: a series with a branch merges its tickets there, not into the default branch
+  parts.push(t(detail.integrationBranch ? "series.status.mergedIntoBranch" : "series.status.merged",
+    { merged: detail.counts.landed, total: detail.counts.total }));
   const working = detail.workingOn ?? [];
   if (working.length > 0) parts.push(t("series.status.working", { count: working.length, keys: keys(working, t) }));
   if (detail.counts.held > 0) parts.push(t("series.status.needsYou", { count: detail.counts.held }));

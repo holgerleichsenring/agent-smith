@@ -43,7 +43,6 @@ public static class RawConfigPatch
         if (entity.Compaction is { } compaction)
         {
             agent.Compaction.IsEnabled = compaction.IsEnabled;
-            agent.Compaction.ThresholdIterations = compaction.ThresholdIterations;
             agent.Compaction.MaxContextTokens = compaction.MaxContextTokens;
             agent.Compaction.KeepRecentIterations = compaction.KeepRecentIterations;
             // 2026-11-17-b34eb: a ratio is written only when sent.
@@ -105,7 +104,6 @@ public static class RawConfigPatch
             {
                 Enabled = polling.Enabled,
                 IntervalSeconds = polling.IntervalSeconds,
-                JitterPercent = polling.JitterPercent,
             };
         return tracker;
     }

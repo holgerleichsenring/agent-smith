@@ -30,12 +30,12 @@ public sealed class SeriesFinalPullRequest(ISourceProviderFactory sources)
                 return SeriesDeliveryStep.Of(known, "closed", $"The final pull request of {repo.Name} ({known.Url}) was closed without "
                     + $"merging; {branch} keeps the series' work. Reopen it to deliver the series, or stop the series.");
             url = await provider.CreatePullRequestAsync(source, Title(record), SeriesFinalBody.Of(record, branch, facts), ct);
-            return SeriesDeliveryStep.Of(new SeriesDelivery(repo.Name, url, Number(url)), "opened",
+            return SeriesDeliveryStep.Of(new SeriesDelivery(repo.Name, url, Number(url)), SeriesDeliveryStep.Opened,
                 $"Every ticket landed on {branch}, and the final pull request of {repo.Name} into the default branch is open for your "
                 + $"review: {url}"); // 2026-11-25-433fa: one sentence, as every milestone
         }
         var delivery = known is not null && known.Url == url ? known : new SeriesDelivery(repo.Name, url, Number(url));
-        return SeriesDeliveryStep.Of(delivery, "open for review", null);
+        return SeriesDeliveryStep.Of(delivery, SeriesDeliveryStep.OpenForReview, null);
     }
 
     // Merged and nothing landed on the branch since: the branch is gone (the host deleted it) or still at the merged head. A

@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.234.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.234.1...v0.234.2) (2026-11-28)
+
+
+### Bug Fixes
+
+* **series:** a delivering series reads as its final pull request waiting for review, asks its merge question at the bottom of the chat, and says its check in a few lines (2026-11-28-d1ffc) ([4178933](https://github.com/holgerleichsenring/agent-smith/commit/41789337c7f81cbfea88e4cb89e680ffc8a34049))
+* **series:** series check stages feed credentials, question default is a setting, final review wording (2026-11-28-d1ff) ([899ff58](https://github.com/holgerleichsenring/agent-smith/commit/899ff589e2e2570dff8daa6f9d654f5486c06bd5))
+
+## [0.234.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.234.0...v0.234.1) (2026-11-28)
+
+
+### Bug Fixes
+
+* **cleanup:** delete dead code no run reaches — dashboard modules, backend types, unrun pipeline steps, unread config keys (2026-11-28-34d9) ([70689e0](https://github.com/holgerleichsenring/agent-smith/commit/70689e0d7d8ec1a1463c39b78b6bc340ae98456b))
+* **cleanup:** delete dead code no run reaches — dashboard modules, backend types, unrun pipeline steps, unread config keys (2026-11-28-34d9) ([70689e0](https://github.com/holgerleichsenring/agent-smith/commit/70689e0d7d8ec1a1463c39b78b6bc340ae98456b))
+
+## [0.234.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.2...v0.234.0) (2026-11-28)
+
+
+### Features
+
+* **config:** settings rail grouped into Runs & limits, Workflow and Diagnostics; group pages hold the former pages as sections that count changes from the default (2026-11-28-9bd1) ([f9d7505](https://github.com/holgerleichsenring/agent-smith/commit/f9d7505c299aba11780a33a8398085fc8836f777))
+* **config:** settings rail grouped; group pages count changes from the default (2026-11-28-9bd1) ([b394778](https://github.com/holgerleichsenring/agent-smith/commit/b394778ed6c11b61b726856854341ccd72ca4e64))
+
+## [0.233.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.1...v0.233.2) (2026-11-28)
+
+
+### Bug Fixes
+
+* **series:** a question only a person or the environment can act on is never taken by default (2026-11-28-b1db) ([6d7acc9](https://github.com/holgerleichsenring/agent-smith/commit/6d7acc9755b4662396366ed8233cc1c19b4fd6ed))
+* **series:** a question only a person or the environment can act on is never taken by default; the parked run is told nothing until the operator replies (2026-11-28-b1db) ([6602d25](https://github.com/holgerleichsenring/agent-smith/commit/6602d257c17a4a461931cf1a791dcb68311c3831))
+
 ## [0.233.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.0...v0.233.1) (2026-11-27)
 
 

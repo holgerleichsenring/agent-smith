@@ -10,13 +10,14 @@ import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { holdSentence, sinceClock } from "@/components/tickets/holds/holdWords";
 import type { AdminHoldItem, AdminHolds } from "@/types/tickets";
 import { PageHead } from "./PageHead";
+import { settingHref } from "@/components/config/settings";
 
 // 2026-11-23-31dci: every admin hold in one place, across the projects the admin sees — a precondition stop and a wait on
 // nobody that outlasted holds.escalate_after_minutes alike, the longest held first. Each row names the ticket, since
 // when, the hold's sentence (the one every surface shows) and, for an escalation, the value and the key it outlasted.
 
-/** Where the escalation's minutes are set. */
-export const HOLDS_SETTINGS_PATH = "/config/settings/holds";
+/** Where the escalation's minutes are set (2026-11-28-9bd1: the Holds section of the Workflow group). */
+export const HOLDS_SETTINGS_PATH = settingHref("holds");
 
 export function NeedsAttentionView() {
   const t = useT();

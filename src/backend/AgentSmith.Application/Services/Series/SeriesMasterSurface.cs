@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Series;
 /// what the operator wrote meanwhile. Extracted from <see cref="SeriesMasterHandler"/>.
 /// </summary>
 public sealed class SeriesMasterSurface(
-    ISeriesTicketActs acts, ISeriesRunStore store, AgentSmithConfig config, ISeriesConversation conversation,
+    ISeriesTicketActs acts, ISeriesRunStore store, AgentSmithConfig config, DialogueGlobalConfig dialogue, ISeriesConversation conversation,
     SeriesProgress progress, SeriesPause pause, ISeriesPullRequestActs pullRequests, SeriesFinalMerge finals,
     SeriesFinalCi finalCi, ISeriesEditActs edits, ILogger logger, ISeriesRecordReads? records, TimeProvider? clock,
     IRunReportReader? reports, ISeriesSpecRetirement? retirement = null)
@@ -31,7 +31,7 @@ public sealed class SeriesMasterSurface(
     // 2026-11-25-e94ec: an act marks the beat, whose reply is posted only then (SeriesBeat.MasterSpeaks); a read does not.
     private IEnumerable<AIFunction> Acted(SeriesBeat beat, SeriesMasterContext context)
     {
-        var ask = new SeriesAskTool(beat, store, config.Dialogue.QuestionDefaultMinutes).GetTool(); // 0207c
+        var ask = new SeriesAskTool(beat, store, SeriesPolicy.QuestionDefaultMinutes(dialogue)).GetTool(); // 0207c; 2026-11-28-d1ffb
         var check = AIFunctionFactory.Create(
             ([System.ComponentModel.Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default) =>
                 progress.CheckAsync(beat, ct), "check_series", // 0207d; 2026-11-25-9992e: with the reason logged

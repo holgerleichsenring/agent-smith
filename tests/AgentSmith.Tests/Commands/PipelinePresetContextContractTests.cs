@@ -215,8 +215,6 @@ public sealed class PipelinePresetContextContractTests
                 break;
             case CommandNames.AgenticMaster:
             case CommandNames.AgenticExecute:
-            case CommandNames.GenerateTests:
-            case CommandNames.GenerateDocs:
                 pipeline.Set<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges, []);
                 break;
             // The remaining commands don't currently produce keys read by any

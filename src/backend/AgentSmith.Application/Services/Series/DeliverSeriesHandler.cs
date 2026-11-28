@@ -15,7 +15,8 @@ namespace AgentSmith.Application.Services.Series;
 /// tickets outside the series that waited for it. A series without a branch has nothing here. 2026-11-25-9992e: this step
 /// opens and reads them only; the series master merges them (merge_pull_request "final").
 /// </summary>
-public sealed class DeliverSeriesHandler(ISeriesRunStore store, SeriesFinalPullRequest finals, ISeriesTicketActs acts, IServiceScopeFactory scopes)
+public sealed class DeliverSeriesHandler(ISeriesRunStore store, SeriesFinalPullRequest finals, ISeriesTicketActs acts, IServiceScopeFactory scopes,
+    DialogueGlobalConfig? dialogue = null) // 2026-11-28-d1ffc: the master's budget, for whether it can act on the final question's answer
     : ICommandHandler<DeliverSeriesContext>
 {
     public async Task<CommandResult> ExecuteAsync(DeliverSeriesContext context, CancellationToken cancellationToken)
@@ -29,16 +30,45 @@ public sealed class DeliverSeriesHandler(ISeriesRunStore store, SeriesFinalPullR
         foreach (var repo in repos) steps.Add((repo.Name, await StepAsync(beat, repo, branch, cancellationToken)));
         beat.Said.AddRange(steps.Select(s => s.Step.Say).OfType<string>());
         var done = beat.Record.State == SeriesRunStates.Delivering && steps.Count > 0 && steps.All(s => s.Step.Merged);
-        if (await store.UpdateAsync(beat.Record.Id, r => r with
+        List<SeriesDelivery> deliveries = [.. steps.Select(s => s.Step.Delivery).OfType<SeriesDelivery>()];
+        var question = AsksFinal(beat, steps) ? FinalQuestion(beat, deliveries) : null;
+        if (await store.UpdateAsync(beat.Record.Id, r => Asked(r, question) with
             {
-                Deliveries = [.. steps.Select(s => s.Step.Delivery).OfType<SeriesDelivery>()],
+                Deliveries = deliveries,
                 State = done && r.State == SeriesRunStates.Delivering ? SeriesRunStates.Done : r.State,
                 FinishedAt = done && r.State == SeriesRunStates.Delivering ? beat.Now : r.FinishedAt,
             }, cancellationToken) is { } kept) beat.Record = kept;
+        if (question is not null && beat.Record.Question?.Id == question.Id) beat.Said.Add(SeriesQuestionText.Asked(question));
         if (done) await EndAsync(context, beat, branch, cancellationToken);
         return CommandResult.Ok(steps.Count == 0 ? "No ticket pull request merged into the series branch; nothing to deliver."
             : string.Join("; ", steps.Select(s => $"{s.Repo}: {s.Step.Line}")));
     }
+
+    // 2026-11-28-d1ffc: delivery started — every final pull request is open and none merged — and the final merge was never
+    // asked about: the series asks the operator, as the master's merge question would. Only a series with a branch delivers,
+    // and only review end has one, so a person always reviews these. A master that cannot act (its loop failed, its budget is
+    // spent) could not carry out the answer: the question waits until it can.
+    private bool AsksFinal(SeriesBeat beat, IReadOnlyList<(string Repo, SeriesDeliveryStep Step)> steps) =>
+        beat.Record is { State: SeriesRunStates.Delivering, Conversation.Length: > 0 }
+        && SeriesLeads.PullRequests(beat.Record, (dialogue ?? new DialogueGlobalConfig()).SeriesMasterBudgetUsd)
+        && !beat.Record.Raised.Contains(SeriesBeatDemand.FinalAskedKey) && QuestionSlotFree(beat.Record.Question)
+        && steps.Count > 0 && steps.All(s => s.Step is { IsOpen: true, Delivery.Url.Length: > 0 });
+
+    // The slot is free when no question waits and an answered one already reached the master — a handed answer that has not
+    // is handed again after a failed loop, so it is never overwritten.
+    private static bool QuestionSlotFree(SeriesQuestion? question) => question is null or { Answer: not null, Delivered: true };
+
+    // The merge question links this beat's final pull requests, which the record keeps only with the update below.
+    private static SeriesQuestion FinalQuestion(SeriesBeat beat, List<SeriesDelivery> deliveries)
+    {
+        beat.Record = beat.Record with { Deliveries = deliveries };
+        return SeriesMergeQuestion.Of(beat, SeriesMergeQuestion.FinalText, SeriesPullRequestTools.Final);
+    }
+
+    // Read again inside the store's update: the question lands only on a free slot, and the once-key with it.
+    private static SeriesRunRecord Asked(SeriesRunRecord record, SeriesQuestion? question) =>
+        question is null || !QuestionSlotFree(record.Question) || record.Raised.Contains(SeriesBeatDemand.FinalAskedKey) ? record
+            : record with { Question = question, Raised = [.. record.Raised, SeriesBeatDemand.FinalAskedKey] };
 
     // One repo's step; a host that fails is said and tried again next beat, and never stops the beat's other steps.
     private async Task<SeriesDeliveryStep> StepAsync(SeriesBeat beat, RepoConnection repo, string branch, CancellationToken ct)

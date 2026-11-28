@@ -1,4 +1,4 @@
-using AgentSmith.Application.Services.Trace;
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Runs;
 using FluentAssertions;
 using Microsoft.Extensions.AI;

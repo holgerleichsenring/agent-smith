@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useConfigCatalogContext } from "@/components/config/ConfigCatalogProvider";
 import { ENTITY_LABEL_KEY } from "@/components/config/entities";
-import { SETTING_ICON, SETTING_KEYS, SETTING_LABEL_KEY } from "@/components/config/settings";
+import { SETTINGS_NAV, settingsNavHref, settingsNavIcon, settingsNavLabel } from "@/components/config/settings";
 import { SectionNav, SectionNavGroup } from "@/components/shell/SectionNav";
 import { SectionNavItem } from "@/components/shell/SectionNavItem";
 import type { ConfigEntityKind } from "@/lib/configApi";
@@ -46,15 +46,19 @@ export function ConfigSectionNav() {
         />
       ))}
       <SectionNavGroup label={t("config.nav.settings")} />
-      {SETTING_KEYS.map((key) => (
-        <SectionNavItem
-          key={key}
-          label={t(SETTING_LABEL_KEY[key])}
-          href={`/config/settings/${key}`}
-          icon={SETTING_ICON[key]}
-          active={at(`/config/settings/${key}`)}
-        />
-      ))}
+      {/* 2026-11-28-9bd1: three groups of the small limit and cadence pages, beside the pages of their own. */}
+      {SETTINGS_NAV.map((entry) => {
+        const href = settingsNavHref(entry);
+        return (
+          <SectionNavItem
+            key={href}
+            label={t(settingsNavLabel(entry))}
+            href={href}
+            icon={settingsNavIcon(entry)}
+            active={at(href) || (entry === SETTINGS_NAV[0] && at("/config/settings"))}
+          />
+        );
+      })}
       {/* 2026-08-26-7a51: its own group, because it needs access.read/access.write and not
           config.read/config.write. */}
       <SectionNavGroup label={t("config.nav.access")} />

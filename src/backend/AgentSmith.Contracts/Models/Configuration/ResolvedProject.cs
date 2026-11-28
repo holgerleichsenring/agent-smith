@@ -37,7 +37,6 @@ public sealed record ResolvedProject
     public WebhookTriggerConfig? GithubTrigger { get; init; }
     public WebhookTriggerConfig? GitlabTrigger { get; init; }
     public WebhookTriggerConfig? AzuredevopsTrigger { get; init; }
-    public PollingConfig Polling { get; init; } = new();
     public SandboxConfig? Sandbox { get; init; }
 
     /// <summary>2026-11-25-9992d: the private package feeds this project's runs stage, tokens resolved.</summary>

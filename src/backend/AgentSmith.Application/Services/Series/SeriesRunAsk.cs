@@ -33,7 +33,8 @@ public static class SeriesRunAsk
             + (question.RecommendedIndex is { } at && at >= 0 && at < choices.Count ? $" It recommends: {choices[at]}." : string.Empty);
         return text + (question.AnswerersOrTarget.Contains(QuestionAnswerers.Environment)
             ? $"\nOnly the environment can answer it (a secret, a quota, a setting): forward it to the operator with ask_human "
-                + $"(forTicket {key}), naming what to set or grant and where, with your recommendation; answer the run once they reply."
+                + $"(forTicket {key}), naming what to set or grant and where, with your recommendation. It has no default: it waits "
+                + "for their reply, and you answer the run only once they replied."
             : $"\nAnswer it with tell_ticket {key} (questionId {question.QuestionId}) when you know or can look it up; otherwise ask "
                 + $"the operator with ask_human (forTicket {key}) in your own words with your recommendation, and answer the run once they reply.");
     }

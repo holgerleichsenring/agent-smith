@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-34d9c
+
+decisions:
+  - category: Architecture
+    chose: "The read-time tables (CommandBeats, CommandStepClasses, its no-op summaries, GateSilence, CommandDisplayNames, CommandProgressLabels) keep every row of the nine steps, keyed by the literal command name and marked retired"
+    over: "Removing the map entries with the constants, as the diet's brief listed"
+    reason: "decider: claude, under the operator's overriding rule that nothing may change behaviour — RunStepsReader and RunBeatsComputer classify an old run's steps through these tables when it is opened, so removing a row would change how a run from before July renders (Milestone instead of Internal, no beat). p0394a retired GeneratePlan and PlanOpenQuestions the same way. The constants go; nothing writes the names any more."
+  - category: Scope
+    chose: "Delete the helpers only the nine used, at type level: SecurityFindingsCompressor, the Nuclei, Zap and Spectral top selectors and their registrations, PostExecutePassTools, RepoDiffPartitioner, RepoDiffPartition, ChangePass, ChangePassText and AgentPromptBuilder.BuildChangePassSystemPrompt (ChangePass is its parameter)"
+    over: "Also deleting the methods of live classes only the nine called (AgentPromptBuilder.BuildExecutionUserPrompt, ApiScanFindingsCompressor.BuildCategorySlices) and the context keys only they set"
+    reason: "decider: claude — a method inside a live class and a context-key constant need a per-symbol proof this diet does not make, and ContextKeys.EmptyPlanSkipped is still read by PipelineExecutorPolicy, a live path; both are left and listed as kept. ScannerTopFindings stays as well: a persisted checkpoint naming an unresolvable type refuses to resume."
+  - category: Scope
+    chose: "Leave dialogue.approval_timeout_seconds and the pipeline_skipped_as_irrelevant metric as they are"
+    over: "Retiring them with the steps that read or emitted them"
+    reason: "decider: claude — the config key is still written into every run's context by ExecutePipelineUseCase and the metric is a registered instrument; retiring either is a config or metrics change, not dead code, and belongs to the operator."
+  - category: Implementation
+    chose: "Tests of the deleted handlers and helpers go (38 cases in 9 files and MasterRolePromptTests.ChangePassSystemPrompt_Tests_StatesItsJobWithoutTheCodingMaster); preset-absence and table assertions keep their cases with the literal names; EventSequenceCompletenessTests exercises BootstrapGateHandler as its GateChecked producer instead of EmptyPlanCheckHandler"
+    over: "Deleting the preset-absence assertions with the constants"
+    reason: "decider: claude — the assertions still say an old record classifies and no preset brings a retired step back; BootstrapGateHandler is a live gate that publishes GateChecked on every path."
+  - category: Review
+    chose: "A fresh reviewer challenged the step list before the change and a second reviewed the diff"
+    over: "Deleting on the grep alone"
+    reason: "decider: operator (review is a step). Neither found a live route. Both named one residual edge: a checkpoint parked on ApprovalCommand between 2026-07-13 and 2026-07-31 and never resumed would now be refused at resume instead of running the step; its 3-day default answer was reject, so it ended in failure either way. The diff review found a stale p0355 comment, removed."

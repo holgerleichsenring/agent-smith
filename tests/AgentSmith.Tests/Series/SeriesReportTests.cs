@@ -126,6 +126,12 @@ public sealed class SeriesReportTests
         SeriesPolicy.Line(Project, Dialogue, ReviewMode.None).Should().Be(
             "merge on green · start on green push · questions default to the recommendation after 2 h 00 min");
 
+    // 2026-11-28-d1ffb: with dialogue.question_default_enabled off, the policy says questions wait.
+    [Fact]
+    public void Policy_Line_DefaultsOff_SaysQuestionsWait() =>
+        SeriesPolicy.Line(Project, new DialogueGlobalConfig { QuestionDefaultEnabled = false }, ReviewMode.None).Should().Be(
+            "merge on green · start on green push · questions wait for your answer");
+
     // 2026-11-25-9992i
     [Theory]
     [InlineData(ReviewMode.End, "you review the final pull request")]

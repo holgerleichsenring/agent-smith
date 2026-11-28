@@ -446,8 +446,6 @@ function QueueForm({ value, onChange }: { value: QueueSetting; onChange: (v: Set
       <NumberField label={t("config.queue.parallel.label")} value={value.maxParallelJobs}
         onChange={(v) => set({ maxParallelJobs: keep(v, value.maxParallelJobs) })} testId="setting-queue-parallel"
         help={t("config.queue.parallel.help")} />
-      <NumberField label={t("config.queue.block")} value={value.consumeBlockSeconds}
-        onChange={(v) => set({ consumeBlockSeconds: keep(v, value.consumeBlockSeconds) })} testId="setting-queue-block" />
       <NumberField label={t("config.queue.shutdown")} value={value.shutdownGraceSeconds}
         onChange={(v) => set({ shutdownGraceSeconds: keep(v, value.shutdownGraceSeconds) })} testId="setting-queue-shutdown" />
       <NumberField label={t("config.queue.retry.label")} value={value.redisRetryIntervalSeconds}
@@ -504,6 +502,10 @@ function DialogueForm({ value, onChange }: { value: DialogueSetting; onChange: (
       <NumberField label={t("config.dialogue.seriesStatus.label")} value={value.seriesStatusMinutes}
         onChange={(v) => set({ seriesStatusMinutes: keep(v, value.seriesStatusMinutes) })} testId="setting-dialogue-seriesstatus"
         help={t("config.dialogue.seriesStatus.help")} />
+      {/* 2026-11-28-d1ffb: whether a recommended series question is taken by default at all; absent reads as on. */}
+      <CheckField label={t("config.dialogue.questionDefaultEnabled.label")} value={value.questionDefaultEnabled !== false}
+        onChange={(v) => set({ questionDefaultEnabled: v })} testId="setting-dialogue-questiondefault-enabled"
+        help={t("config.dialogue.questionDefaultEnabled.help")} />
       <NumberField label={t("config.dialogue.questionDefault.label")} value={value.questionDefaultMinutes}
         onChange={(v) => set({ questionDefaultMinutes: keep(v, value.questionDefaultMinutes) })} testId="setting-dialogue-questiondefault"
         help={t("config.dialogue.questionDefault.help")} />

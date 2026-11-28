@@ -89,7 +89,7 @@ describe("Places", () => {
       "/runs", "/tickets", "/tickets?bucket=needs-you", "/pull-requests", "/spec-dialog", "/overview", "/delivery",
       "/system/tracker", "/system/webhooks", "/system/chat", "/system/config", "/system/catalog",
       "/config", "/config/projects", "/config/access", "/config/installation", "/config/connection-check",
-      "/config/changes", "/config/settings/orchestrator", "/system",
+      "/config/changes", "/config/settings/runs", "/system",
     ]) {
       expect(hrefs, href).toContain(href);
     }
@@ -156,6 +156,12 @@ describe("Places", () => {
     // Derived, not duplicated: a renamed entity kind or settings key renames its place.
     expect(placeForPath("/config/repos")).toBe("Repositories");
     expect(placeForPath("/config/settings/pipeline_cost_cap")).toBe("Pipeline cost cap");
+    // 2026-11-28-9bd1: the groups are places, and a bare /config/settings is the first of them.
+    expect(placeForPath("/config/settings/runs")).toBe("Runs & limits");
+    expect(placeForPath("/config/settings/workflow")).toBe("Workflow");
+    expect(placeForPath("/config/settings/diagnostics")).toBe("Diagnostics");
+    expect(placeForPath("/config/settings")).toBe("Runs & limits");
+    expect(placeForPath("/config/settings/tickets")).toBe("Ticket limits");
     expect(placeForPath("/config/access")).toBe("Permissions");
     expect(placeForPath("/config/connection-check")).toBe("Connection check");
   });

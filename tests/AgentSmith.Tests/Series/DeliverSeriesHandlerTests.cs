@@ -137,6 +137,65 @@ public sealed class DeliverSeriesHandlerTests
         beat.Said.Should().ContainSingle().Which.Should().Contain("could not be read or opened: 503");
     }
 
+    // 2026-11-28-d1ffc: delivery started and nothing called the master, so no merge question was ever asked. Now the delivery asks
+    // it once, after its own lines, with the merge question's buttons and the final pull request's link, and never by default.
+    [Fact]
+    public async Task Delivering_EveryFinalOpen_AsksTheMergeQuestionOnce_AfterItsLines()
+    {
+        var beat = await BeatAsync(SeriesRunStates.Delivering);
+
+        beat.Said.Should().HaveCount(2);
+        beat.Said[0].Should().Contain("open for your review");
+        beat.Said[^1].Should().Contain(SeriesMergeQuestion.FinalText).And.Contain($"[api: the final pull request]({Final})")
+            .And.Contain($"Choices: {SeriesAskTool.MergeIt} / {SeriesAskTool.LookFirst}");
+        var kept = _store.Records["sr-1"];
+        kept.Question!.Should().Match<SeriesQuestion>(q => q.MergeOf == "final" && q.NoDefault && q.DeadlineAt == null && q.Answer == null);
+        kept.Raised.Should().Contain(SeriesBeatDemand.FinalAskedKey);
+
+        _open = Final;
+        var asked = kept.Question!;
+        _store.Records["sr-1"] = kept with { Question = asked with { Answer = SeriesAskTool.LookFirst, Delivered = true } };
+        (await BeatAsync(SeriesRunStates.Delivering)).Said.Should().BeEmpty("the final merge is asked about once");
+    }
+
+    [Fact]
+    public async Task Delivering_QuestionSlotTaken_DefersTheMergeQuestion()
+    {
+        var waiting = SeriesQuestions.Ask("Which order?", ["a", "b"], null, SeriesRecords.T, 120);
+        _store.Records["sr-1"] = SeriesRecords.Running() with { IntegrationBranch = Branch, Question = waiting };
+        (await BeatAsync(SeriesRunStates.Delivering)).Said.Should().NotContain(s => s.Contains(SeriesMergeQuestion.FinalText));
+        _store.Records["sr-1"].Question!.Id.Should().Be(waiting.Id);
+
+        _open = Final;
+        _store.Records["sr-1"] = _store.Records["sr-1"] with { Question = waiting with { Answer = "a", Delivered = false } };
+        (await BeatAsync(SeriesRunStates.Delivering)).Said.Should().BeEmpty("an answer not yet handed to the master is not overwritten");
+
+        _store.Records["sr-1"] = _store.Records["sr-1"] with { Question = waiting with { Answer = "a", Delivered = true } };
+        (await BeatAsync(SeriesRunStates.Delivering)).Said.Should().ContainSingle().Which.Should().Contain(SeriesMergeQuestion.FinalText);
+    }
+
+    // A master that cannot act (its budget spent) could not carry out "Merge it": the question waits until it can.
+    [Fact]
+    public async Task Delivering_MasterCannotAct_DefersTheMergeQuestion()
+    {
+        _store.Records["sr-1"] = SeriesRecords.Running() with { IntegrationBranch = Branch, MasterCostUsd = 25m };
+
+        (await BeatAsync(SeriesRunStates.Delivering)).Said.Should().NotContain(s => s.Contains(SeriesMergeQuestion.FinalText));
+        _store.Records["sr-1"].Raised.Should().NotContain(SeriesBeatDemand.FinalAskedKey);
+
+        _store.Records["sr-1"] = _store.Records["sr-1"] with { MasterCostUsd = 1m };
+        (await BeatAsync(SeriesRunStates.Delivering)).Said.Should().Contain(s => s.Contains(SeriesMergeQuestion.FinalText));
+    }
+
+    [Fact]
+    public async Task ARunningSeries_AsksNoMergeQuestion_WhileItsCheckHasNotPassed()
+    {
+        var beat = await BeatAsync(SeriesRunStates.Running);
+
+        beat.Said.Should().ContainSingle().Which.Should().NotContain(SeriesMergeQuestion.FinalText);
+        _store.Records["sr-1"].Question.Should().BeNull();
+    }
+
     [Fact]
     public async Task NoRepoToDeliver_NeverEndsTheSeries()
     {

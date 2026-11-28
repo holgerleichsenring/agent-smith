@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.Server;
 
 /// <summary>
 /// p0140c: StartupSummaryLogger emits per-tracker polling lines instead of per-project ones,
-/// and now flags any project that still carries the deprecated project-level Polling block.
+/// and names each project a tracker serves.
 /// </summary>
 public sealed class StartupSummaryLoggerTests
 {
@@ -40,28 +40,7 @@ public sealed class StartupSummaryLoggerTests
             && line.Contains("beta"));
     }
 
-    [Fact]
-    public void Log_DeprecatedProjectLevelPolling_FlagsInline()
-    {
-        var tracker = new TrackerConnection { Name = "tr", Type = TrackerType.GitHub };
-        var config = new AgentSmithConfig
-        {
-            Trackers = new Dictionary<string, TrackerConnection> { ["tr"] = tracker },
-            Projects = new Dictionary<string, ResolvedProject>
-            {
-                ["alpha"] = MakeProject("alpha", tracker,
-                    polling: new PollingConfig { Enabled = true, IntervalSeconds = 60 }),
-            }
-        };
-        var captured = CaptureLogs();
-
-        StartupSummaryLogger.Log(config, captured.Logger);
-
-        captured.Lines.Should().Contain(line =>
-            line.Contains("alpha") && line.Contains("DEPRECATED project-level polling"));
-    }
-
-    private static ResolvedProject MakeProject(string name, TrackerConnection tracker, PollingConfig? polling = null)
+    private static ResolvedProject MakeProject(string name, TrackerConnection tracker)
         => new()
         {
             Name = name,
@@ -69,7 +48,6 @@ public sealed class StartupSummaryLoggerTests
             Agent = new AgentConfig { Type = "Claude", Model = "sonnet" },
             Repos = new[] { new RepoConnection { Name = name + "-repo", Url = $"https://example/{name}", Type = RepoType.GitHub } },
             Pipeline = "code",
-            Polling = polling ?? new PollingConfig(),
         };
 
     private static (ILogger Logger, List<string> Lines) CaptureLogs()

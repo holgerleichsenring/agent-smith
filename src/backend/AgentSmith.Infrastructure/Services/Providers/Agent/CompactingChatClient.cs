@@ -81,8 +81,7 @@ public sealed class CompactingChatClient : DelegatingChatClient
 
     /// <summary>
     /// p0357: the middleware's trigger predicate — token pressure only. The iteration
-    /// count deliberately plays no part: config.ThresholdIterations is a deprecated
-    /// no-op (see <see cref="CompactionConfig.ThresholdIterations"/>).
+    /// count deliberately plays no part (agents.*.compaction.threshold_iterations is retired, 2026-11-28-34d9d).
     /// </summary>
     public static bool ShouldCompactOnTokenPressure(int estimatedTokens, CompactionConfig config)
     {

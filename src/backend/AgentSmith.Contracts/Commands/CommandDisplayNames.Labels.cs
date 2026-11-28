@@ -33,12 +33,12 @@ public static partial class CommandDisplayNames
         [CommandNames.ReviewSpecs] = "Review the specs",
         [CommandNames.SpecSequence] = "Plan the spec sequence",
         [CommandNames.SelectSpec] = "Start the spec",
-        [CommandNames.EmptyPlanCheck] = "Check plan is non-empty",
+        ["EmptyPlanCheckCommand"] = "Check plan is non-empty", // retired 2026-11-28-34d9c; old records still read
         // p0394a: retired steps, kept by literal name so run records persisted
         // before the retirement still render their trail labels.
         ["GeneratePlanCommand"] = "Generate plan",
         ["PlanOpenQuestionsCommand"] = "Post Plan open questions",
-        [CommandNames.Approval] = "Await approval",
+        ["ApprovalCommand"] = "Await approval", // retired 2026-11-28-34d9c; old records still read
         [CommandNames.AgenticExecute] = "Execute plan",
         [CommandNames.AgenticMaster] = "Run master skill", [CommandNames.AdminAssistantTurn] = "Run the admin assistant", [CommandNames.ApplyConfigChanges] = "Apply configuration changes", [CommandNames.WriteSecret] = "Write a secret value", // f3a8a, c, d
         [CommandNames.LoadCachedCodeMap] = "Load cached code map",
@@ -58,10 +58,10 @@ public static partial class CommandDisplayNames
         [CommandNames.PrCrossLink] = "Cross-link sibling pull requests",
         [CommandNames.InitComplete] = "Complete the init pull requests", [CommandNames.CompletePullRequests] = "Merge the pull requests", [CommandNames.RefreshBranchBase] = "Merge the landed base", [CommandNames.DeployToEnvironment] = "Deliver the version to the environment", [CommandNames.PocIntake] = "Check the PoC archive", [CommandNames.PocCodeScan] = "Scan the PoC for secrets and vulnerabilities", [CommandNames.PocSourceCommit] = "Commit the PoC to its source folder", [CommandNames.PocPipelineBuild] = "Build, scan and push the PoC image", [CommandNames.PocTargetInstall] = "Install the PoC build pipeline", [CommandNames.WritePocVariables] = "Write the PoC variables", [CommandNames.SealPocVariables] = "Seal the PoC secrets", [CommandNames.GitOpsCommit] = "Commit the PoC manifests", [CommandNames.PocRolloutFollow] = "Follow the PoC rollout", [CommandNames.PocAct] = "Check the PoC act", [CommandNames.PocExtend] = "Extend the PoC", [CommandNames.PurgePocUploads] = "Purge old PoC uploads", // 023fa, 023fb, 3863c, 933db, 933dc, 933dd, 933dg
         [CommandNames.CleanupWorkBranches] = "Remove finished branches", // 2026-11-17-713ec
-        [CommandNames.GenerateTests] = "Generate tests",
-        [CommandNames.GenerateDocs] = "Generate docs",
+        ["GenerateTestsCommand"] = "Generate tests", // retired 2026-11-28-34d9c; old records still read
+        ["GenerateDocsCommand"] = "Generate docs", // retired 2026-11-28-34d9c; old records still read
         [CommandNames.Triage] = "Triage ticket",
-        [CommandNames.SwitchSkill] = "Switch skill",
+        ["SwitchSkillCommand"] = "Switch skill", // retired 2026-11-28-34d9c; old records still read
         [CommandNames.SkillRound] = "Skill round",
         [CommandNames.ConvergenceCheck] = "Check convergence",
         [CommandNames.CompileDiscussion] = "Compile discussion",
@@ -80,7 +80,7 @@ public static partial class CommandDisplayNames
         [CommandNames.LoadCatalog] = "Load catalog",
         [CommandNames.PipelineNameInitializer] = "Publish pipeline name",
         [CommandNames.BootstrapCheck] = "Check bootstrap files",
-        [CommandNames.RunVerifyPhase] = "Run verify phase",
+        ["RunVerifyPhaseCommand"] = "Run verify phase", // retired 2026-11-28-34d9c; old records still read
         [CommandNames.CommitSpecWork] = "Commit the spec's work",
         [CommandNames.CheckSpecPremises] = "Check the spec's premises", // 2026-09-17-0e79c
         [CommandNames.VerifySpec] = "Build and test", // p0393
@@ -96,15 +96,15 @@ public static partial class CommandDisplayNames
         [CommandNames.SpawnSpectral] = "Run Spectral lint",
         [CommandNames.SpawnZap] = "Run ZAP scan",
         [CommandNames.ApiSecuritySkillRound] = "API security skill round",
-        [CommandNames.CompileFindings] = "Compile findings",
+        ["CompileFindingsCommand"] = "Compile findings", // retired 2026-11-28-34d9c; old records still read
         [CommandNames.CollectMasterFindings] = "Collect master findings",
         [CommandNames.DeliverFindings] = "Deliver findings",
-        [CommandNames.CompressApiScanFindings] = "Compress API scan findings",
+        ["CompressApiScanFindingsCommand"] = "Compress API scan findings", // retired 2026-11-28-34d9c; old records still read
         [CommandNames.SecuritySkillRound] = "Security skill round",
         [CommandNames.StaticPatternScan] = "Scan for security patterns",
         [CommandNames.GitHistoryScan] = "Scan git history for secrets",
         [CommandNames.DependencyAudit] = "Audit dependencies",
-        [CommandNames.CompressSecurityFindings] = "Compress security findings",
+        ["CompressSecurityFindingsCommand"] = "Compress security findings", // retired 2026-11-28-34d9c; old records still read
         [CommandNames.MergeMasterFindings] = "Merge master findings",
         [CommandNames.SecurityTrend] = "Analyze security trends",
         [CommandNames.SecuritySnapshotWrite] = "Write security snapshot",

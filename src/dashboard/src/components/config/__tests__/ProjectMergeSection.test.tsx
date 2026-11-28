@@ -102,7 +102,7 @@ describe("agent compaction ratios", () => {
     const onChange = vi.fn();
     const agent = {
       id: "a", provider: "openai", catalog: {}, models: {}, keySecret: null,
-      compaction: { isEnabled: true, thresholdIterations: 8, maxContextTokens: 200000, keepRecentIterations: 3 },
+      compaction: { isEnabled: true, maxContextTokens: 200000, keepRecentIterations: 3 },
     } as unknown as StudioAgent;
     render(<AgentTuningTab draft={agent} onChange={onChange} />);
     fireEvent.click(screen.getByTestId("agent-section-compaction").querySelector("button, summary") as Element);

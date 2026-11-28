@@ -85,7 +85,8 @@ public sealed class SeriesRunCompositionTests
         rig.Facts.Set("4", RunStatuses.Running, finished: false);
         await BeatAsync(sp, series.Id);
         var summary = (await TextsAsync(sp)).Last(t => t.StartsWith("All 4 tickets landed") || t.StartsWith("All 3 tickets landed"));
-        summary.Should().Contain("1 of 2 hold").And.Contain("I filed #4 for it in this series; it is running").And.EndWith("Nothing waits on you.");
+        AgentSmith.Application.Services.Series.SeriesSummaryText.Shown(summary).Should().Contain("1 of 2 hold")
+            .And.Contain("I filed #4 for it in this series; it is running").And.EndWith("Nothing waits on you.");
         var kept = (await sp.GetRequiredService<ISeriesRunStore>().GetAsync(series.Id, default))!;
         kept.State.Should().Be(SeriesRunStates.Running);
         kept.Tickets.Last().Should().Match<SeriesTicket>(t => t.TicketId == "4" && t.FollowUp);

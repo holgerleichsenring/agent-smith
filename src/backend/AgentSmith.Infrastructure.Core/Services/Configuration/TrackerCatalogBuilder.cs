@@ -74,7 +74,6 @@ public sealed class TrackerCatalogBuilder
         {
             Enabled = raw.Enabled,
             IntervalSeconds = raw.IntervalSeconds,
-            JitterPercent = raw.JitterPercent,
         };
     }
 }

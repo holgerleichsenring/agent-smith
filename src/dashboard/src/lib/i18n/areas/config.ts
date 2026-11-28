@@ -296,7 +296,6 @@ export const configMessages = {
   "config.polling.backendDefault": { en: "backend default applies", de: "Standard des Backends gilt" },
   "config.polling.configure": { en: "Configure polling", de: "Polling einrichten" },
   "config.polling.interval": { en: "poll interval (seconds)", de: "Polling-Intervall (Sekunden)" },
-  "config.polling.jitter": { en: "jitter (%)", de: "Jitter (%)" },
   "config.polling.remove": { en: "Remove polling override", de: "Polling-Überschreibung entfernen" },
 
   // --- sandbox: trusted image registries ---
@@ -415,12 +414,34 @@ export const configMessages = {
   "config.setting.series": { en: "Series", de: "Serien" },
   "config.setting.preconditions": { en: "Preconditions", de: "Vorbedingungen" },
   "config.setting.branchCleanup": { en: "Branch cleanup", de: "Branch-Bereinigung" },
-  "config.setting.tickets": { en: "Tickets", de: "Tickets" },
+  "config.setting.tickets": { en: "Ticket limits", de: "Ticket-Limits" },
   "config.setting.holds": { en: "Holds", de: "Holds" },
   "config.setting.pocs": { en: "PoCs", de: "PoCs" },
   "config.setting.skills": { en: "Skills", de: "Skills" },
   "config.setting.pipelineDataFlow": { en: "Pipeline data flow", de: "Datenfluss der Pipeline" },
   "config.setting.trace": { en: "Trace", de: "Trace" },
+  // 2026-11-28-9bd1: the settings groups and what a group page says about its sections.
+  "config.settingGroup.runs": { en: "Runs & limits", de: "Runs & Limits" },
+  "config.settingGroup.runs.sub": {
+    en: "how long a run may take, what it may spend and call, the queue it waits in and the image it runs",
+    de: "wie lange ein Run dauern darf, was er ausgeben und aufrufen darf, seine Warteschlange und sein Image",
+  },
+  "config.settingGroup.workflow": { en: "Workflow", de: "Ablauf" },
+  "config.settingGroup.workflow.sub": {
+    en: "the waits, re-checks and sweeps around a ticket's work",
+    de: "das Warten, erneute Prüfen und Aufräumen rund um die Arbeit an einem Ticket",
+  },
+  "config.settingGroup.diagnostics": { en: "Diagnostics", de: "Diagnose" },
+  "config.settingGroup.diagnostics.sub": {
+    en: "what a run records about itself",
+    de: "was ein Run über sich selbst aufzeichnet",
+  },
+  "config.settingGroup.changed": { en: "{count} changed", de: "{count} geändert" },
+  "config.settingGroup.onlyChanged": { en: "Show only changed values", de: "Nur geänderte Werte zeigen" },
+  "config.settingGroup.noneChanged": {
+    en: "Every value here is its default.",
+    de: "Jeder Wert hier hat seinen Standardwert.",
+  },
   "config.setting.orchestrator.sub": { en: "the run wall-time ceiling", de: "die Obergrenze der Laufzeit eines Runs" },
   "config.setting.sandbox.sub": {
     en: "sandbox agent image, per-step / per-command timeouts and trusted image registries",
@@ -890,7 +911,6 @@ export const configMessages = {
   },
   "config.tuning.compaction.add": { en: "Add compaction settings", de: "Compaction-Einstellungen hinzufügen" },
   "config.tuning.compaction.enabled": { en: "compaction", de: "Compaction" },
-  "config.tuning.compaction.threshold": { en: "threshold iterations", de: "Schwelle (Iterationen)" },
   "config.tuning.compaction.maxContext": { en: "max context tokens", de: "Max. Kontext-Tokens" },
   "config.tuning.compaction.keepRecent": { en: "keep recent iterations", de: "letzte Iterationen behalten" },
   "config.tuning.compaction.trigger.label": { en: "trigger ratio", de: "Auslöse-Anteil" },
@@ -1322,7 +1342,6 @@ export const configMessages = {
     en: "the sole backpressure knob for downstream pipeline execution",
     de: "der einzige Regler für den Gegendruck bei der nachgelagerten Pipeline-Ausführung",
   },
-  "config.queue.block": { en: "Consume block (seconds)", de: "Blockieren beim Lesen (Sekunden)" },
   "config.queue.shutdown": { en: "Shutdown grace (seconds)", de: "Schonfrist beim Herunterfahren (Sekunden)" },
   "config.queue.retry.label": { en: "Redis retry interval (seconds)", de: "Wiederholintervall für Redis (Sekunden)" },
   "config.queue.retry.help": {
@@ -1401,9 +1420,15 @@ export const configMessages = {
     de: "der Serien-Master wird geweckt, sobald das älteste Ereignis so lange gewartet hat, damit gemeinsam eintreffende Ereignisse einen Durchlauf kosten; 0 weckt ihn sofort. Deine Nachrichten erreichen ihn sofort",
   },
   "config.dialogue.questionDefault.label": { en: "Question default after (minutes)", de: "Standardantwort auf Fragen nach (Minuten)" },
+  // 2026-11-28-d1ffb: each help names the value, the reason and the key.
   "config.dialogue.questionDefault.help": {
-    en: "a series question that names a recommendation takes it after this; one without waits for you",
-    de: "eine Serienfrage mit Empfehlung übernimmt sie danach; eine ohne wartet auf dich",
+    en: "120 by default. How long a series question that names a recommendation waits for you before the series takes the recommendation, so a choice nobody answers does not hold the series up. A question without a recommendation waits. Key: dialogue.question_default_minutes",
+    de: "Standard 120. So lange wartet eine Serienfrage mit Empfehlung auf dich, bevor die Serie die Empfehlung übernimmt, damit eine unbeantwortete Wahl die Serie nicht aufhält. Eine Frage ohne Empfehlung wartet. Schlüssel: dialogue.question_default_minutes",
+  },
+  "config.dialogue.questionDefaultEnabled.label": { en: "Take recommended answers by default", de: "Empfohlene Antworten standardmäßig übernehmen" },
+  "config.dialogue.questionDefaultEnabled.help": {
+    en: "On by default. On: a series question that names a recommendation is taken after the minutes below, so the series keeps moving. Off: every series question waits for your answer. Merge questions and what only you can do never default. Key: dialogue.question_default_enabled",
+    de: "Standard an. An: eine Serienfrage mit Empfehlung wird nach den Minuten unten übernommen, damit die Serie weiterläuft. Aus: jede Serienfrage wartet auf deine Antwort. Merge-Fragen und was nur du tun kannst, haben nie einen Standard. Schlüssel: dialogue.question_default_enabled",
   },
 
   // --- settings: skills ---

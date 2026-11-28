@@ -12,7 +12,7 @@ Don't use polling when webhooks work — they're faster, cheaper on tracker rate
 
 ## Config
 
-Polling is a property of the tracker, so on a server you set it in **Configuration → Trackers**, in the tracker's polling section: enable it, set the interval, set the jitter. The running server picks the change up on its next cycle, with no restart. The CLI form, and what `agent-smith config import` takes, is the same thing as YAML:
+Polling is a property of the tracker, so on a server you set it in **Configuration → Trackers**, in the tracker's polling section: enable it and set the interval. The running server picks the change up on its next cycle, with no restart. The CLI form, and what `agent-smith config import` takes, is the same thing as YAML:
 
 ```yaml
 trackers:
@@ -22,7 +22,6 @@ trackers:
     polling:
       enabled: true
       interval_seconds: 60       # how often to ask
-      jitter_percent: 10         # randomize ±10% to avoid thundering herds
 ```
 
 Same shape for every tracker family (Azure DevOps, Jira, GitHub Issues, GitLab Issues). The `polling` block lives on the tracker, not on the project — every project sharing this tracker shares the poll.
@@ -74,7 +73,7 @@ For most setups, **webhooks for the public trackers (GitHub Cloud, GitLab Cloud,
 
 `60` seconds is a good default. Faster (10–30 seconds) for development. Slower (300+ seconds) for trackers with aggressive rate limits or when you're paying per API call.
 
-The `jitter_percent` field randomizes the actual interval by ±N% so multiple orchestrator replicas don't all hit the tracker at the same wall-clock moment. Default 10%. Don't set it to 0 unless you have exactly one replica.
+Each wait between polls varies by ±10%, so polls don't fall on the same wall-clock moment every cycle.
 
 ## Leader lease
 
@@ -84,7 +83,7 @@ You don't need to configure this — it's automatic. Same model is used for the 
 
 ## Mixed mode
 
-The mode belongs to the tracker entry, so you can have webhooks on one entry and polling on another in the same config. A project's own `polling` block does not change it; the dashboard's project panel shows the mode the entry gives it (`polling every 60s` or `webhooks`).
+The mode belongs to the tracker entry, so you can have webhooks on one entry and polling on another in the same config. A project carries no `polling` block of its own; the dashboard's project panel shows the mode the entry gives it (`polling every 60s` or `webhooks`).
 
 Each poller serves only the projects on its own entry. A project on a webhook entry is no longer picked up by a polling entry of the same tracker type: if it relied on that, move it to the polling entry or enable polling on its own. When two entries of different modes own projects on one repository, the configuration probe reports an advisory, and pull-request deliveries for that repository start nothing; the PR sweep serves it instead.
 

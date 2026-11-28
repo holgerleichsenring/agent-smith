@@ -123,6 +123,15 @@ public sealed class SandboxResourceResolverTests
         PipelinePresets.ExpectsCodeChanges(PipelinePresets.RefreshBaseName).Should().BeFalse();
     }
 
+    // 2026-11-28-d1ffa: the series check runs the repositories' build and tests over the landed series, so it is sized for it.
+    [Fact]
+    public void Resolve_SeriesVerify_IsSizedForBuilding()
+    {
+        NewSut().ResolveLayer(new ResolvedProject(), PipelinePresets.SeriesVerifyName, ValidContext)
+            .Should().Be(SandboxResourceLayer.ContextDocument);
+        PipelinePresets.ExpectsCodeChanges(PipelinePresets.SeriesVerifyName).Should().BeFalse();
+    }
+
     [Theory]
     [InlineData("init-project")]
     [InlineData("security-scan")]

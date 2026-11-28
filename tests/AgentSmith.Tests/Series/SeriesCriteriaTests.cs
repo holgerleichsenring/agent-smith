@@ -99,7 +99,7 @@ public sealed class SeriesCriteriaTests
 
         var text = SeriesSummaryText.Of(beat, verdict, null);
 
-        text.Should().Contain("1 of 1 hold").And.EndWith("Nothing waits on you.");
+        SeriesSummaryText.Shown(text).Should().Contain("1 of 1 hold").And.EndWith("Nothing waits on you.");
         text.Should().NotContain("could not be read").And.NotContain("Not checked").And.NotContain("TF401175");
     }
 

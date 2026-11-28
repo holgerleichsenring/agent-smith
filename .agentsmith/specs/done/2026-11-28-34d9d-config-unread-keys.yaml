@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-34d9d
+goal: "Four config keys nothing reads are retired: an old file still loads with a notice, the schema and dashboard drop their fields, and no running path changes."
+
+applies_to: "default (Contracts configuration, Infrastructure.Core loader and studio, Application warners, Server startup, schema) and dashboard (config forms)"
+
+requires: [2026-11-28-34d9c]
+
+facts:
+  - claim: "queue.consume_block_seconds is bound into QueueConfig and shown in the settings form; no consumer reads ConsumeBlockSeconds."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/QueueConfig.cs:11; src/dashboard/src/components/config/SettingsForm.tsx:449"
+  - claim: "trackers.*.polling.jitter_percent is mapped into PollingConfig and back; the poller sleeps the shortest interval of all trackers with a fixed ±10%, so wiring a per-tracker value is not one line and would change the sleep for any file not at 10."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/PollerHostedService.cs:104; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/TrackerCatalogBuilder.cs:77"
+  - claim: "agents.*.compaction.threshold_iterations is a no-op since p0357; only its deprecation warner and the studio mapping read it."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/CompactionConfig.cs:19; src/backend/AgentSmith.Application/Services/Configuration/CompactionConfigDeprecationWarner.cs:18"
+  - claim: "projects.*.polling has been read only by its deprecation warner and a startup log line since p0140c moved polling to the tracker."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/PollingConfigDeprecationWarner.cs:18; src/backend/AgentSmith.Server/Services/StartupSummaryLogger.cs:46"
+  - claim: "The loader ignores keys it does not bind, and a RetiredConfigKeys row makes the file and stored loaders report a set key as an advisory; previous retirements dropped the key from the closed schema."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/YamlConfigurationLoader.cs:88; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Retired/RetiredConfigKeys.cs"
+
+scope:
+  in: |
+    Remove QueueConfig.ConsumeBlockSeconds, PollingConfig.JitterPercent and RawPollingEntry.JitterPercent (with the
+    studio TrackerPollingSettings field), CompactionConfig.ThresholdIterations with its default constant, its studio
+    field and CompactionConfigDeprecationWarner, and the project-level polling block (RawProjectEntry.Polling,
+    ResolvedProject.Polling) with PollingConfigDeprecationWarner and the startup log's legacy-polling clause. Add a
+    RetiredConfigKeys row for each key; drop them from config/agentsmith.schema.json, the example files and the docs;
+    drop the dashboard fields, their types and their dictionary keys.
+  out: "Wiring jitter_percent; any other key; dialogue.approval_timeout_seconds."
+
+steps:
+  - id: backend
+    action: "Remove the properties, the studio fields, the warners and their registrations; add the four RetiredConfigKeys rows."
+  - id: schema-docs
+    action: "Drop the keys from the schema, the example configs and the docs."
+  - id: dashboard
+    action: "Drop the three form fields, their API type fields and their dictionary keys."
+  - id: tests
+    action: "Delete the warner tests and the assertions of the removed properties; a test pins that a file still setting each key loads with its advisory."
+  - id: prove
+    action: "dotnet build, full suite, dashboard tests and build, dry-runs and harness presets green."
+
+tests:
+  - "RetiredUnreadConfigKeysTests.RetiredConfigKeys_UnreadKeys_LoadWithAnAdvisory"
+  - "RetiredUnreadConfigKeysTests.RetiredConfigKeys_UnreadKeys_TheFileStillBinds"
+
+done:
+  - "A configuration that still sets any of the four keys loads and reports one retired-key advisory per key (test)."
+  - "No production code, schema, example or dashboard form names the four keys."
+  - "dotnet build, the full suite, the dashboard tests and build are green."

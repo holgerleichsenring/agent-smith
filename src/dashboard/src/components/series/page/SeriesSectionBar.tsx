@@ -8,6 +8,7 @@ import { conversationHref } from "@/components/dialog/conversationHref";
 import { money } from "@/components/tickets/ticketFormat";
 import type { SeriesRunDetail } from "@/types/seriesRuns";
 import { seriesStateWord } from "../seriesNextStep";
+import { FinalLinks, finalPullRequests } from "./SeriesStatusLine";
 import { openQuestionCount, SERIES_QUESTION_ID } from "./SeriesQuestionBlock";
 
 // 2026-11-23-31dcd: the series' own bar beside the icon-only app sidebar, as the ticket page's: back to the list, the
@@ -31,7 +32,8 @@ export function SeriesSectionBar({ detail, children }: { detail: SeriesRunDetail
         <span className="tk-bar-key">{t("series.page.kind", { count: detail.counts.total })}</span>
         <h1 className="tk-bar-title" data-testid="series-title">{detail.name}</h1>
         <span className={`tk-bar-state ${stateTone(detail)}`} data-testid="series-state-word">
-          {seriesStateWord(detail.state, t)}
+          {seriesStateWord(detail.state, t, finalPullRequests(detail).length)}
+          <FinalLinks detail={detail} testPrefix="series-rail-final-link" />{/* 2026-11-28-d1ffc */}
           {questions > 0 && <> · <a href={`#${SERIES_QUESTION_ID}`} data-testid="series-question-link">{t("series.page.needsYou", { count: questions })}</a></>}
         </span>
       </div>

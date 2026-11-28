@@ -18,7 +18,7 @@ namespace AgentSmith.Application.Services;
 ///   - command tracking (PipelineContext.TrackCommand)
 ///   - DataFlow read-gate attach
 ///   - remaining-list edits via PipelineCommandList (insert / drop ahead)
-///   - per-step skill-detail emission (Triage / SkillRound / ConvergenceCheck / SwitchSkill)
+///   - per-step skill-detail emission (Triage / SkillRound / ConvergenceCheck)
 ///
 /// Concerns explicitly NOT here:
 ///   - sandbox lifecycle (IPipelineSandboxCoordinator)
@@ -187,7 +187,6 @@ public sealed class PipelineStepRunner(
                 CommandNames.SkillRound or CommandNames.SecuritySkillRound or CommandNames.ApiSecuritySkillRound
                     => ("skill-round", result.Message),
                 CommandNames.ConvergenceCheck => ("convergence", result.Message),
-                CommandNames.SwitchSkill => ("skill-switch", result.Message),
                 _ => (null, null)
             };
 

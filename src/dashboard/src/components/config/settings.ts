@@ -44,7 +44,7 @@ export const SETTING_LABEL: Record<SettingKey, string> = {
   series: "Series",
   preconditions: "Preconditions",
   branch_cleanup: "Branch cleanup",
-  tickets: "Tickets",
+  tickets: "Ticket limits", // 2026-11-28-9bd1: was "Tickets", the ticket list's name too
   holds: "Holds",
   pocs: "PoCs",
   skills: "Skills",
@@ -121,4 +121,130 @@ export const SETTING_ICON: Record<SettingKey, string> = {
 
 export function isSettingKey(value: string | undefined): value is SettingKey {
   return !!value && (SETTING_KEYS as string[]).includes(value);
+}
+
+// 2026-11-28-9bd1: the rail lists GROUPS of the small limit and cadence pages, beside the pages that
+// stay their own. A group page holds its members as sections; a member's old path redirects to it.
+// A group's slug is never a settings key, so /config/settings/{slug} names one or the other.
+
+export type SettingGroupId = "runs" | "workflow" | "diagnostics";
+
+export interface SettingGroup {
+  id: SettingGroupId;
+  label: TextKey;
+  /** The English name, for the header's place table, which reads strings. */
+  name: string;
+  subtitle: TextKey;
+  icon: string;
+  members: SettingKey[];
+}
+
+export const SETTING_GROUPS: SettingGroup[] = [
+  {
+    id: "runs",
+    label: "config.settingGroup.runs",
+    name: "Runs & limits",
+    subtitle: "config.settingGroup.runs.sub",
+    icon: "⚖",
+    members: ["orchestrator", "primary_provider", "limits", "pipeline_cost_cap", "queue", "deployment"],
+  },
+  {
+    id: "workflow",
+    label: "config.settingGroup.workflow",
+    name: "Workflow",
+    subtitle: "config.settingGroup.workflow.sub",
+    icon: "◊",
+    members: ["dialogue", "spec_review", "preconditions", "holds", "branch_cleanup"],
+  },
+  {
+    id: "diagnostics",
+    label: "config.settingGroup.diagnostics",
+    name: "Diagnostics",
+    subtitle: "config.settingGroup.diagnostics.sub",
+    icon: "⌁",
+    members: ["pipeline_data_flow", "trace"],
+  },
+];
+
+/** One rail entry: a group of sections, or a settings page of its own. */
+export type SettingsNavEntry = { kind: "group"; group: SettingGroup } | { kind: "setting"; key: SettingKey };
+
+export function isSettingGroup(value: string | undefined): value is SettingGroupId {
+  return SETTING_GROUPS.some((g) => g.id === value);
+}
+
+export function settingGroup(id: SettingGroupId): SettingGroup {
+  return SETTING_GROUPS.find((g) => g.id === id) ?? SETTING_GROUPS[0];
+}
+
+const group = (id: SettingGroupId): SettingsNavEntry => ({ kind: "group", group: settingGroup(id) });
+const page = (key: SettingKey): SettingsNavEntry => ({ kind: "setting", key });
+
+/** The rail order: the run-shaped knobs, the workflow cadences, the pages of their own, diagnostics last. */
+export const SETTINGS_NAV: SettingsNavEntry[] = [
+  group("runs"),
+  group("workflow"),
+  page("sandbox"),
+  page("series"),
+  page("tickets"),
+  page("pocs"),
+  page("skills"),
+  group("diagnostics"),
+];
+
+export function settingsNavHref(entry: SettingsNavEntry): string {
+  return `/config/settings/${entry.kind === "group" ? entry.group.id : entry.key}`;
+}
+
+export function settingsNavLabel(entry: SettingsNavEntry): TextKey {
+  return entry.kind === "group" ? entry.group.label : SETTING_LABEL_KEY[entry.key];
+}
+
+export function settingsNavName(entry: SettingsNavEntry): string {
+  return entry.kind === "group" ? entry.group.name : SETTING_LABEL[entry.key];
+}
+
+export function settingsNavIcon(entry: SettingsNavEntry): string {
+  return entry.kind === "group" ? entry.group.icon : SETTING_ICON[entry.key];
+}
+
+/** The group a settings key is a section of, or null when it is a page of its own. */
+export function groupOf(key: SettingKey): SettingGroup | null {
+  return SETTING_GROUPS.find((g) => g.members.includes(key)) ?? null;
+}
+
+/** Where a former settings page lives now: its group with its section open, or its own page. */
+export function settingHref(key: SettingKey): string {
+  const owner = groupOf(key);
+  return owner ? `/config/settings/${owner.id}?open=${key}` : `/config/settings/${key}`;
+}
+
+/**
+ * How many values of a saved doc differ from its default. Every leaf that differs counts once, and
+ * an array counts once as a whole — a list is one value to the operator. A sub-object one side lacks
+ * counts its leaves (a cost-cap tier the doc leaves out is two values: usd and tokens).
+ */
+export function changedCount(value: unknown, defaults: unknown): number {
+  if (isRecord(value) && isRecord(defaults)) {
+    const keys = new Set([...Object.keys(value), ...Object.keys(defaults)]);
+    let count = 0;
+    for (const key of keys) count += changedCount(value[key], defaults[key]);
+    return count;
+  }
+  if (same(value, defaults)) return 0;
+  if (isRecord(value)) return Math.max(1, leafCount(value));
+  if (isRecord(defaults)) return Math.max(1, leafCount(defaults));
+  return 1;
+}
+
+function leafCount(record: Record<string, unknown>): number {
+  return Object.values(record).reduce<number>((n, v) => n + (isRecord(v) ? leafCount(v) : 1), 0);
+}
+
+function same(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
 }

@@ -89,7 +89,7 @@ public sealed class SpecDialogSeriesEndpointsTests : IDisposable
             Projects = new Dictionary<string, ResolvedProject> { ["sample"] = new() { Name = "sample" } },
         });
         var views = new SeriesRunViewReader(sessions, _store, _facts.Object,
-            new TicketProjects(loader.Object, new ServerContext("c.yml")), new AgentSmithConfig(), TimeProvider.System);
+            new TicketProjects(loader.Object, new ServerContext("c.yml")), new DialogueGlobalConfig(), TimeProvider.System);
         var user = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", caller)], "test"));
         return await SpecDialogSeriesEndpoints.ActAsync("d-1", act, user, new SpecDialogOwnership(sessions), sessions, _store, pause, views,
             CancellationToken.None);
