@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.234.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.2...v0.234.0) (2026-11-28)
+
+
+### Features
+
+* **config:** settings rail grouped into Runs & limits, Workflow and Diagnostics; group pages hold the former pages as sections that count changes from the default (2026-11-28-9bd1) ([f9d7505](https://github.com/holgerleichsenring/agent-smith/commit/f9d7505c299aba11780a33a8398085fc8836f777))
+* **config:** settings rail grouped; group pages count changes from the default (2026-11-28-9bd1) ([b394778](https://github.com/holgerleichsenring/agent-smith/commit/b394778ed6c11b61b726856854341ccd72ca4e64))
+
 ## [0.233.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.1...v0.233.2) (2026-11-28)
 
 
