@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.235.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.234.2...v0.235.0) (2026-11-28)
+
+
+### Features
+
+* **spec-set:** a ticket's spec set is read from its TicketSeries row, no series manifest is written (2026-11-28-db88a) ([e55c782](https://github.com/holgerleichsenring/agent-smith/commit/e55c782f713a7760cc96d3869df814d57529300f))
+* **spec-set:** approved specs reach the run from the DB; no committed runs/, series/ or per-ticket memory; decisions per spec (2026-11-28-db88) ([856d19d](https://github.com/holgerleichsenring/agent-smith/commit/856d19d330b97672bbc1aee7dce268927c42e6c4))
+
 ## [0.234.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.234.1...v0.234.2) (2026-11-28)
 
 
