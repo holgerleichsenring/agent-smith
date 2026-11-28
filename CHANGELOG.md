@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.235.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.235.0...v0.235.1) (2026-11-28)
+
+
+### Bug Fixes
+
+* **design:** a design turn's work clone stages the project's private-feed credentials (2026-11-28-2c06) ([f7785b4](https://github.com/holgerleichsenring/agent-smith/commit/f7785b448c7399065fbb1c6deab210f50ec23157))
+* **design:** a design turn's work clone stages the project's private-feed credentials (2026-11-28-2c06) ([aba8d1d](https://github.com/holgerleichsenring/agent-smith/commit/aba8d1d63e8e4625065a0cce95782770b76a0b89))
+
 ## [0.235.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.234.2...v0.235.0) (2026-11-28)
 
 
