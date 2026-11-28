@@ -26,7 +26,7 @@ scope:
   in: |
     A series delivers only with a series branch, which only review end has (SeriesMembership), so Delivering always means a person
     reviews the final pull requests. Once a series is Delivering with every final pull request open and none merged in this beat,
-    and the question slot free (no question, or one answered and handed: Delivered), DeliverSeriesHandler asks SeriesMergeQuestion
+    the question slot free (no question, or one answered and handed: Delivered) and a master that can act (SeriesLeads.PullRequests), DeliverSeriesHandler asks SeriesMergeQuestion
     ('final') with "The series is ready. Shall I merge it, or do you want to look at the pull request first?" and says it after its
     own lines. The once-key SeriesBeatDemand.FinalAskedKey is written into Raised in the same store update as the question; the
     master's ask_human with mergeOf 'final' writes it in its own update. SeriesQuestion gains MergeOf, so the answer handed to the
@@ -55,7 +55,7 @@ steps:
 
 tests:
   - "SeriesFinalQuestionCompositionTests.Delivering_PostsTheMergeQuestionLast_Once"
-  - "SeriesDeliveryBeatTests: a waiting or undelivered question defers it; asked once; mergeOf final marks the key; the answer names merge_pull_request final"
+  - "DeliverSeriesHandlerTests: asked once after its lines; a waiting or undelivered question, or a master that cannot act, defers it; SeriesQuestionsTests: mergeOf final marks the key; the answer names merge_pull_request final"
   - "SeriesVerifyTests.Summary_IsShort_DetailsBehindAFence"
   - "seriesNextStep.test: delivering under end reads as a final pull request waiting for review"
   - "SeriesStatusLine / SeriesSectionBar tests: the final pull request is linked"

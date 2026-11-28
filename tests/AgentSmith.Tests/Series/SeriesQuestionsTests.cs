@@ -55,6 +55,36 @@ public sealed class SeriesQuestionsTests
         beat.Reasons.Should().ContainSingle().Which.Should().Contain("answered by default: keep");
     }
 
+    // 2026-11-28-d1ffc: the answer to a merge question reaches the master naming what to merge and how — the delivery asks the
+    // final one without the master, so the answer has to carry it.
+    [Theory]
+    [InlineData(SeriesAskTool.MergeIt, "merge the final pull requests with merge_pull_request (ticket 'final')")]
+    [InlineData(SeriesAskTool.LookFirst, "the operator looks at the final pull requests first: merge nothing until they write that it may merge")]
+    public async Task FinalMergeQuestion_Answered_TellsTheMasterWhatToDo(string answer, string told)
+    {
+        var asked = SeriesQuestions.Ask(SeriesMergeQuestion.FinalText, [SeriesAskTool.MergeIt, SeriesAskTool.LookFirst], null, SeriesRecords.T, 0)
+            with { NoDefault = true, MergeOf = "final" };
+
+        var beat = await BeatAsync(asked, SeriesRecords.T.AddMinutes(5), null, null, answer);
+
+        beat.Reasons.Should().ContainSingle().Which.Should().Contain($"is answered: {answer}").And.Contain(told);
+    }
+
+    // 2026-11-28-d1ffc: the master's own final merge question marks the once-key, so the delivery never asks it a second time.
+    [Fact]
+    public async Task AskHuman_MergeOfFinal_MarksTheFinalAsked()
+    {
+        var record = SeriesRecords.Running() with { IntegrationBranch = "agent-smith/series/sr-1",
+            Deliveries = [new SeriesDelivery("api", "https://github.com/example/api/pull/90", "90")] };
+        await _store.OpenAsync(record, default);
+        var beat = new SeriesBeat(record, [], SeriesRecords.T);
+
+        await new SeriesAskTool(beat, _store, 120).AskHumanAsync("Merge the series?", mergeOf: "final");
+
+        _store.Records["sr-1"].Raised.Should().Contain(SeriesBeatDemand.FinalAskedKey);
+        _store.Records["sr-1"].Question!.MergeOf.Should().Be("final");
+    }
+
     // 2026-11-28-d1ffb: dialogue.question_default_enabled on (as before) takes the configured minutes; the chat says when.
     [Fact]
     public void RecommendedQuestion_DefaultOn_TakesTheConfiguredMinutes()

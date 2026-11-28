@@ -45,7 +45,11 @@ public sealed class SeriesAskTool(SeriesBeat beat, ISeriesRunStore store, int? d
             : SeriesMergeQuestion.Of(beat, question, mergeOf);
         if (!string.IsNullOrWhiteSpace(forTicket)) asked = Carrying(asked, carried, forTicket);
         if (await store.UpdateAsync(beat.Record.Id,
-                r => r with { Question = asked, MasterQuestionsAsked = r.MasterQuestionsAsked + (r.Question is { Answer: null } ? 0 : 1) },
+                r => r with
+                {
+                    Question = asked, MasterQuestionsAsked = r.MasterQuestionsAsked + (r.Question is { Answer: null } ? 0 : 1),
+                    Raised = FinalAsked(asked, r.Raised), // 2026-11-28-d1ffc: the delivery does not ask it again
+                },
                 ct) is { } kept) // 2026-11-25-9992k: one replacing a waiting question is not a second ask
             beat.Record = kept;
         beat.Said.Add(SeriesQuestionText.Asked(asked));
@@ -53,6 +57,10 @@ public sealed class SeriesAskTool(SeriesBeat beat, ISeriesRunStore store, int? d
             ? $"Asked. Without an answer the series takes \"{asked.Recommended}\" at {at:u}."
             : "Asked. It waits for the operator's answer.";
     }
+
+    private static IReadOnlyList<string> FinalAsked(SeriesQuestion asked, IReadOnlyList<string> raised) =>
+        string.Equals(asked.MergeOf, SeriesPullRequestTools.Final, StringComparison.OrdinalIgnoreCase) && !raised.Contains(SeriesBeatDemand.FinalAskedKey)
+            ? [.. raised, SeriesBeatDemand.FinalAskedKey] : raised;
 
     // 2026-11-27-3532b: the run and question the ticket's run is parked on now — the answer goes to exactly that question.
     private static SeriesQuestion Carrying(SeriesQuestion asked, SeriesTicketFact? carried, string forTicket) => carried is { } fact

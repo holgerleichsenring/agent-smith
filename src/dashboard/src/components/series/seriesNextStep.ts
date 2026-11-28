@@ -20,12 +20,14 @@ export function seriesEnded(state: string): boolean {
   return state === "done" || state === "stopped";
 }
 
-/** The series' state word; an unknown state reads as it came. */
-export function seriesStateWord(state: string, t: T): string {
+/** The series' state word; an unknown state reads as it came. 2026-11-28-d1ffc: delivering reads as the final pull requests
+ *  waiting for the operator's review — with how many when the caller knows (`finals`), none yet opened as opening. */
+export function seriesStateWord(state: string, t: T, finals?: number): string {
   switch (state) {
     case "running": return t("series.state.running");
     case "verifying": return t("series.state.verifying");
-    case "delivering": return t("series.state.delivering"); // 2026-11-24-f9c5e
+    case "delivering": return finals === undefined ? t("series.state.delivering")
+      : finals === 0 ? t("series.state.deliveringOpens") : t("series.state.deliveringRepos", { count: finals });
     case "paused": return t("series.state.paused");
     case "done": return t("series.state.done");
     case "stopped": return t("series.state.stopped");

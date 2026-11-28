@@ -42,7 +42,7 @@ public static class SeriesQuestionText
             + answered.Answer + (answered.ForTicket is { } key
                 ? $" — answer {key}'s run with tell_ticket (questionId {answered.ForQuestionId})"
                     + (answered.ByDefault ? ": nobody replied, so tell it only the choice, never that anything was set up or granted." : ".")
-                : string.Empty);
+                : SeriesMergeQuestion.Then(answered)); // 2026-11-28-d1ffc: a merge question's answer names what to merge
     }
 
     public static string TakenByDefault(SeriesQuestion question, DateTimeOffset at) =>

@@ -20,7 +20,7 @@ export function SeriesRunListRow({ row }: { row: SeriesRunRow }) {
       <div className="rmain">
         <div className="rt">
           <span className="ttl">{row.name}</span>
-          <span className="tick">{row.project} · {seriesStateWord(row.state, t)}</span>
+          <span className="tick">{row.project} · {seriesStateWord(row.state, t, row.finalPullRequests)}</span>
         </div>
         <div className="act" data-testid="series-next">{seriesNextStep(row, t)}</div>
       </div>
