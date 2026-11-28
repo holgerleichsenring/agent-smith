@@ -26,4 +26,19 @@ public sealed class MidRunRegistryAuth(SetupRegistryAuthHandler handler)
         pipeline.Set(ContextKeys.StagedRegistries, staged);
         return written;
     }
+
+    /// <summary>2026-11-28-2c06: stages <paramref name="registries"/>' NuGet and npm feeds in a sandbox outside a run's
+    /// workspace — a design turn's work clone, rooted at its own work directory. The fast paths only: the generic path
+    /// persists a template into the repository's context and calls a model of its own.</summary>
+    public async Task<IReadOnlyList<string>> StageAsync(
+        string repoKey, ISandbox sandbox, IReadOnlyList<RegistryConfig> registries, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(registries);
+        if (registries.Count == 0) return [];
+        var written = new List<string>();
+        await handler.StageInSandboxAsync(repoKey, sandbox, [sandbox.WorkDirectory()], registries,
+            () => throw new InvalidOperationException("The fast paths stage without an agent."), written, cancellationToken,
+            withGeneric: false);
+        return written;
+    }
 }

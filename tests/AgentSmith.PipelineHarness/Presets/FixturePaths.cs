@@ -14,6 +14,7 @@ internal static class FixturePaths
     public const string Default = "agentsmith.yml";
     public const string Filing = "agentsmith-filing.yml"; // 2026-11-17-5701b
     public const string SeriesFeed = "agentsmith-series-feed.yml"; // 2026-11-28-d1ffa: the filing project with a private feed
+    public const string DesignFeed = "agentsmith-design-feed.yml"; // 2026-11-28-2c06: a design-turn project with private feeds
     public const string FilingLabels = "agentsmith-filing-labels.yml"; // 2026-11-26-5f6e: with a pipeline_from_label map
     public const string Admin = "agentsmith-admin.yml"; // 2026-11-17-f3a8a
     public const string Deploy = "agentsmith-deploy.yml"; // 2026-11-18-3863c

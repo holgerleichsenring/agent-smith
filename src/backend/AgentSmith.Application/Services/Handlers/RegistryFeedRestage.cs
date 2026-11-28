@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
 
@@ -29,16 +30,35 @@ public sealed partial class RegistryFeedRestage(MidRunRegistryAuth registryAuth,
 
     /// <summary>Stages the sandbox's NuGet and npm feeds again, whatever runs next — a declared verify stage restores in
     /// its own sandbox however its command is written.</summary>
-    public async Task StageAsync(PipelineContext pipeline, string repoKey, ISandbox sandbox, CancellationToken cancellationToken)
+    public Task StageAsync(PipelineContext pipeline, string repoKey, ISandbox sandbox, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
+        return TolerantAsync(repoKey, () => registryAuth.StageAsync(pipeline, repoKey, sandbox, cancellationToken, generic: false),
+            cancellationToken);
+    }
+
+    /// <summary>2026-11-28-2c06: a design turn's work clone — no run's pipeline, so the project's registries are handed in,
+    /// before a package command and once when the clone opens.</summary>
+    public async Task BeforeCommandAsync(
+        string repoKey, string command, ISandbox sandbox, IReadOnlyList<RegistryConfig> registries, CancellationToken cancellationToken)
+    {
+        if (Restores(command)) await StageAsync(repoKey, sandbox, registries, cancellationToken);
+    }
+
+    /// <summary>2026-11-28-2c06: stages <paramref name="registries"/>' NuGet and npm feeds in a sandbox outside a run.</summary>
+    public Task StageAsync(
+        string repoKey, ISandbox sandbox, IReadOnlyList<RegistryConfig> registries, CancellationToken cancellationToken) =>
+        TolerantAsync(repoKey, () => registryAuth.StageAsync(repoKey, sandbox, registries, cancellationToken), cancellationToken);
+
+    private async Task TolerantAsync(string repoKey, Func<Task> stage, CancellationToken cancellationToken)
+    {
         try
         {
-            await registryAuth.StageAsync(pipeline, repoKey, sandbox, cancellationToken, generic: false);
+            await stage();
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "{Repo}: the feeds could not be staged again; the command runs with what was staged", repoKey);
+            logger.LogWarning(ex, "{Repo}: the feeds could not be staged; the command runs with what was staged", repoKey);
         }
     }
 }

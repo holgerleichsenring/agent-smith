@@ -28,7 +28,8 @@ internal sealed class DesignWorkToolHost(
         + "history: full on the first command for a repository when you need more (asked for later, it starts a new "
         + "full clone and what you changed in the old one is gone). Edit files here with the shell to "
         + "try something; the clone is yours alone, nothing in it is pushed or kept, and it is gone when this turn "
-        + "ends. Cite what the read tools show, not what you changed here. Returns exit_code, elapsed_ms, stdout and stderr.")]
+        + "ends. A restore reaches the project's private NuGet and npm feeds the repository's configs name: their "
+        + "credentials are staged in the clone's user-level config, never in the repository. Cite what the read tools show, not what you changed here. Returns exit_code, elapsed_ms, stdout and stderr.")]
     public async Task<string> RunCommand(
         [Description("The shell command.")] string command,
         [Description("The repository, by the name the read tools use.")] string repo,
@@ -48,6 +49,7 @@ internal sealed class DesignWorkToolHost(
         {
             return $"Error: {ex.Message}";
         }
+        await clones.BeforeCommandAsync(repo!, command, clone, ct); // 2026-11-28-2c06: the feeds as the repo names them now
         return await new SandboxStepRunner(clone, timeout).RunAsync(command, timeout_seconds, ct);
     }
 }
