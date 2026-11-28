@@ -3,50 +3,14 @@ import { describe, expect, it } from "vitest";
 import { resetLanguage } from "@/lib/i18n/language";
 import { translator } from "@/lib/i18n/translate";
 import type { RunStepRow } from "@/lib/runStepsApi";
-import type { RunSnapshot } from "@/types/hub-events";
-import { RunCard } from "../RunCard";
 import { runStatusWord } from "../runStatus";
 import { RunStepHead } from "../runlog/RunStepHead";
 import { runStatus, statusSentence } from "../runlog/runStatusLine";
 
-// 2026-11-23-5669c: the run card in German — the status word, the step and the cancel control read from the
-// dictionary; the pipeline and the repositories are shown as the run named them.
-
-const snapshot: RunSnapshot = {
-  runId: "2026-05-27T10-00-00-aaaa",
-  pipeline: "fix-bug",
-  trigger: "ticket",
-  repos: ["api", "worker"],
-  status: "running",
-  prUrl: null,
-  summary: null,
-  startedAt: new Date(Date.now() - 30_000).toISOString(),
-  finishedAt: null,
-  sandboxes: 1,
-  stepIndex: 3,
-  stepName: "AnalyzeCode",
-  totalSteps: 10,
-  lastEventType: "StepStarted",
-  costUsd: 0,
-  llmCalls: 0,
-  ticketId: null,
-  ticketTitle: null,
-  agentName: null,
-  cancelRequested: false,
-};
+// 2026-11-23-5669c: the run's words in German — the status line, the status word and the step head read from the
+// dictionary.
 
 describe("Runs in German", () => {
-  it("RunCard_German_WordsStatusStepAndCancel", () => {
-    resetLanguage("de");
-    render(<RunCard snapshot={snapshot} />);
-    expect(screen.getByText("läuft")).toBeInTheDocument();
-    expect(screen.getByText("Schritt 3/10")).toBeInTheDocument();
-    expect(screen.getByText("2 Repos")).toBeInTheDocument();
-    expect(screen.getByTestId(`cancel-run-${snapshot.runId}`)).toHaveTextContent("abbrechen");
-    expect(screen.getByTestId(`cancel-run-${snapshot.runId}`)).toHaveAttribute("title", "Diesen Run abbrechen");
-    expect(screen.getByText("fix-bug")).toBeInTheDocument();
-  });
-
   it("RunStatusLine_German_WordsTheHeadAndClauses_KeepsTheVerdict", () => {
     const de = translator("de");
     const line = runStatus(de, {

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-34d9a
+
+decisions:
+  - category: Scope
+    chose: "Dead means unreachable from every non-test file under src/dashboard/src/app/**, by an import walk over static imports, re-exports, import() and require, re-run on origin/main at 0.233.1"
+    over: "Trusting the earlier measurement at v0.224.0; a grep for unused exports"
+    reason: "decider: operator (the diet's safety rule: re-verify on current main). The walk found the same 51 modules the earlier measurement named, none newly live or newly dead after series 5201/b186/f511/ecf2/3532e. An unused export inside a live module is out of scope: it needs a per-symbol proof this diet does not make."
+  - category: Scope
+    chose: "A dictionary key goes only when a deleted module names it and no live file does, literally or through a template prefix; the two prefixes only dead modules built (runs.step.node.*, runs.subagent.state.*) count as named by them"
+    over: "Deleting every key no file names literally"
+    reason: "decider: claude — a key built from a template string in a live file would read a missing entry at runtime and tsc would not catch it; the scan keeps any key a live template prefix could build. 5 keys the dead modules named stay because live files name them too (runs.card.repos, runs.mission.all, runs.status.failed, runs.step.of, runs.tools.count)."
+  - category: Implementation
+    chose: "Delete the 28 test files that import only deleted modules (plus types and mocks), toolPanelTokens.test.ts that reads four deleted files by name, and the RunCard case of RunsGerman.test.tsx; keep its two live cases"
+    over: "Rewriting the deleted tests against live code"
+    reason: "decider: claude — they test only the deleted code, so they have no live subject. Dashboard tests 392 files / 2644 tests before, 364 / 2506 after: 138 cases removed, 137 in the deleted files and 1 in RunsGerman.test.tsx."
+  - category: Review
+    chose: "A fresh reviewer challenged the candidate list before the deletion and a second reviewed the diff; neither found a live reference"
+    over: "Deleting on the import walk alone"
+    reason: "decider: operator (review is a step). The second review flagged one stale comment (the run card in a runs.ts section header), corrected."
