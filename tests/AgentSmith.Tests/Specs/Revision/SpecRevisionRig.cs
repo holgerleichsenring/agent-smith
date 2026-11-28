@@ -46,7 +46,7 @@ internal sealed class SpecRevisionRig
 
     public MasterSpecRevision Revision() =>
         new(new SpecRevisionGate(Git()), Text(), new SpecRepoJoin(new AgentSmith.Application.Services.Handlers.SandboxTargets()),
-            new SpecRevisionWriter(new SpecReviewRevision(Loop.Publisher.Object),
+            new SpecRevisionWriter(new SpecReviewRevision(Loop.Publisher.Object, new AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore()),
             Decisions.Object, Progress.Object, NullLogger<SpecRevisionWriter>.Instance),
             new SpecRetirement(new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader(), new SpecDraftIdRewriter()));
 

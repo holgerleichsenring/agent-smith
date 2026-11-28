@@ -47,8 +47,8 @@ public sealed class SeriesPerRepoWriteTests
         published.IsSuccess.Should().BeTrue(published.Message);
         recorded.IsSuccess.Should().BeTrue(recorded.Message);
         branches.Repo(Worker.Name).Paths.Should().BeEmpty("the spec changes nothing in the worker");
+        branches.Repo(Server.Name).Paths.Should().NotContain(SeriesPaths.Manifest(SeriesRepoBranches.Base), "2026-11-28-db88a");
         branches.Repo(Server.Name).Paths.Should().Contain([
-            SeriesPaths.Manifest(SeriesRepoBranches.Base),
             $"{SeriesPaths.Done}/{SeriesRepoBranches.Id('a')}-a.yaml",
             "/work/.agentsmith/contexts/default/done.md", // 2026-11-26-462aa
         ]);

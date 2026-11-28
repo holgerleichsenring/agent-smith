@@ -76,7 +76,7 @@ internal static class SeriesDoubles
     internal static SeriesWriter Writer(ISandboxFileReaderFactory files, SandboxGitOperations? git = null)
     {
         var ops = git ?? Git(files);
-        var member = new SeriesMemberCommit(files, ops, new SeriesFiles(new SeriesManifest()), new SeriesStaleFiles(),
+        var member = new SeriesMemberCommit(files, ops, new SeriesFiles(), new SeriesStaleFiles(),
             NullLogger<SeriesMemberCommit>.Instance);
         return new(member, new SeriesWriteRollback(ops, member, NullLogger<SeriesWriteRollback>.Instance),
             ops, new SandboxTargets(), NullLogger<SeriesWriter>.Instance);
@@ -95,7 +95,7 @@ internal static class SeriesDoubles
         var commit = new SeriesRecordCommit(files, git ?? Git(files),
             new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance));
         var recorder = new SpecDoneRecorder(files, targets, new SpecDoneFiles(), indexWriter,
-            new SeriesFiles(new SeriesManifest()), commit, verdicts ?? NoVerdicts(),
+            commit, verdicts ?? NoVerdicts(),
             AgentSmith.Tests.TestHelpers.MemoryStandings.LabelWriter(), NullLogger<SpecDoneRecorder>.Instance);
         return new WriteSpecRecordHandler(
             new SpecRecordPublisher(events ?? EventTestStubs.Recording()), new SpecRecordIndexLine(), recorder,

@@ -78,9 +78,15 @@ internal sealed class ApprovedSetHarness
         if (PointerSha is { } sha)
             Pointers.SaveAsync(string.Empty, new SpecSetPointer(Branch.Key, Repo, sha, 1), default)
                 .GetAwaiter().GetResult();
+        // 2026-11-28-db88a: a manifest seeded on the branch is a ticket in flight at that deploy — a row with no stored set,
+        // which the run's reader imports once. Without a pointer of its own it is a row the old writer left unrecorded.
+        else if (Branch.Paths.Any(p => p.StartsWith(SeriesPaths.SeriesRoot + "/", StringComparison.Ordinal)))
+            Pointers.SaveAsync(string.Empty, new SpecSetPointer(Branch.Key, string.Empty, string.Empty, 0), default)
+                .GetAwaiter().GetResult();
         var cuts = Cuts.Factory();
         return new DeriveSpecHandler(
-            SeriesDoubles.BranchRead(SeriesDoubles.Reader(factory.Object, gitOps), factory.Object),
+            SeriesDoubles.BranchRead(new StoredSeriesReader(Pointers, SeriesDoubles.Reader(factory.Object, gitOps),
+                new SandboxTargets(), NullLogger<StoredSeriesReader>.Instance), factory.Object),
             Publisher(),
             Pointers,
             new ApprovedSpecSetResolver(Approvals, NullLogger<ApprovedSpecSetResolver>.Instance),
@@ -96,7 +102,7 @@ internal sealed class ApprovedSetHarness
             new UnansweredQuestionNotice(cuts, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
-            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.TicketText(Notices.Factory()));
+            new SpecSetUnchanged(), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.TicketText(Notices.Factory()));
     }
 
     /// <summary>The real publisher: the writer, the pointer recorder and the draft pull request.</summary>
@@ -108,7 +114,7 @@ internal sealed class ApprovedSetHarness
         new SpecRefusalReporter(new NoOpEventPublisher(), NullLogger<SpecRefusalReporter>.Instance),
         new SpecSetContextPublication(Mock.Of<Contracts.Persistence.IRunArtifactStore>(), NullLogger<SpecSetContextPublication>.Instance),
         new SpecSetAnnouncer(new NoOpEventPublisher(), NullLogger<SpecSetAnnouncer>.Instance),
-        NullLogger<SpecSetPublisher>.Instance);
+        Pointers, NullLogger<SpecSetPublisher>.Instance);
 
     internal DeriveSpecContext Context(Ticket ticket, string? carriedJson = null)
     {

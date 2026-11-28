@@ -38,6 +38,9 @@ public sealed class FiledSpecBranchTests
     private const string StoredTitle = "p9000a: the tracker's own wording";
     private const string StoredBody = "<p>what the tracker stored, not what we sent</p>";
 
+    // 2026-11-28-db88a: the set filing stores on the ticket's row — what a run reads, the branch being its record.
+    private readonly InMemorySpecSetPointerStore _stored = new();
+
     [Fact]
     public async Task Filing_ASpecApprovedInTheDialog_WritesTheSetToTheTicketBranch()
     {
@@ -52,7 +55,7 @@ public sealed class FiledSpecBranchTests
     }
 
     [Fact]
-    public async Task Filing_WritesManifestAndPlannedSpecs()
+    public async Task Filing_WritesPlannedSpecsAndStoresTheSet()
     {
         var sources = new RecordingBranchSources();
         var store = ApprovedSetDoubles.Store();
@@ -61,16 +64,15 @@ public sealed class FiledSpecBranchTests
 
         var (first, second) = await MembersAsync(store);
         var series = (await store.GetAsync("sample-tracker", Key, default))!.Set.Series!;
-        sources.Writes[0].Paths.Should().Contain(
+        sources.Writes[0].Paths.Should().BeEquivalentTo(
         [
-            SeriesPaths.Manifest(series),
             $"{Planned}/{first}-do-the-thing.yaml",
             $"{Planned}/{second}-do-the-thing.yaml",
-        ]).And.NotContain(p => p.Contains(Key), "nothing lies under a ticket directory");
+        ], "2026-11-28-db88a: no series manifest is written");
         sources.Writes[0].ContentOf($"{Planned}/{first}-do-the-thing.yaml").Should()
-            .Contain($"spec: {first}", "the schema-valid yaml is what the run reads back");
-        new SeriesManifest().Parse(sources.Writes[0].ContentOf(SeriesPaths.Manifest(series)))!.Ticket
-            .Should().Be(Key, "the run finds the manifest by the ticket key it names");
+            .Contain($"spec: {first}", "the schema-valid yaml is the record of the spec");
+        Index().Specs.Select(p => p.SpecId).Should().Equal(first, second);
+        Index().Series.Should().Be(series);
     }
 
     /// <summary>
@@ -78,7 +80,7 @@ public sealed class FiledSpecBranchTests
     /// written into the manifest beside the approval the row holds.
     /// </summary>
     [Fact]
-    public async Task Filing_Epic_ManifestCarriesGoalAndApproval()
+    public async Task Filing_Epic_StoredSetCarriesGoalAndApproval()
     {
         var sources = new RecordingBranchSources();
         var store = ApprovedSetDoubles.Store();
@@ -89,11 +91,8 @@ public sealed class FiledSpecBranchTests
 
         var record = (await store.GetAsync("sample-tracker", Key, default))!;
         record.Set.Goal.Should().Be("Move the billing stack", "the row keeps the epic's goal");
-        var manifest = new SeriesManifest().Parse(
-            sources.Writes[0].ContentOf(SeriesPaths.Manifest(record.Set.Series!)))!;
-        manifest.Goal.Should().Be("Move the billing stack");
-        new SeriesManifest().ApprovalOf(manifest).Should().Be(record.Approval,
-            "the manifest's approval is the row's");
+        Index().Goal.Should().Be("Move the billing stack");
+        Index().Approval.Should().Be(record.Approval, "the stored set's approval is the record's");
     }
 
     /// <summary>
@@ -112,8 +111,8 @@ public sealed class FiledSpecBranchTests
 
         var written = sources.Writes[0];
         var record = (await store.GetAsync("sample-tracker", Key, default))!;
-        var published = Published(record, written);
-        var expected = new SeriesFiles(new SeriesManifest()).Render(published);
+        record.Set.Specs.Select(p => p.SpecId).Should().Equal(Index().Specs.Select(p => p.SpecId));
+        var expected = new SeriesFiles().Render(Index());
         written.Paths.Should().BeEquivalentTo(expected.Select(f => f.Path));
     }
 
@@ -137,7 +136,7 @@ public sealed class FiledSpecBranchTests
 
         await FileAsync(sources: sources);
 
-        var doc = Index(sources);
+        var doc = Index();
         doc.Revisions.Should().ContainSingle();
         doc.Revisions[0].Number.Should().Be(1,
             "an index with no revisions reads back as revision 1 'initial derivation', which is "
@@ -155,7 +154,7 @@ public sealed class FiledSpecBranchTests
         await FileAsync(sources: sources, store: store);
 
         var record = (await store.GetAsync("sample-tracker", Key, default))!;
-        new SeriesManifest().ApprovalOf(Index(sources))!.At.Should().Be(record.Approval!.At,
+        Index().Approval!.At.Should().Be(record.Approval!.At,
             "the run reads who approved this and when out of the branch, so the store is not "
             + "needed for the approval fact at all");
     }
@@ -175,7 +174,7 @@ public sealed class FiledSpecBranchTests
         await FileAsync(sources: sources, store: store);
 
         var record = (await store.GetAsync("sample-tracker", Key, default))!;
-        new SeriesManifest().ApprovalOf(Index(sources)).Should().Be(record.Approval,
+        Index().Approval.Should().Be(record.Approval,
             "instant, conversation and principal all survive Serialize and ApprovalOf");
     }
 
@@ -216,7 +215,7 @@ public sealed class FiledSpecBranchTests
 
         await FileAsync(sources: sources, provider: provider);
 
-        new SeriesManifest().FingerprintOf(Index(sources)).Should()
+        Index().TicketFingerprint.Should()
             .Be(TicketTextFingerprint.Of(provider.Stored), "the run compares against this text")
             .And.NotBe(TicketTextFingerprint.Of(RenderedAsSent(provider)),
                 "a fingerprint over the body we SENT would report an edit on the first run");
@@ -233,7 +232,7 @@ public sealed class FiledSpecBranchTests
 
         await FileAsync(sources: sources, provider: provider);
 
-        new SeriesManifest().FingerprintOf(Index(sources)).Should()
+        Index().TicketFingerprint.Should()
             .Be(TicketTextFingerprint.Of(TicketLabelNoteStripper.Strip(provider.Stored)), "FetchTicket strips the note first")
             .And.Be(TicketTextFingerprint.Of(Stored()), "the note is not part of the text a run compares");
     }
@@ -370,10 +369,11 @@ public sealed class FiledSpecBranchTests
 
         result.Written.Should().BeTrue(result.Error);
         sources.Writes.Select(w => w.Repo).Should().Equal("sample-web", "sample-api");
-        var manifests = sources.Writes.Select(w => new SeriesManifest().Parse(w.ContentOf(ManifestPath(w)))!).ToList();
-        manifests.Select(m => m.Specs.Single()).Should().Equal("2026-10-06-3d3da", "2026-10-06-3d3db");
-        manifests.Select(m => m.Revisions[^1].At).Distinct().Should().ContainSingle("one write, one stamp");
-        manifests.Should().AllSatisfy(m => m.SeriesRepos.Should().Equal("sample-web", "sample-api"));
+        sources.Writes.Select(w => w.Paths.Single()).Should().Equal(
+            $"{Planned}/2026-10-06-3d3da-2026-10-06-3d3da.yaml", $"{Planned}/2026-10-06-3d3db-2026-10-06-3d3db.yaml");
+        var stored = (await pointers.GetSetAsync("proj", Key, default))!;
+        stored.Revisions.Should().ContainSingle("one write, one revision");
+        stored.SeriesRepos.Should().Equal("sample-web", "sample-api");
         var pointer = (await pointers.GetAsync("proj", Key, default))!;
         pointer.CarryingRepo.Should().Be("sample-web", "until the series' own pull requests, the earliest spec's repository");
         pointer.ShaByRepo.Keys.Should().BeEquivalentTo(["sample-web", "sample-api"]);
@@ -428,43 +428,23 @@ public sealed class FiledSpecBranchTests
     /// as an approved set at revision 1, carrying the approval the record carried.
     /// </summary>
     [Fact]
-    public async Task SeriesReader_TheSetFilingWrote_ReadsBackAsAnApprovedSetAtRevisionOne()
+    public async Task Filing_TheSetItStores_IsAnApprovedSetAtRevisionOne()
     {
         var sources = new RecordingBranchSources();
         var store = ApprovedSetDoubles.Store();
         await FileAsync(sources: sources, store: store, specs: [Draft("p9000a"), Draft("p9000b")]);
-        var branch = new SpecBranchFiles { Key = Key };
-        foreach (var file in sources.Writes[0].Files) branch.Seed(file.Path, file.Content);
 
-        var read = await ReadAsync(branch);
+        var read = Index();
 
-        read.Should().NotBeNull("filing wrote a directory the run's own reader can open");
         var (first, second) = await MembersAsync(store);
-        read!.Set.Specs.Select(p => p.SpecId).Should().Equal(first, second);
-        read.Set.Series.Should().Be((await store.GetAsync("sample-tracker", Key, default))!.Set.Series,
-            "the branch carries the series the filing minted");
-        read.Set.Current.Number.Should().Be(1);
-        read.Set.Current.Cause.Should().Contain(SpecRevisionCause.Approval);
-        read.Set.Approval!.At.Should().Be(
+        read.Specs.Select(p => p.SpecId).Should().Equal(first, second);
+        read.Series.Should().Be((await store.GetAsync("sample-tracker", Key, default))!.Set.Series,
+            "the row carries the series the filing minted");
+        read.Current.Number.Should().Be(1);
+        read.Current.Cause.Should().Contain(SpecRevisionCause.Approval);
+        read.Approval!.At.Should().Be(
             (await store.GetAsync("sample-tracker", Key, default))!.Approval!.At);
-        read.Set.TicketFingerprint.Should().NotBeNullOrWhiteSpace();
-    }
-
-    private static async Task<SpecSetReadResult?> ReadAsync(SpecBranchFiles branch)
-    {
-        var sandbox = new Mock<ISandbox>();
-        sandbox.Setup(s => s.RunStepAsync(
-                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new StepResult(1, Guid.Empty, 0, false, 0, null, "branch-sha"));
-        var readers = new Mock<ISandboxFileReaderFactory>();
-        readers.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(branch);
-        var pipeline = new PipelineContext();
-        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
-            ContextKeys.Sandboxes, new Dictionary<string, ISandbox> { ["sample-api"] = sandbox.Object });
-        var reader = SeriesDoubles.Reader(readers.Object);
-        var onBranch = await reader.ReadAsync(
-            pipeline, new RepoConnection { Name = "sample-api" }, [], new TicketKey(Key), default);
-        return onBranch.Read;
+        read.TicketFingerprint.Should().NotBeNullOrWhiteSpace();
     }
 
     // 2026-10-06-03c7c: the ids filing minted for a two-slice cut — its series' base plus a letter.
@@ -499,7 +479,8 @@ public sealed class FiledSpecBranchTests
         result.Written.Should().BeTrue(result.Error);
         sources.Writes[0].Paths.Should().Contain($"{Planned}/2026-10-06-3d3db-second.yaml")
             .And.NotContain(p => p.Contains("2026-10-06-3d3da"), "the executed spec lies in done/ and stays there");
-        Index(sources).Specs.Should().Equal(["2026-10-06-3d3da", "2026-10-06-3d3db"], "the series keeps its order");
+        (await pointers.GetSetAsync("proj", Key, default))!.Specs.Select(p => p.SpecId)
+            .Should().Equal(["2026-10-06-3d3da", "2026-10-06-3d3db"], "the series keeps its order");
         (await pointers.GetAsync("proj", Key, default))!.ExecutedThrough.Should().Be(1, "filing keeps the count");
     }
 
@@ -525,25 +506,9 @@ public sealed class FiledSpecBranchTests
             .And.NotContain(p => p.StartsWith($"{Planned}/2026-10-06-3d3db"), "the executed spec lies in done/");
     }
 
-    private static SeriesManifestDocument Index(RecordingBranchSources sources) =>
-        new SeriesManifest().Parse(sources.Writes[0].ContentOf(ManifestPath(sources.Writes[0])))!;
+    private SpecSet Index() => _stored.GetSetAsync("proj", Key, default).GetAwaiter().GetResult()!;
 
-    private static string ManifestPath(RecordingBranchSources.BranchWrite written) =>
-        written.Paths.Single(p => p.StartsWith(SeriesPaths.SeriesRoot + "/", StringComparison.Ordinal));
-
-    // What the branch carries: the stored set plus the revision and fingerprint filing mints.
-    private static SpecSet Published(SpecApprovalRecord record, RecordingBranchSources.BranchWrite written)
-    {
-        var doc = new SeriesManifest().Parse(written.ContentOf(ManifestPath(written)))!;
-        return record.Set with
-        {
-            Revisions = [new SpecRevision(
-                doc.Revisions[0].Number, doc.Revisions[0].Cause, DateTimeOffset.Parse(doc.Revisions[0].At))],
-            TicketFingerprint = doc.TicketFingerprint,
-        };
-    }
-
-    private static Task<FilingReport> FileAsync(
+    private Task<FilingReport> FileAsync(
         RecordingBranchSources? sources = null, ISpecApprovalStore? store = null,
         ISpecSetPointerStore? pointers = null, JournallingProvider? provider = null,
         FiledWorkStarter? starter = null, bool mayStartRuns = false,
@@ -554,7 +519,7 @@ public sealed class FiledSpecBranchTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(provider ?? new JournallingProvider());
         var filer = FilingDoubles.Steps(config ?? Config(), factory.Object, new FilingDoubles.Parts
-            { Store = store, Starter = starter, Sources = sources ?? new RecordingBranchSources(), Pointers = pointers });
+            { Store = store, Starter = starter, Sources = sources ?? new RecordingBranchSources(), Pointers = pointers ?? _stored });
         var set = specs ?? [Draft("p9000a")];
         OutcomeProposal proposal = set.Count == 1
             ? new SpecOutcome(set[0])

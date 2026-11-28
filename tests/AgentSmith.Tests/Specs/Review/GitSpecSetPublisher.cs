@@ -41,7 +41,7 @@ internal sealed class GitSpecSetPublisher(CitationRepo repo, DateTimeOffset at) 
 
     /// <summary>The entry grounding over the real regrounder and this publisher.</summary>
     internal SpecEntryGrounding Grounding() =>
-        new(CitationRepo.Regrounder(), new SpecReviewRevision(this), new SpecDraftReader(),
+        new(CitationRepo.Regrounder(), new SpecReviewRevision(this, new AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore()), new SpecDraftReader(),
             NullLogger<SpecEntryGrounding>.Instance);
 
     /// <summary>SelectSpec over this publisher's grounding.</summary>

@@ -7,42 +7,17 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// 2026-10-06-03c7d: the series manifest's one YamlDotNet configuration, shared by emit and
-/// consume, so a manifest this system writes is always one it reads back. Replaces the p0393a
+/// 2026-10-06-03c7d: the series manifest's one YamlDotNet configuration. Replaces the p0393a
 /// <c>set.yaml</c> index; the document shape is <see cref="SeriesManifestDocument"/>.
+/// <para>2026-11-28-db88a: READ ONLY — no manifest is written any more; one on a branch is read once, to import the set
+/// of a ticket in flight at that deploy (follow-up 2026-11-28-5e0b deletes it).</para>
 /// </summary>
 public sealed class SeriesManifest
 {
-    private readonly ISerializer _serializer = new SerializerBuilder()
-        .WithNamingConvention(UnderscoredNamingConvention.Instance)
-        .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
-        .Build();
-
     private readonly IDeserializer _deserializer = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
-
-    public string Serialize(SpecSet set)
-    {
-        ArgumentNullException.ThrowIfNull(set);
-        var doc = new SeriesManifestDocument
-        {
-            Ticket = set.Key,
-            Goal = set.Goal,
-            TicketPinnedWhole = set.TicketPinnedWhole,
-            Specs = [.. set.Specs.Select(p => p.SpecId)], StandIns = set.StandIns.Count > 0 ? [.. set.StandIns] : null, // 6b0ba
-            SeriesRepos = set.SeriesRepos is { Count: > 0 } members ? [.. members] : null, // 2026-10-12-f5f7d
-            Revisions = [.. set.Revisions.Select(r => new SeriesRevisionEntry
-            {
-                Number = r.Number, Cause = r.Cause, At = r.At.ToString("O", CultureInfo.InvariantCulture),
-            })],
-            TicketFingerprint = set.TicketFingerprint, Contract = SeriesContractYaml.Write(set.Contract), // 2026-10-13-8762j
-        };
-        WriteAccounting(doc, set.Accounting);
-        WriteHandbackAndApproval(doc, set);
-        return _serializer.Serialize(doc);
-    }
 
     public SeriesManifestDocument? Parse(string? yaml)
     {
@@ -94,27 +69,4 @@ public sealed class SeriesManifest
                 Readings: doc.HandbackReadings, Taken: doc.HandbackTaken)
             { QuestionKind = Enum.TryParse<SpecQuestionKind>(doc.HandbackQuestionKind, true, out var kind) ? kind : default }
             : null;
-
-    private static void WriteAccounting(SeriesManifestDocument doc, SpecAccounting accounting)
-    {
-        doc.Carried = [.. accounting.Carried.Select(
-            c => new SeriesCarriedEntry { Segment = c.SegmentId, Spec = c.SpecId })];
-        doc.Discarded = [.. accounting.Discarded.Select(
-            d => new SeriesDiscardedEntry { Segment = d.SegmentId, Reason = d.Reason })];
-        (doc.Unaccounted, doc.Shared) = ([.. accounting.Unaccounted], [.. accounting.Shared]); // 2026-10-17-293ba
-        doc.DiscardedContexts = [.. accounting.DiscardedContexts.Select(
-            d => new SeriesDiscardedContextEntry { Context = d.Context, Reason = d.Reason })];
-    }
-
-    private static void WriteHandbackAndApproval(SeriesManifestDocument doc, SpecSet set)
-    {
-        doc.HandbackCase = set.Handback?.Case.ToString();
-        doc.HandbackReason = set.Handback?.Reason;
-        doc.HandbackReadings = [.. set.Handback?.Readings ?? []];
-        doc.HandbackTaken = set.Handback?.Taken ?? 0;
-        doc.HandbackQuestionKind = set.Handback?.QuestionKind is { } kind and not SpecQuestionKind.Reading ? kind.ToString() : null;
-        doc.ApprovedAt = set.Approval?.At.ToString("O", CultureInfo.InvariantCulture);
-        doc.ApprovedInConversation = set.Approval?.Conversation;
-        doc.ApprovedBy = set.Approval?.Principal;
-    }
 }

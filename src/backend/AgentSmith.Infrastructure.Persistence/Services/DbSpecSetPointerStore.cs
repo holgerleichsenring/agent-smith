@@ -24,4 +24,18 @@ public sealed class DbSpecSetPointerStore(IServiceScopeFactory scopeFactory) : I
         await scope.ServiceProvider.GetRequiredService<TicketSeriesRepository>()
             .SaveAsync(project, pointer, ct);
     }
+
+    public async Task<SpecSet?> GetSetAsync(string project, string key, CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<TicketSeriesSetRepository>()
+            .GetSetAsync(project, key, ct);
+    }
+
+    public async Task SaveSetAsync(string project, SpecSet set, CancellationToken ct, bool onlyIfAbsent = false)
+    {
+        using var scope = scopeFactory.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<TicketSeriesSetRepository>()
+            .SaveSetAsync(project, set, ct, onlyIfAbsent);
+    }
 }

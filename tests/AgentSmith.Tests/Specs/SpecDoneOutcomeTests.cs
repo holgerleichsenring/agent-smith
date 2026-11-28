@@ -80,19 +80,19 @@ public sealed class SpecDoneOutcomeTests
     }
 
     [Fact]
-    public void SeriesFiles_ExecutedSpec_RendersOnlyTheManifestAndThePlannedTail()
+    public void SeriesFiles_ExecutedSpec_RendersOnlyThePlannedTail()
     {
-        var rendered = new SeriesFiles(new SeriesManifest()).Render(Set() with { Executed = [A] });
+        var rendered = new SeriesFiles().Render(Set() with { Executed = [A] });
 
         rendered.Select(f => f.Path).Should().Equal(
-            SeriesPaths.Manifest(Base), $"{SeriesPaths.Planned}/{B}-second.yaml", $"{SeriesPaths.Planned}/{B}-second.md");
+            $"{SeriesPaths.Planned}/{B}-second.yaml", $"{SeriesPaths.Planned}/{B}-second.md");
     }
 
     [Fact]
     public void SeriesStaleFiles_PlannedCopyOfAnExecutedSpec_IsStale()
     {
         var set = Set() with { Executed = [A] };
-        var rendered = new SeriesFiles(new SeriesManifest()).Render(set);
+        var rendered = new SeriesFiles().Render(set);
 
         new SeriesStaleFiles().Select([$"{A}-first.yaml", $"{A}-screen.html", $"{B}-screen.html"], set, rendered)
             .Should().Equal($"{SeriesPaths.Planned}/{A}-first.yaml", $"{SeriesPaths.Planned}/{A}-screen.html");
@@ -104,8 +104,8 @@ public sealed class SpecDoneOutcomeTests
     {
         var set = Set() with { Specs = [Set().Specs[0] with { Markdown = string.Empty }, Set().Specs[1]] };
 
-        new SeriesFiles(new SeriesManifest()).Render(set).Select(f => f.Path).Should().Equal(
-            SeriesPaths.Manifest(Base), $"{SeriesPaths.Planned}/{A}-first.yaml",
+        new SeriesFiles().Render(set).Select(f => f.Path).Should().Equal(
+            $"{SeriesPaths.Planned}/{A}-first.yaml",
             $"{SeriesPaths.Planned}/{B}-second.yaml", $"{SeriesPaths.Planned}/{B}-second.md");
     }
 
@@ -113,7 +113,7 @@ public sealed class SpecDoneOutcomeTests
     public void SeriesStaleFiles_EmptyCompanionFromEarlierFiling_IsStale()
     {
         var set = Set() with { Specs = [Set().Specs[0] with { Markdown = string.Empty }] };
-        var rendered = new SeriesFiles(new SeriesManifest()).Render(set);
+        var rendered = new SeriesFiles().Render(set);
 
         new SeriesStaleFiles().Select([$"{A}-first.yaml", $"{A}-first.md"], set, rendered)
             .Should().Equal($"{SeriesPaths.Planned}/{A}-first.md");

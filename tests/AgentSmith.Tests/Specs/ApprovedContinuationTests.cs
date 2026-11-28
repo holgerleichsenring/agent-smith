@@ -142,7 +142,7 @@ public sealed class ApprovedContinuationTests
             TicketLabelVocabulary.Default, Record([Spec("x", "x", "New")], ("x", SpecDispositionKinds.Appended)));
 
         decision.Set.Should().BeNull("a continuation's set is the proposal, never the whole series");
-        decision.Failure.Should().Contain("continues the series").And.Contain("no longer holds");
+        decision.Failure.Should().Contain("continues the series").And.Contain("no spec set is stored for the ticket any more");
     }
 
     /// <summary>The approval recorded by the conversation, then the ticket's next run over a branch whose

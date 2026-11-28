@@ -43,6 +43,9 @@ public sealed class TicketAmendmentTests : IDisposable
     private const string Tracker = "sample-tracker";
     private const string Ticket4711 = "4711";
     private const string Key = "github-4711";
+
+    // 2026-11-28-db88a: the set an amendment stores on the ticket's row.
+    private readonly AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore _pointers = new();
     private const string Prose = "A person wrote this, and it must survive.";
 
     private readonly SqliteConnection _connection;
@@ -171,8 +174,7 @@ public sealed class TicketAmendmentTests : IDisposable
         var record = (await store.GetAsync(Tracker, Key, default))!;
         record.Set.Goal.Should().Be("the widget is reliable", "the parent's goal is the series' goal");
         record.Set.Specs.Should().HaveCount(2);
-        new SeriesManifest().Parse(sources.Writes[0].ContentOf(SeriesPaths.Manifest(record.Set.Series!)))!
-            .Goal.Should().Be("the widget is reliable");
+        (await _pointers.GetSetAsync(Project, Key, default))!.Goal.Should().Be("the widget is reliable");
     }
 
     /// <summary>2026-10-13-8762s: an amendment writes the ratified version beside the spec under its kept id,
@@ -233,9 +235,7 @@ public sealed class TicketAmendmentTests : IDisposable
         await Amendment(tracker, sources).ApplyAsync(
             State(), Proposal("the widget stops dropping"), default);
 
-        var manifest = sources.Writes[0].Paths.Single(p => p.StartsWith(SeriesPaths.SeriesRoot + "/", StringComparison.Ordinal));
-        var written = new SeriesManifest().FingerprintOf(
-            new SeriesManifest().Parse(sources.Writes[0].ContentOf(manifest))!);
+        var written = (await _pointers.GetSetAsync(Project, Key, default))!.TicketFingerprint;
         written.Should().Be(TicketTextFingerprint.Of(TicketLabelNoteStripper.Strip(tracker.Ticket())),
             "the next run compares against the ticket as it stands after the amendment")
             .And.NotBe(before, "a fingerprint of the ticket before the rewrite reports an edit nobody made");
@@ -423,7 +423,7 @@ public sealed class TicketAmendmentTests : IDisposable
             new SpecDialogTicketTextRepository(_context), ApprovedSetDoubles.Recorder(store),
             new SpecTicketRenderer(), new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             ActSteps.Amend(Config(), tracker, ApprovedSetDoubles.Recorder(store), // 2026-11-17-e061c: an 'amend' run
-                ApprovedSetDoubles.Branch(sources ?? new RecordingBranchSources(), mocks: mocks)));
+                ApprovedSetDoubles.Branch(sources ?? new RecordingBranchSources(), _pointers, mocks: mocks)));
 
     private ActiveRunRepository Leases() => new(
         _context, new SqliteUniqueViolationTranslator(), TimeProvider.System,

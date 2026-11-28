@@ -6,8 +6,8 @@ using AgentSmith.Contracts.Specs;
 namespace AgentSmith.Application.Services.SpecExecution;
 
 /// <summary>
-/// 2026-10-06-03c7e: the ONE series commit of a record — the done files, the manifest and the
-/// index line staged, the planned files removed — and the pointer re-recorded at its sha with
+/// 2026-10-06-03c7e: the ONE series commit of a record — the done files and the
+/// index line staged (2026-11-28-db88a: no manifest), the planned files removed — and the pointer re-recorded at its sha with
 /// how many leading specs are executed. The pointer moves because the commit is this system's
 /// own on the series' paths; left behind, the next run would read it as a reviewer's edit.
 /// 2026-10-12-f5f7d: the pointer keeps the executed spec IDS — a series over several repositories

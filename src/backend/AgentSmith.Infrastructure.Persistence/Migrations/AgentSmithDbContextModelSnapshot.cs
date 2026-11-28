@@ -3659,6 +3659,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("SetJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("TicketKey")
                         .IsRequired()
                         .HasMaxLength(191)

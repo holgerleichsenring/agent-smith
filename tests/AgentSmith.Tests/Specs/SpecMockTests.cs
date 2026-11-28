@@ -65,7 +65,7 @@ public sealed class SpecMockTests
             $"{Dir}/{Base}b-dropped-mock.html", $"{Dir}/{Base}a-mock.html" };
         var set = Set(Spec($"{Base}a", null, "kept")) with { Series = Base };
 
-        var stale = new SeriesStaleFiles().Select(listed, set, new SeriesFiles(new SeriesManifest()).Render(set));
+        var stale = new SeriesStaleFiles().Select(listed, set, new SeriesFiles().Render(set));
 
         stale.Should().Equal($"{Dir}/{Base}b-dropped.yaml", $"{Dir}/{Base}b-dropped-mock.html");
     }

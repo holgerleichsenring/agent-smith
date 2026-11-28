@@ -75,7 +75,7 @@ public sealed class ApprovedSetInThePaneTests : IDisposable
 
     // 2026-11-17-a0b6c: a branch the host cannot read is named, and no copy stands in for it.
     [Fact]
-    public async Task TicketSpecs_TheBranchCannotBeRead_IsNamedAndShowsNoSpecs()
+    public async Task TicketSpecs_TheBranchCannotBeRead_StillShowsTheStoredSpecs()
     {
         await BindAsync("jira-1");
         await FileAsync(ApprovedSets.Record("jira-1", ApprovedSets.Noon, ["p0001a"], tracker: Tracker));
@@ -83,8 +83,9 @@ public sealed class ApprovedSetInThePaneTests : IDisposable
 
         var view = await Sut().ForAsync(Dialog, default);
 
-        view!.Specs.Should().BeEmpty();
-        view.BranchUnread.Should().Contain("503 from the host");
+        // 2026-11-28-db88a: the specs are the set stored for the ticket; the branch is not asked.
+        view!.Specs.Should().ContainSingle();
+        view.BranchUnread.Should().BeNull();
     }
 
     [Fact]

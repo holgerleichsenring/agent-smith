@@ -8,20 +8,24 @@ namespace AgentSmith.Application.Services.Specs;
 /// ticket branch. One renderer, because the first run after a filing must find the files it would
 /// itself have written; two renderers is how two contents come to differ.
 /// <para>
-/// 2026-10-06-03c7d: the manifest at <c>series/{base}.yaml</c>, and per spec its yaml and markdown
-/// companion in <c>specs/planned/</c>. The accounting is part of the manifest.
+/// 2026-10-06-03c7d: per spec its yaml and markdown companion in <c>specs/planned/</c>.
 /// </para>
 /// <para>
 /// 2026-10-06-03c7e: PLANNED specs only. An executed spec lies in <c>specs/done/</c>, which only
 /// the record step writes; a re-cut or an amendment never renders it back into planned/.
 /// </para>
+/// <para>
+/// 2026-11-28-db88a: and no series manifest any more. The set lives on the ticket's row; the spec files are its written
+/// record, so a set with nothing planned (a hand-back, a sub-series whose specs all ran) renders nothing.
+/// </para>
 /// </summary>
-public sealed class SeriesFiles(SeriesManifest manifest)
+public sealed class SeriesFiles
 {
-    /// <summary>Repo-relative path and whole content, in the order a writer may commit them.</summary>
+    /// <summary>Repo-relative path and whole content, in the order a writer may stage them.</summary>
     public IReadOnlyList<SpecSetFile> Render(SpecSet set)
     {
-        var files = new List<SpecSetFile>(1 + (set.Specs.Count * 2)) { Manifest(set) };
+        ArgumentNullException.ThrowIfNull(set);
+        var files = new List<SpecSetFile>(set.Specs.Count * 2);
         foreach (var spec in set.Planned()) // 2026-11-27-3532d: a retired spec keeps its file
         {
             files.Add(new SpecSetFile(
@@ -32,14 +36,5 @@ public sealed class SeriesFiles(SeriesManifest manifest)
                 SeriesPaths.Companion(SeriesPaths.Planned, spec.FileStem), spec.Markdown));
         }
         return files;
-    }
-
-    /// <summary>2026-10-06-03c7e: the series' manifest alone — what the record commit carries.</summary>
-    public SpecSetFile Manifest(SpecSet set)
-    {
-        ArgumentNullException.ThrowIfNull(set);
-        if (string.IsNullOrWhiteSpace(set.Series))
-            throw new InvalidOperationException($"Spec set {set.Key} carries no series to name its manifest");
-        return new SpecSetFile(SeriesPaths.Manifest(set.Series), manifest.Serialize(set));
     }
 }

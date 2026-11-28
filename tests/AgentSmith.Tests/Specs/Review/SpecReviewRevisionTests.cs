@@ -66,7 +66,7 @@ public sealed class SpecReviewRevisionTests
         var rig = new ReviewLoopRig();
         var handback = new SpecHandback(SpecHandbackCase.Question, "Which file format does accounting read?");
 
-        await new SpecReviewRevision(rig.Publisher.Object).PublishAsync(rig.Pipeline, [], Cause, CancellationToken.None, handback);
+        await new SpecReviewRevision(rig.Publisher.Object, new AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore()).PublishAsync(rig.Pipeline, [], Cause, CancellationToken.None, handback);
 
         rig.Published.Single().Handback.Should().Be(handback);
     }
@@ -86,6 +86,6 @@ public sealed class SpecReviewRevisionTests
     private static Task<AgentSmith.Domain.Models.CommandResult> PublishAsync(ReviewLoopRig rig)
     {
         var revised = CutRevisionFixtures.Draft(CutRevisionFixtures.With("into one file", "into one dated file"));
-        return new SpecReviewRevision(rig.Publisher.Object).PublishAsync(rig.Pipeline, [revised], Cause, CancellationToken.None);
+        return new SpecReviewRevision(rig.Publisher.Object, new AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore()).PublishAsync(rig.Pipeline, [revised], Cause, CancellationToken.None);
     }
 }

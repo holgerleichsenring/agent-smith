@@ -130,7 +130,7 @@ public sealed class DeriveSpecTicketEditTests
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
-            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.TicketText());
+            new SpecSetUnchanged(), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.TicketText());
     }
 
     // The marker's commit is the last one on the spec path: every git call answers it.

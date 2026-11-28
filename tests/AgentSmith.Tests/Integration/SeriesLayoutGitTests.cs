@@ -32,7 +32,7 @@ public sealed class SeriesLayoutGitTests
         await WriteAsync(git, Set(("a", "first")));
 
         (await git.TrackedAsync()).Should().BeEquivalentTo(
-            SeriesPaths.Manifest(Base), Planned("a-first.yaml"), Planned("a-first.md"), Other);
+            Planned("a-first.yaml"), Planned("a-first.md"), Other);
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class SeriesLayoutGitTests
         await WriteAsync(git, Set(("a", "renamed")));
 
         (await git.TrackedAsync()).Should().BeEquivalentTo(
-            SeriesPaths.Manifest(Base), Planned("a-renamed.yaml"), Planned("a-renamed.md"), Other);
+            Planned("a-renamed.yaml"), Planned("a-renamed.md"), Other);
     }
 
     [Fact]
@@ -61,26 +61,6 @@ public sealed class SeriesLayoutGitTests
         (await git.TrackedAsync()).Should().NotContain(
             [Planned("a-old-label.yaml"), Planned("c-dropped.yaml"), Planned("c-dropped.md")])
             .And.Contain(Other, "another series' file is never this cut's to remove");
-    }
-
-    [Fact]
-    public async Task SeriesReader_ReviewerEditsSpecFile_ShaChanges()
-    {
-        await using var git = await SeriesGitRepo.CreateAsync(Other, Base);
-        if (git is null) return;
-        var written = await WriteAsync(git, Set(("a", "first")));
-        var reader = SeriesDoubles.Reader(git.Files, git.Ops);
-        (await reader.ReadAsync(git.Pipeline, Repo, [], new TicketKey(Ticket), default)).Read!.LastCommitSha
-            .Should().Be(written, "the publish's commit is the series' last");
-        await git.CommitFilesAsync("src/unrelated.cs");
-        (await reader.ReadAsync(git.Pipeline, Repo, [], new TicketKey(Ticket), default)).Read!.LastCommitSha
-            .Should().Be(written, "a coding commit is no revision");
-
-        await git.CommitFilesAsync(Planned("a-first.yaml"));
-
-        var read = (await reader.ReadAsync(git.Pipeline, Repo, [], new TicketKey(Ticket), default)).Read!;
-        read.LastCommitSha.Should().Be(await git.HeadAsync(), "a reviewer's edit of a spec file is a new revision")
-            .And.NotBe(written);
     }
 
     private static async Task<string> WriteAsync(SeriesGitRepo git, SpecSet set)

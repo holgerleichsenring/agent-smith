@@ -20,8 +20,8 @@ public static class SpecDerivationRegistrations
     Review.SpecReviewRegistrations.AddSpecReview(services); // 2026-10-13-8762e: the spec review rounds
         services.AddTransient<ForeignCommitProbe>();
         services.AddTransient<HandbackHeadsReader>();
-    // 2026-10-06-03c7d: a series is one manifest under series/ and its specs in specs/planned/.
-    services.AddTransient<ISpecSetReader, SeriesReader>();
+    // 2026-11-28-db88a: a run's set is its TicketSeries row; the manifest reader only imports a row in flight, once.
+    services.AddTransient<ISpecSetReader, StoredSeriesReader>().AddTransient<SeriesReader>();
     // 2026-10-12-f5f7b: every run repository's sub-series, joined into one set.
     services.AddTransient<SubSeriesReader>().AddBranchSeriesRead(); // 2026-11-17-a0b6b: the reading shared with the ticket readers
     services.AddTransient<ISpecSetWriter, SeriesWriter>();

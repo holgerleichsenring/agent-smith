@@ -83,7 +83,7 @@ public sealed class SpecRevisionWriter(
         PipelineContext pipeline, SpecSet before, IReadOnlyList<SpecDraft> texts, string cause, CancellationToken ct)
     {
         var carrier = pipeline.TryGet<string>(ContextKeys.SpecRepo, out var held) ? held : null;
-        var published = await revision.PublishAsync(pipeline, texts, cause, ct);
+        var published = await revision.PublishAsync(pipeline, texts, cause, ct, restore: before);
         if (published.IsSuccess) return null;
         pipeline.Set(ContextKeys.SpecSet, before);
         if (carrier is null) pipeline.Remove(ContextKeys.SpecRepo);

@@ -29,6 +29,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// 2026-10-12-f5f7f: a rolled-back write records only its revert shas (<see cref="RecordShasAsync"/>).
 /// </para>
+/// <para>
+/// 2026-11-28-db88a: and it stores the set it is given — the whole set every caller (a revision's publish, filing, the
+/// record step) wrote — so the row holds the set the run works from, saved before the pointer that names it.
+/// </para>
 /// </summary>
 public sealed class SpecSetPointerRecorder(
     ISpecSetPointerStore pointers,
@@ -48,6 +52,10 @@ public sealed class SpecSetPointerRecorder(
         var carrier = !string.IsNullOrWhiteSpace(carryingRepo) ? carryingRepo!
             : existing?.CarryingRepo is { Length: > 0 } kept ? kept : shas.Keys.FirstOrDefault() ?? string.Empty;
         var sha = shas.TryGetValue(carrier, out var own) ? own : existing?.RevisionSha ?? shas.Values.FirstOrDefault() ?? string.Empty;
+        // 2026-11-28-db88a: the set first — a pointer saved over a set that failed to save would name a revision the row
+        // does not hold, and the next revision would write the older set over it. A set saved under the old pointer is
+        // the set the branch now carries, read as this system's own.
+        await pointers.SaveSetAsync(project, set, cancellationToken);
         await pointers.SaveAsync(project, new SpecSetPointer(
             set.Key, carrier, sha, set.Current.Number,
             existing?.LastHandbackCase ?? SpecHandbackCase.None,

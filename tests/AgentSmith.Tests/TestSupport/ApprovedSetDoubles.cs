@@ -82,7 +82,7 @@ internal static class ApprovedSetDoubles
         AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null)
     {
         var store = pointers ?? new InMemorySpecSetPointerStore();
-        return new(new FiledSeriesWrite(sources ?? new RecordingBranchSources(), new SeriesFiles(new SeriesManifest())),
+        return new(new FiledSeriesWrite(sources ?? new RecordingBranchSources(), new SeriesFiles()),
             store, new SeriesRepos(),
             new SpecSetPointerRecorder(store, NullLogger<SpecSetPointerRecorder>.Instance),
             NullLogger<FiledSpecBranch>.Instance, mocks);

@@ -3767,6 +3767,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
 
+                    b.Property<string>("SetJson")
+                        .HasColumnType("text");
+
                     b.Property<string>("TicketKey")
                         .IsRequired()
                         .HasMaxLength(191)

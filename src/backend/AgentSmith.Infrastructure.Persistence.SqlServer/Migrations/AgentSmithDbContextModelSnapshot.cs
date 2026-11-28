@@ -3783,6 +3783,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
 
+                    b.Property<string>("SetJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("TicketKey")
                         .IsRequired()
                         .HasMaxLength(191)

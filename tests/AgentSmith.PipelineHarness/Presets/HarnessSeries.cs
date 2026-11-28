@@ -32,9 +32,7 @@ internal static class HarnessSeries
         // The key follows the tracker platform, so the record names the run's ticket whichever stub provider serves it.
         runner.RequestContext[ContextKeys.TrackerPlatform] = Platform;
         var key = TicketKey.For(Platform, "1").Value;
-        var specs = members.Select((m, i) => Spec(SeriesIdFactory(i), m)).ToList();
-        var set = new SpecSet(key, specs, SpecAccounting.Empty, [], SpecSource.Approved,
-            Approval: new SpecApproval(DateTimeOffset.UtcNow.AddMinutes(-5), "harness", "sample.approver"), Series: Base);
+        var set = SetOf(key, members);
         // The approval names the run's repositories, so it narrows nothing the run would otherwise hold.
         IReadOnlyList<string> repositories = runner.ReposOverride is { Count: > 0 } run
             ? [.. run.Select(r => r.Name)] : [.. members.Select(m => m.Repo).Distinct()];
@@ -43,11 +41,18 @@ internal static class HarnessSeries
         return runner;
     }
 
-    private static string SeriesIdFactory(int index) => $"{Base}{(char)('a' + index)}";
+    /// <summary>2026-11-28-db88a: the approved set of <paramref name="members"/> under <paramref name="key"/>, in series
+    /// <paramref name="seriesBase"/> — what a filing stores and a run is handed.</summary>
+    public static SpecSet SetOf(string key, Member[] members, string seriesBase = Base) =>
+        new(key, [.. members.Select((m, i) => Spec(SeriesIdFactory(i, seriesBase), m, seriesBase))], SpecAccounting.Empty, [],
+            SpecSource.Approved, Approval: new SpecApproval(DateTimeOffset.UtcNow.AddMinutes(-5), "harness", "sample.approver"),
+            Series: seriesBase);
 
-    private static DerivedSpec Spec(string id, Member member)
+    private static string SeriesIdFactory(int index, string seriesBase = Base) => $"{seriesBase}{(char)('a' + index)}";
+
+    private static DerivedSpec Spec(string id, Member member, string seriesBase = Base)
     {
-        var requires = member.Requires is { } index ? $"requires: [{SeriesIdFactory(index)}]\n" : string.Empty;
+        var requires = member.Requires is { } index ? $"requires: [{SeriesIdFactory(index, seriesBase)}]\n" : string.Empty;
         var yaml = $"spec: {id}\ngoal: \"{member.Goal}\"\n{requires}repos: [{member.Repo}]\nsteps:\n  - id: {member.Step}\n"
             + $"    action: \"{member.Goal}\"\ndone:\n  - \"{member.Done}\"\n";
         return new DerivedSpec(new SpecDraftReader().Read(yaml) with { Repos = [member.Repo] }, id, string.Empty, []);

@@ -24,7 +24,7 @@ public sealed class SeriesPerRepoRecordTests
     private readonly SeriesRepoBranches _branches = new();
 
     [Fact]
-    public async Task SpecDoneRecorder_SpecForServer_DoneAndManifestInServer()
+    public async Task SpecDoneRecorder_SpecForServer_DoneInServerAndTheExecutedSetStored()
     {
         _branches.Repo(Worker.Name);
         _branches.Repo(Server.Name);
@@ -40,10 +40,12 @@ public sealed class SeriesPerRepoRecordTests
         _branches.Repo(Worker.Name).Paths.Should().BeEmpty(
             "the spec changed nothing in the worker, so its record lies elsewhere");
         (await _branches.Repo(Server.Name).ExistsAsync($"{Done}/{Id('a')}-a.yaml", default)).Should().BeTrue();
-        var manifest = new SeriesManifest().Parse(await _branches.Repo(Server.Name)
-            .TryReadAsync(SeriesPaths.Manifest(SeriesRepoBranches.Base), default))!;
-        manifest.Specs.Should().Equal(Id('a'), Id('b'));
-        manifest.Revisions[^1].At.Should().Be(set.Current.At.ToString("O"), "the publish stamp is kept");
+        (await _branches.Repo(Server.Name).ExistsAsync(SeriesPaths.Manifest(SeriesRepoBranches.Base), default))
+            .Should().BeFalse("2026-11-28-db88a: no manifest is written");
+        var stored = (await pointers.GetSetAsync("p", SeriesRepoBranches.Key, default))!;
+        stored.Specs.Select(s => s.SpecId).Should().Equal(Id('a'), Id('b'));
+        stored.Executed.Should().Equal(Id('a'));
+        stored.Current.At.Should().Be(set.Current.At, "the publish stamp is kept");
         (await _branches.Repo(Server.Name).TryReadAsync("/work/.agentsmith/contexts/default/done.md", default)) // 462aa
             .Should().Contain($"-> {Done}/{Id('a')}-a.yaml");
         (await pointers.GetAsync("p", SeriesRepoBranches.Key, default))!.ExecutedIds.Should().Equal(Id('a'));

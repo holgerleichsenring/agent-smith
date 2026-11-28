@@ -12,12 +12,14 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// 2026-10-12-f5f7b fast-tier: the series reader as the server composes it. Two hand-placed
 /// sub-series — one in Server, one in Client, stamped by one write — are read as ONE set in id
 /// order, with the last commit of each repository.
+/// <para>2026-11-28-db88a: only a ticket in flight at that deploy is read this way — its row stores no set — and the read is
+/// imported onto the row once; SpecSetSourceCompositionTests pins the multi-repository read of a stored set.</para>
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class SeriesMultiRepoReadTests
 {
     [Fact]
-    public async Task TwoSubSeries_ServerAndClient_ReadAsOneSetInIdOrder()
+    public async Task TwoSubSeries_ARowInFlight_ReadAsOneSetInIdOrderAndImportedOnce()
     {
         var branches = new SeriesRepoBranches();
         string[] both = ["Server", "Client"];
@@ -29,6 +31,10 @@ public sealed class SeriesMultiRepoReadTests
             services.AddSingleton(branches.Files());
         });
 
+        var store = harness.Services.GetRequiredService<ISpecSetPointerStore>();
+        await store.SaveAsync(string.Empty, new SpecSetPointer(SeriesRepoBranches.Key, "Server", "sha-Server", 1,
+            RevisionShas: new Dictionary<string, string> { ["Server"] = "sha-Server", ["Client"] = "sha-Client" }), default);
+
         var result = await branches.ReadWithAsync(
             harness.Services.GetRequiredService<ISpecSetReader>(), "Server", both);
 
@@ -37,5 +43,6 @@ public sealed class SeriesMultiRepoReadTests
             SeriesRepoBranches.Id('a'), SeriesRepoBranches.Id('b'), SeriesRepoBranches.Id('c'));
         result.Read!.RevisionShas.Keys.Should().BeEquivalentTo(both);
         result.Read.Lagging.Should().BeEmpty();
+        (await store.GetSetAsync(string.Empty, SeriesRepoBranches.Key, default))!.Specs.Should().HaveCount(3, "imported once");
     }
 }

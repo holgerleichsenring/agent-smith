@@ -67,16 +67,17 @@ public sealed class TicketSeriesReadTests : IDisposable
 
     // 2026-11-17-a0b6b: a host that cannot be asked is named; the cut still says which specs.
     [Fact]
-    public async Task TicketSeries_Read_AnUnreadableBranch_IsNamedAndTheIdsStillShow()
+    public async Task TicketSeries_Read_AnUnreadableBranch_StillShowsTheStoredText()
     {
         await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1)), OnBranch(BranchSpec(A)));
         _store.Branches.ReadThrows = new HttpRequestException("503 from the host");
 
         var series = await ReadAsync();
 
-        series.BranchUnread.Should().Contain("503 from the host");
+        // 2026-11-28-db88a: the text is the set stored for the ticket; the branch is not asked.
+        series.BranchUnread.Should().BeNull();
         series.Specs.Single().SpecId.Should().Be(A);
-        series.Specs[0].Yaml.Should().BeEmpty("the text is the branch's and the branch did not answer");
+        series.Specs[0].Yaml.Should().NotBeEmpty();
     }
 
     [Fact]

@@ -6,6 +6,8 @@ namespace AgentSmith.Infrastructure.Persistence.Entities;
 /// with git, and duplicating them here would create a second source of truth that drifts the
 /// moment a reviewer edits the branch. The series' base id is CACHED here; the branch is its
 /// source.
+/// <para>2026-11-28-db88a: that changed — the row stores the ticket's working set (<see cref="SetJson"/>), and a run and
+/// every host reader take it from here. The spec files on the branch are the record a run writes, never its input.</para>
 /// </summary>
 public sealed class TicketSeries : EntityBase
 {
@@ -47,4 +49,8 @@ public sealed class TicketSeries : EntityBase
     /// array; null on a row written before it, which reads as the leading <see cref="ExecutedThrough"/>
     /// specs of the set it is read against.</summary>
     public string? ExecutedIdsJson { get; set; }
+
+    /// <summary>2026-11-28-db88a: the ticket's spec set as last published, as <c>SpecSetJson</c>; null on a row written
+    /// before sets were stored (a ticket in flight at that deploy), whose set is imported once from its branch.</summary>
+    public string? SetJson { get; set; }
 }

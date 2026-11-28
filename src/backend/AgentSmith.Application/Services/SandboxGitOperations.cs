@@ -51,9 +51,12 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher, IGitTokenResolv
         ForceStagePathsAsync(sandbox, [path], cancellationToken);
 
     // 2026-10-06-03c7d: several paths in one add — every one must exist, or git refuses the lot.
+    // 2026-11-28-db88a: no paths stages nothing — the pathspec alone would be the exclusion, which git reads as
+    // "everything but the reference directory" and force-stages the whole tree.
     public async Task ForceStagePathsAsync(
         ISandbox sandbox, IReadOnlyList<string> paths, CancellationToken cancellationToken)
     {
+        if (paths.Count == 0) return;
         await Run(sandbox, "git", ["add", "-f", "--", .. paths, ReferenceDirectory.ExcludePathspec], cancellationToken);
     }
 

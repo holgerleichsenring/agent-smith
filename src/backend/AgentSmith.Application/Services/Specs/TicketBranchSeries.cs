@@ -13,6 +13,12 @@ namespace AgentSmith.Application.Services.Specs;
 /// <see cref="BranchFiles"/> by the same <see cref="SubSeriesFiles"/> a run's checkout is read by, and
 /// joined by the same <see cref="SeriesComposer"/>. A ticket without a pointer has nothing on a branch
 /// this system wrote. The revision sha per repository is the pointer's: the host is not asked for history.
+/// <para>
+/// 2026-11-28-db88a: the set is the one the ticket's row stores, so no branch is read — the series check, the final report
+/// and every page work alike after cleanup deleted the branch. A row that stores no set (a ticket in flight at the deploy
+/// that started storing sets) is imported ONCE by the branch read below, stored only if the row still has none, and read
+/// from the row thereafter. Follow-up 2026-11-28-5e0b deletes the import.
+/// </para>
 /// </summary>
 public sealed class TicketBranchSeries(
     ISpecSetPointerStore pointers,
@@ -42,7 +48,24 @@ public sealed class TicketBranchSeries(
     {
         ArgumentNullException.ThrowIfNull(project);
         var pointer = await pointers.GetAsync(project.Name, ticket.Value, cancellationToken);
+        SpecSet? stored;
+        try { stored = await pointers.GetSetAsync(project.Name, ticket.Value, cancellationToken); }
+        catch (InvalidDataException ex) { return SpecSetOnBranch.Unreadable(ex.Message); }
+        if (stored is not null) return SpecSetOnBranch.Answered(StoredSeries.Read(stored, pointer));
         if (pointer is null) return SpecSetOnBranch.Nothing;
+        var imported = await ImportAsync(project, ticket, ticketId, pointer, landedOn, cancellationToken);
+        if (imported.Read is not { Lagging.Count: 0 } clean) return imported;
+        await pointers.SaveSetAsync(project.Name, clean.Set, cancellationToken, onlyIfAbsent: true);
+        logger.LogInformation("Spec set {Key}: a row with no stored set, imported once from its branch", ticket.Value);
+        return SpecSetOnBranch.Answered(StoredSeries.Read(
+            await pointers.GetSetAsync(project.Name, ticket.Value, cancellationToken) ?? clean.Set, pointer));
+    }
+
+    // The legacy branch read, for a row in flight only.
+    private async Task<SpecSetOnBranch> ImportAsync(
+        ResolvedProject project, TicketKey ticket, TicketId ticketId, SpecSetPointer pointer, Landed? landedOn,
+        CancellationToken cancellationToken)
+    {
         var branch = TicketBranchNamer.Compose(ticketId);
         // 2026-11-23-1e76a: the repositories side by side, in the pointer's order.
         var reads = await Task.WhenAll(RepoNames(pointer).Select(name =>

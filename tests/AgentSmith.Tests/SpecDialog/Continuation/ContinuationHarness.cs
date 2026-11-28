@@ -156,21 +156,24 @@ internal sealed class ContinuationHarness : IDisposable
         await AddAsync(TicketStoreHarness.Run(runId, project: project, status: status), TicketStoreHarness.Step(runId),
             TicketSeriesFixtures.Cut(runId, 1, [.. specs.Select((id, i) => TicketSeriesFixtures.Entry(id, i + 1))]),
             new RunAttempt { RunId = runId, SeriesId = series });
-        await OnBranchAsync(carrier, series, specs);
+        var set = OnBranch(carrier, series, specs);
         await Pointers.SaveAsync(project, new SpecSetPointer(Key, carrier, "sha", 1, SeriesId: series,
             RevisionShas: new Dictionary<string, string> { [carrier] = "sha" }, ExecutedIds: executed), default);
+        // 2026-11-28-db88a: the set the attempt published is the one its row stores.
+        await Pointers.SaveSetAsync(project, set with { Executed = [.. executed], SeriesRepos = [carrier] }, default);
     }
 
-    /// <summary>2026-11-17-a0b6b: <paramref name="specs"/> written to ticket 42's branch of <paramref name="repo"/>.</summary>
-    public Task OnBranchAsync(string repo, string series, IReadOnlyList<string> specs)
+    /// <summary>2026-11-17-a0b6b: <paramref name="specs"/> written to ticket 42's branch of <paramref name="repo"/> — the
+    /// record, which 2026-11-28-db88a no longer reads back — and the set they were written from.</summary>
+    public SpecSet OnBranch(string repo, string series, IReadOnlyList<string> specs)
     {
         var set = new SpecSet(Key, [.. specs.Select(id => TicketSeriesFixtures.BranchSpec(id) is var spec
                 ? spec with { Draft = spec.Draft with { Repos = [repo] } } : spec)],
             SpecAccounting.Empty, [new SpecRevision(1, "initial", TicketStoreHarness.T)], SpecSource.Approved, Series: series);
-        var files = new AgentSmith.Application.Services.Specs.SeriesFiles(new AgentSmith.Application.Services.Specs.SeriesManifest())
+        var files = new AgentSmith.Application.Services.Specs.SeriesFiles()
             .Render(set).Select(f => new RepoFile(f.Path, f.Content)).ToList();
         Sources.Seed(repo, "agent-smith/42", files);
-        return Task.CompletedTask;
+        return set;
     }
 
     public async Task AddAsync(params object[] rows)

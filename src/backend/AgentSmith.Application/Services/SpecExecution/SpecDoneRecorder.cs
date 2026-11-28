@@ -20,13 +20,13 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// falls back to the run-wide sandbox: that would write the record into a repository it does not
 /// belong to.
 /// </para>
+/// <para>2026-11-28-db88a: no manifest is rewritten — the record commit stores the executed set on the ticket's row.</para>
 /// </summary>
 public sealed class SpecDoneRecorder(
     ISandboxFileReaderFactory readerFactory,
     SandboxTargets sandboxTargets,
     SpecDoneFiles doneFiles,
     SpecIndexWriter indexWriter,
-    SeriesFiles seriesFiles,
     SeriesRecordCommit commit,
     DefaultVerdictRecord verdicts,
     Memory.MemoryIndexLabelWriter memoryLabels,
@@ -61,9 +61,7 @@ public sealed class SpecDoneRecorder(
         var index = await indexWriter.WriteAsync(pipeline, target.Sandbox, target.SandboxKey,
             target.Sandbox.WorkDirectory(), record.Spec.SpecId, record.IndexLine, ct);
         var executed = record.Set with { Executed = [.. record.Set.Executed, record.Spec.SpecId] };
-        var manifest = seriesFiles.Manifest(executed.OfRepository(record.Carrier.Name));
-        await files.WriteAsync(manifest.Path, manifest.Content, ct);
-        var staged = new List<string>(move.Written) { manifest.Path };
+        var staged = new List<string>(move.Written); // 2026-11-28-db88a: no manifest; the row stores the executed set
         staged.AddRange(index); // 2026-11-26-462aa: done.md, a migrated context.yaml, .gitattributes
         staged.AddRange(await verdicts.WriteAsync(pipeline, files, record, ct)); // 2026-10-13-8762p
         if (await memoryLabels.WriteAsync(pipeline, files, record.Carrier.Name, ct) is { } labels) staged.Add(labels); // 9324d

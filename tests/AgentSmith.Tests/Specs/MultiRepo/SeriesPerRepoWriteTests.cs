@@ -31,12 +31,11 @@ public sealed class SeriesPerRepoWriteTests
         write.Shas.Keys.Should().Equal("Server");
         (await FilesAsync(Worker.Name)).Should().BeEmpty("the spec changes nothing in the worker");
         (await FilesAsync(Server.Name)).Should().BeEquivalentTo(
-            SeriesPaths.Manifest(SeriesRepoBranches.Base), $"{SeriesPaths.Planned}/{Id('a')}-a.yaml");
-        Manifest(Server.Name).SeriesRepos.Should().Equal("Server");
+            [$"{SeriesPaths.Planned}/{Id('a')}-a.yaml"], "2026-11-28-db88a: no manifest is written");
     }
 
     [Fact]
-    public async Task SeriesWriter_TwoMembers_SameStampAndMembers()
+    public async Task SeriesWriter_TwoMembers_EachGetsItsOwnSpecs()
     {
         _branches.Repo(Server.Name);
         _branches.Repo(Client.Name);
@@ -44,12 +43,9 @@ public sealed class SeriesPerRepoWriteTests
         var write = await WriteAsync(Set(("a", "Server"), ("b", "Client")), Server, Client);
 
         write.Written.Should().BeTrue(write.Error);
-        var server = Manifest(Server.Name);
-        var client = Manifest(Client.Name);
-        server.Specs.Should().Equal(Id('a'));
-        client.Specs.Should().Equal(Id('b'));
-        client.Revisions[^1].At.Should().Be(server.Revisions[^1].At, "one write, one revision time");
-        client.SeriesRepos.Should().Equal(server.SeriesRepos).And.Equal("Server", "Client");
+        write.Shas.Keys.Should().BeEquivalentTo(["Server", "Client"]);
+        (await FilesAsync(Server.Name)).Should().BeEquivalentTo([$"{SeriesPaths.Planned}/{Id('a')}-a.yaml"]);
+        (await FilesAsync(Client.Name)).Should().BeEquivalentTo([$"{SeriesPaths.Planned}/{Id('b')}-b.yaml"]);
     }
 
     [Fact]
@@ -143,9 +139,6 @@ public sealed class SeriesPerRepoWriteTests
     private async Task<IReadOnlyList<string>> FilesAsync(string repo) =>
         await _branches.Repo(repo).ListAsync(".agentsmith", null, default);
 
-    private SeriesManifestDocument Manifest(string repo) =>
-        new SeriesManifest().Parse(_branches.Repo(repo).TryReadAsync(
-            SeriesPaths.Manifest(SeriesRepoBranches.Base), default).Result)!;
 
     private static string Id(char letter) => SeriesRepoBranches.Id(letter);
 

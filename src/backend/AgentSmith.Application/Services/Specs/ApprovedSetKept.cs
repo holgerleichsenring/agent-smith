@@ -40,10 +40,9 @@ public static class ApprovedSetKept
     public const string Heading = "## Agent Smith — the approved specification stands";
 
     /// <summary>Where the specs are, and (2026-11-17-ec48b) how a change is made: in the ticket's conversation.</summary>
-    public const string WhereToChangeIt = OnTheBranch + " and open in the pull request this run linked. " + TheConversationRule;
-
+    public const string WhereToChangeIt = OnTheBranch + " and open in the pull request this run linked; " + NotReadBack + ". " + TheConversationRule;
     /// <summary>2026-09-17-0e79c: the same, for a run that has NOT opened a pull request yet (a first-spec hand-back).</summary>
-    public const string WhereToChangeItWithNoPullRequest = OnTheBranch + ". " + TheConversationRule;
+    public const string WhereToChangeItWithNoPullRequest = OnTheBranch + "; " + NotReadBack + ". " + TheConversationRule;
 
     /// <summary>2026-11-17-ec48b: how a spec of an approved set is changed — a running attempt's agent hears only a
     /// runs.control poster (4860b) and revises only its current spec (ec48a); an approval starts nothing (9a59l).</summary>
@@ -64,7 +63,9 @@ public static class ApprovedSetKept
         + "ticket, or adds specs after the ones that ran when none is left. Any other first line is an ordinary comment "
         + "and changes nothing.";
 
-    private const string OnTheBranch = "The specs are on the ticket branch under `" + SeriesPaths.Planned + "/`";
+    // 2026-11-28-db88a: the branch carries the specs as their written record; an edit there is no input to a run.
+    private const string OnTheBranch = "The specs are written to the ticket branch under `" + SeriesPaths.Planned + "/` as their record";
+    private const string NotReadBack = "an edit there changes nothing a run reads";
 
     // The input this run saw and kept, or null when nothing arrived that would have re-cut a set
     // nobody approved. Not public: the three questions callers actually ask are below.

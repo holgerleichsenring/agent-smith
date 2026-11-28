@@ -9,6 +9,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// its own ticket branch through its source provider, all from one set, so every member carries the
 /// same revision time and the same member list. The first member that does not answer a commit ends
 /// the write with its name. A ratified mock goes to the member whose sub-series holds its spec.
+/// 2026-11-28-db88a: no manifest; a member with no planned spec gets no commit and no sha — the pointer keeps the sha it
+/// held for it, and a write of nothing anywhere is still a write (its set is stored by the caller).
 /// </summary>
 public sealed class FiledSeriesWrite(ISourceProviderFactory sources, SeriesFiles files)
 {
@@ -20,9 +22,11 @@ public sealed class FiledSeriesWrite(ISourceProviderFactory sources, SeriesFiles
         foreach (var repo in placement.Members)
         {
             var sub = placement.Set.OfRepository(repo.Name);
-            var result = await sources.Create(repo).WriteFilesToBranchAsync(branch,
-                [.. files.Render(sub).Select(f => new RepoFile(f.Path, f.Content)),
-                    .. sub.Planned().Select(s => mocks?.GetValueOrDefault(s.SpecId)).OfType<RepoFile>()],
+            IReadOnlyList<RepoFile> written = [.. files.Render(sub).Select(f => new RepoFile(f.Path, f.Content)),
+                .. sub.Planned().Select(s => mocks?.GetValueOrDefault(s.SpecId)).OfType<RepoFile>()];
+            // 2026-11-28-db88a: a member with nothing planned is sent nothing — the row stores its set.
+            if (written.Count == 0) continue;
+            var result = await sources.Create(repo).WriteFilesToBranchAsync(branch, written,
                 SeriesWriter.MessageFor(sub), cancellationToken, startFrom); // 2026-11-24-f9c5b
             if (!result.Written)
             {

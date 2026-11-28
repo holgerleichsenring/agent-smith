@@ -23,8 +23,8 @@ public static class SpecPrBody
         ArgumentNullException.ThrowIfNull(set);
         var sb = new StringBuilder();
         sb.AppendLine("> 🚧 **Work in progress** — opened at the spec commit so the derivation can be");
-        sb.AppendLine($"> reviewed while the run is still working. The specs live in `{SeriesPaths.Planned}/`;");
-        sb.AppendLine("> a correcting comment on the ticket amends an unexecuted spec or re-cuts the");
+        sb.AppendLine($"> reviewed while the run is still working. The specs are recorded in `{SeriesPaths.Planned}/`; an edit");
+        sb.AppendLine("> there is not read back — a correcting comment on the ticket amends an unexecuted spec or re-cuts the");
         sb.AppendLine("> unexecuted tail — an executed spec is never edited.").AppendLine().AppendLine(Rework.ReworkRule.PrBodyLine);
         sb.AppendLine();
         sb.AppendLine(RenderSpecs(set));

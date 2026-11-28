@@ -18,6 +18,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// It answers only for NOTHING AT THE PATH. A branch that holds something this run could not read
 /// is an operator's edit gone wrong, and replacing it from a copy is how the edit disappears.
 /// </para>
+/// <para>2026-11-28-db88a: "nothing at the path" is now "no set stored for the ticket" — the row is the set a run reads.</para>
 /// </summary>
 public sealed class ApprovedSetHandoff(ILogger<ApprovedSetHandoff> logger)
 {
@@ -29,10 +30,10 @@ public sealed class ApprovedSetHandoff(ILogger<ApprovedSetHandoff> logger)
         if (record.Continuation?.BasisRunId is { } basis)
             return new SpecSourceResolver.Decision(SpecSource.Approved, null, false, Failure:
                 $"the approval given in design conversation {Conversation(record)} continues the series run {basis} "
-                + "worked, and the ticket branch no longer holds it; restore the branch's series and approve again");
+                + "worked, and no spec set is stored for the ticket any more; approve the series again in its conversation");
         logger.LogInformation(
             "Spec set {Key} comes from the approval given in conversation {Conversation} "
-            + "({Specs} spec(s)); the ticket branch carries none yet",
+            + "({Specs} spec(s)); none is stored for the ticket yet",
             key, Conversation(record), record.Set.Specs.Count);
         return new SpecSourceResolver.Decision(
             SpecSource.Approved,
