@@ -44,7 +44,7 @@ The practical consequence: asking the human stops being expensive. A run that wo
 
 - Runs list: `waiting_for_input` runs are visibly parked; a resumed run waiting for capacity shows like any queued run, with its position.
 - The ticket: the question or hand-back as a comment, the ticket parked in `needs_clarification_status` where that applies.
-- `result.md`: the masters' reports and any ticket instructions the run chose to ignore.
+- The run page: the run's result, with the masters' reports and any ticket instructions the run chose to ignore.
 
 ## Next
 

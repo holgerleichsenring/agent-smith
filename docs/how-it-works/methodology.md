@@ -35,17 +35,17 @@ The findings pipelines (`security-scan`, `api-security-scan`, `legal-analysis`) 
 
 The methodology works on two levels. The runs follow it: every change starts as a spec with a "done when" list, and ends as a spec record committed to the target repository under `.agentsmith/specs/done/`, with a one-line entry in that repository's context. The skills follow it too. Every skill in the `agent-smith-skills` catalog is YAML frontmatter plus a Markdown body, pinned by version, so the judgement a master exercises can be tuned without a release. See the [Skills catalog](skills-catalog.md).
 
-## What lands in the run directory
+## What a run records
 
-Every run leaves a record in the repository, committed with the change. The run directory is `.agentsmith/runs/{run-id}/`:
+Every run leaves a record, shown on its run page in the dashboard. It is stored with the run, not committed to the repository:
 
-**`result.md`** — what got done. YAML frontmatter with the result, the duration, token counts and the cost block, then the changed files, the masters' reports, decisions and the execution trail. A failed run leads with why. If `pricing` is configured for the agent, dollar costs are accurate; otherwise you get token counts.
+**The result** — what got done. YAML frontmatter with the result, the duration, token counts and the cost block, then the changed files, the masters' reports, decisions and the execution trail. A failed run leads with why. If `pricing` is configured for the agent, dollar costs are accurate; otherwise you get token counts.
 
-**`plan.md`** — the master's own working plan for the run, when it wrote one.
+**The plan** — the master's own working plan for the run, when it recorded one with `record_plan`.
 
 **Decisions** — non-obvious choices the agent made during the run. "Picked `400 BadRequest` over `404 Not Found` because the OpenAPI spec already documents 400 for malformed input". The agent records these with the `log_decision` tool when something would surprise a future reader; they land in `.agentsmith/decisions/<run-id>.yaml` and in the run's event stream.
 
-The specification itself lives next to the code: one YAML spec and one Markdown companion per spec under `.agentsmith/specs/planned/`, moved to `.agentsmith/specs/done/` once it ran, and one manifest per series at `.agentsmith/series/{base}.yaml`, which also records where every part of the ticket went. The run directories are what the [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles when it builds the wiki across all your runs.
+The specification itself lives next to the code: one YAML spec and one Markdown companion per spec under `.agentsmith/specs/planned/`, moved to `.agentsmith/specs/done/` once it ran, and one manifest per series at `.agentsmith/series/{base}.yaml`, which also records where every part of the ticket went. The [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles the `.agentsmith/runs/` directories that older runs committed; new runs add none.
 
 ## What about hallucinations
 

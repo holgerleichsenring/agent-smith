@@ -10,7 +10,7 @@ namespace AgentSmith.Application.Services.Tickets;
 
 /// <summary>
 /// p0317: materializes downloaded ticket documents under
-/// <c>{runRecordDir}/attachments/</c> in the sandbox. txt/md are written as-is;
+/// <c>{directory}/attachments/</c> in the sandbox. txt/md are written as-is;
 /// pdf/docx are shipped in as base64 (the sandbox file surface writes strings),
 /// decoded in-sandbox, then converted with markitdown (same in-sandbox pattern
 /// as BootstrapDocumentHandler — the backend host cannot run markitdown).
@@ -22,7 +22,7 @@ public sealed class TicketDocumentMaterializer(
     ILogger<TicketDocumentMaterializer> logger) : ITicketDocumentMaterializer
 {
     public async Task<IReadOnlyList<MaterializedTicketDocument>> MaterializeAsync(
-        ISandbox sandbox, string runRecordDir,
+        ISandbox sandbox, string directory,
         IReadOnlyList<TicketDocumentAttachment> documents,
         CancellationToken cancellationToken)
     {
@@ -33,7 +33,7 @@ public sealed class TicketDocumentMaterializer(
             try
             {
                 var materialized = await MaterializeOneAsync(
-                    sandbox, files, runRecordDir, document, cancellationToken);
+                    sandbox, files, directory, document, cancellationToken);
                 if (materialized is not null) results.Add(materialized);
             }
             catch (Exception ex)
@@ -47,10 +47,10 @@ public sealed class TicketDocumentMaterializer(
     }
 
     private async Task<MaterializedTicketDocument?> MaterializeOneAsync(
-        ISandbox sandbox, ISandboxFileReader files, string runRecordDir,
+        ISandbox sandbox, ISandboxFileReader files, string directory,
         TicketDocumentAttachment document, CancellationToken cancellationToken)
     {
-        var path = $"{runRecordDir}/attachments/{SanitizeFileName(document.FileName)}";
+        var path = $"{directory}/attachments/{SanitizeFileName(document.FileName)}";
         if (document.IsPlainText)
         {
             await files.WriteAsync(path, Encoding.UTF8.GetString(document.Content), cancellationToken);

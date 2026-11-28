@@ -23,9 +23,9 @@ public sealed class CodingMasterLeadPromptTests
     }
 
     [Fact]
-    public void PackagedCodingMaster_WritesThePlanIntoTheRunRecordDirectory() =>
-        Folded().Should().Contain("Write `<repo>/{RunRecordDir}/plan.md` beside it",
-            "WriteRunResultHandler shows plan.md from the run record directory as the plan");
+    public void PackagedCodingMaster_RecordsThePlanWithRecordPlan() =>
+        Folded().Should().Contain("Record your plan with `record_plan` beside it")
+            .And.NotContain("RunRecordDir", "2026-11-28-db88b: the plan reaches the run page through record_plan");
 
     [Fact]
     public void PackagedCodingMaster_DeclaresNoFixRoundCounter()

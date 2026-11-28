@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-c3f1
+goal: "A run's visual comparison images are stored with the run, not written under .agentsmith/runs/<id>/compare in the repository, so no run commits anything under runs/."
+
+applies_to: "default (VisualComparisonRecorder, VisualComparisonSection)"
+
+requires: [2026-11-28-db88b]
+
+facts:
+  - claim: "VisualComparisonRecorder writes each comparison's diff images into the sandbox under the run record directory's compare/ folder."
+    evidence: "src/backend/AgentSmith.Application/Services/Browser/VisualComparisonRecorder.cs:31-32"
+
+scope:
+  in: "VisualComparisonRecorder stores the comparison images where the run page reads run artifacts; the result's comparison section links them there."
+  out: "Images already committed under runs/ in repositories."
+
+steps:
+  - id: store
+    action: "Store the comparison images through the run's artifact store and stop writing them to the sandbox."
+
+done:
+  - "A run with a visual comparison writes no file under .agentsmith/runs/ (test)."

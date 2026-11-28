@@ -25,6 +25,7 @@ public sealed class WriteRunResultHandlerTests
     private readonly InMemoryDialogueTrail _dialogueTrail = new();
     private readonly Dictionary<string, string> _written = new();
     private readonly Dictionary<string, string?> _initialFiles = new();
+    private readonly InMemoryRunArtifactStore _store = new();
     private readonly WriteRunResultHandler _sut;
 
     public WriteRunResultHandlerTests()
@@ -44,23 +45,22 @@ public sealed class WriteRunResultHandlerTests
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
 
-        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(),
+        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, _store, new AgentSmith.Tests.Events.RecordingEventPublisher(),
             new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
             new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
-    public async Task ExecuteAsync_WritesPlanFile()
+    public async Task ExecuteAsync_StoresThePlan()
     {
         SetupContextYaml();
         var context = CreateContext("Add login feature");
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var planEntry = _written.FirstOrDefault(kv => kv.Key.EndsWith("plan.md"));
-        planEntry.Key.Should().NotBeNull();
-        planEntry.Value.Should().Contain("Add login feature");
-        planEntry.Value.Should().Contain("Test summary");
+        var plan = await _store.ReadPlanMarkdownAsync(SampleRunId, CancellationToken.None);
+        plan.Should().Contain("Add login feature");
+        plan.Should().Contain("Test summary");
     }
 
     [Fact]
@@ -71,9 +71,7 @@ public sealed class WriteRunResultHandlerTests
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var resultEntry = _written.FirstOrDefault(kv => kv.Key.EndsWith("result.md"));
-        resultEntry.Key.Should().NotBeNull();
-        var content = resultEntry.Value;
+        var content = await Result();
 
         content.Should().Contain("---");
         content.Should().Contain("ticket: \"#42");
@@ -99,8 +97,7 @@ public sealed class WriteRunResultHandlerTests
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var resultEntry = _written.First(kv => kv.Key.EndsWith("result.md"));
-        var content = resultEntry.Value;
+        var content = await Result();
 
         content.Should().MatchRegex("duration_seconds: 14[56]\\b");
         content.Should().Contain("tokens:");
@@ -120,8 +117,7 @@ public sealed class WriteRunResultHandlerTests
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var resultEntry = _written.First(kv => kv.Key.EndsWith("result.md"));
-        var content = resultEntry.Value;
+        var content = await Result();
 
         content.Should().Contain("---");
         content.Should().Contain("ticket:");
@@ -164,7 +160,7 @@ public sealed class WriteRunResultHandlerTests
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var content = _written.First(kv => kv.Key.EndsWith("result.md")).Value;
+        var content = await Result();
 
         content.Should().Contain("## Decisions");
         content.Should().Contain("### Architecture");
@@ -181,24 +177,33 @@ public sealed class WriteRunResultHandlerTests
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var content = _written.First(kv => kv.Key.EndsWith("result.md")).Value;
+        var content = await Result();
 
         content.Should().NotContain("## Decisions");
     }
 
     [Fact]
-    public async Task ExecuteAsync_RunDirName_IsRunIdOnly_NoTitleSlug()
+    public async Task ExecuteAsync_WritesNothingIntoTheSandbox()
     {
-        // p0258: the per-run folder is the run id ALONE — the ticket-title slug
-        // was dropped (it belongs inside plan.md/result.md, not in a path segment).
+        // 2026-11-28-db88b: the run's plan and result live with the run, on its run page.
         SetupContextYaml();
         var context = CreateContext("Add login feature");
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var planPath = _written.Keys.First(k => k.EndsWith("plan.md"));
-        planPath.Should().Contain($"runs/{SampleRunId}/plan.md");
-        planPath.Should().NotContain("add-login-feature");
+        _written.Keys.Should().NotContain(k => k.Contains(".agentsmith/runs/"));
+        (await _store.ReadResultMarkdownAsync(SampleRunId, CancellationToken.None)).Should().Contain("Add login feature");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_APlanTheMasterRecorded_IsNotOverwritten()
+    {
+        await _store.WritePlanMarkdownAsync(SampleRunId, "# The master's plan", CancellationToken.None);
+        var context = CreateContext("Add login feature");
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        (await _store.ReadPlanMarkdownAsync(SampleRunId, CancellationToken.None)).Should().Be("# The master's plan");
     }
 
     [Fact]
@@ -248,6 +253,9 @@ public sealed class WriteRunResultHandlerTests
         RunIdGenerator.FormatForDisplay("r01").Should().Be("r01");
         RunIdGenerator.FormatForDisplay("").Should().Be("");
     }
+
+    private async Task<string> Result() =>
+        (await _store.ReadResultMarkdownAsync(SampleRunId, CancellationToken.None))!;
 
     private void SetupContextYaml()
     {

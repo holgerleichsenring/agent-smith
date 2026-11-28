@@ -28,7 +28,7 @@ In a run over several repositories, the file copy goes to the repository the dec
 
 During the documentation and test passes after the code is written, the choice is limited to the repositories the run changed.
 
-The run's own decision list, the one in `result.md` and on the dashboard, is not split: it holds every decision of the run whichever repository got the file.
+The run's own decision list, the one in the run's result on the run page, is not split: it holds every decision of the run whichever repository got the file.
 
 If the repository copy cannot be written, the decision is still recorded on the run and the agent carries on. A decision log never ends a run.
 
@@ -41,9 +41,9 @@ The code diff shows *what* changed. The commit message summarizes *what* was don
 - Why a simpler approach was chosen over a more complete one
 - Why a test was written one way and not another
 
-## Decisions in result.md
+## Decisions in the run's result
 
-The run's `result.md` includes a Decisions section grouped by category:
+The run's result includes a Decisions section grouped by category:
 
 ```markdown
 ## Decisions
@@ -63,4 +63,4 @@ Decisions turn AI-generated code from a black box into something a team can main
 
 ## Decisions in the knowledge base
 
-The [knowledge base](knowledge-base.md) compiles the run records under `.agentsmith/runs/`, including the Decisions section of each `result.md`, into `.agentsmith/wiki/decisions.md`, and notes when a later run superseded an earlier decision.
+The [knowledge base](knowledge-base.md) compiles the run records that older runs committed under `.agentsmith/runs/`, including the Decisions section of each `result.md`, into `.agentsmith/wiki/decisions.md`, and notes when a later run superseded an earlier decision.

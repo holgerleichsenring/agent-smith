@@ -51,15 +51,9 @@ On a server the configuration lives in the database and is edited in the dashboa
 
 ## What lands on disk after a run
 
-Every run gets a directory under `.agentsmith/runs/`, named by the run id: a UTC timestamp plus a 4-hex collision suffix.
+A run's own record stays with the run, not in the repository: its plan (the master's working plan, when it recorded one) and its result (what got done, the master's report, cost in tokens and USD) are on the run page in the dashboard.
 
-```
-.agentsmith/runs/2026-05-22T14-03-11-9f2a/
-├── plan.md       — the master's working plan, when it wrote one
-└── result.md     — what got done, the master's report, cost in tokens and USD
-```
-
-Next to it, the spec a run executed sits under `.agentsmith/specs/`, and the choices it made go into `.agentsmith/decisions/`, each naming what it picked and what it beat. That's the why-record. Long after, when you've forgotten why the agent picked path A over path B, the answer is in there. That was the reason we built it this way: we got tired of code we couldn't reverse-engineer.
+In the repository, the spec a run executed sits under `.agentsmith/specs/`, and the choices it made go into `.agentsmith/decisions/`, each naming what it picked and what it beat. That's the why-record. Long after, when you've forgotten why the agent picked path A over path B, the answer is in there. That was the reason we built it this way: we got tired of code we couldn't reverse-engineer.
 
 ## What's supported
 

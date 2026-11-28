@@ -92,6 +92,7 @@ integrations:
 state:
   active: {}
   planned:
+    2026-11-28-c3f1: "VISUAL COMPARISON OFF BRANCH (VisualComparisonRecorder). A run's comparison images are stored with the run, not under .agentsmith/runs/<id>/compare. requires db88b. -> .agentsmith/specs/planned/2026-11-28-c3f1-visual-comparison-off-branch.yaml"
     2026-11-11-205fj: "SPAWN SURFACE DESCRIPTION (spawn_agents). The design surface states its configured child count and rounds, no coding-run vocabulary. -> .agentsmith/specs/planned/2026-11-11-205fj-spawn-surface-description.yaml"
     2026-11-10-825f: "RESUMABLE FILING (outcome ticket filer). A filing record keyed by draft ids keeps the series base, claim refresh and tracker markers make each ticket exactly once, and finish resumes a partial filing. requires ccd9. -> .agentsmith/specs/planned/2026-11-10-825f-filing-resumable.yaml"
     2026-10-28-8c7c: "MYSQL PROVIDER (Persistence). Measure the SQLite-typed shared set on MySQL 8, then a dedicated set with a live test or drop mysql from the providers. requires ebb0. -> .agentsmith/specs/planned/2026-10-28-8c7c-persistence-mysql-provider.yaml"

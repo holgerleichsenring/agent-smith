@@ -2,9 +2,9 @@
 
 Every run tracks token usage, cost and duration, machine-parseable and human-readable. Besides LLM cost, every finished run also shows its **reserved capacity-time** (memory request × pod lifetime, in Gi·minutes), so you see the infrastructure a run held and not just the tokens it burned. See [Capacity](../operations/capacity.md).
 
-## result.md frontmatter
+## The result's frontmatter
 
-Each run writes a `result.md` into `.agentsmith/runs/<run-id>/` with YAML frontmatter:
+Each run's result, shown on its run page, opens with YAML frontmatter:
 
 ```yaml
 ---
@@ -39,8 +39,6 @@ cost:
 ```
 
 `phases` are the execution phases the calls ran under (`Plan`, `Implementation`, `Verify`, `Review` and so on). Calls made outside any phase land in `Other`, so the rows always add up to `total_usd`. Each row names the model that actually ran and is priced call by call at that model's price, so a run that mixes models reconciles too.
-
-A multi-repo run adds a `repo_cost:` block to each repo's `result.md` with that repo's share, next to the pipeline total.
 
 ## Pricing
 
@@ -143,7 +141,9 @@ agents:
 
 ## Querying cost data
 
-The frontmatter is machine-parseable with `yq`:
+A run's cost is on its run page. `GET /api/runs/{runId}/measurement` returns it as JSON, with the calls and tokens per model.
+
+Older runs committed their `result.md` under `.agentsmith/runs/<run-id>/` in the repository. Those records stay there and their frontmatter is machine-parseable with `yq`:
 
 ```bash
 # Total cost of a run

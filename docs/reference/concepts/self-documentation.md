@@ -34,7 +34,7 @@ The `code` pipeline keeps the same record in the repositories it works on: every
 
 ### Layer 2: Runs (the "how much" and "what happened")
 
-Every run leaves a directory under `.agentsmith/runs/<run-id>/` in the repository it worked on, with a `plan.md` and a `result.md`. The `result.md` carries machine-readable frontmatter:
+Every run keeps its plan and its result with the run, shown on the run page in the dashboard; neither is written into the repository. The result carries machine-readable frontmatter:
 
 ```yaml
 ---
@@ -79,7 +79,7 @@ Most AI tools are black boxes. You don't know why they do what they do, how much
 
 codeably is an audit trail. Long after a pipeline ran, you can answer:
 
-- **What did it change?** `result.md` lists the changed files
+- **What did it change?** The run's result lists the changed files
 - **What did it cost?** Token usage and USD in the frontmatter
 - **Why was it built that way?** The spec with its goal and scope
 - **What alternatives were considered?** The decision file for that spec or run
@@ -89,9 +89,6 @@ codeably is an audit trail. Long after a pipeline ran, you can answer:
 ```bash
 # See all specs
 ls .agentsmith/specs/done/
-
-# See all runs
-ls .agentsmith/runs/
 
 # Find when a decision was made
 grep -r "Repository" .agentsmith/decisions/

@@ -49,7 +49,7 @@ When an attempt ends with work left in its series and nothing waiting for a pers
 
 ## When it goes wrong
 
-A run always finalizes — success, shortfall, failure, timeout, cancel — and `result.md` leads with the why. It lists the files the branch carries, the run's wall-clock duration, and a failure's text once.
+A run always finalizes — success, shortfall, failure, timeout, cancel — and the run's result leads with the why. It lists the files the branch carries, the run's wall-clock duration, and a failure's text once.
 
 **Failure.** A step failed and no spec was verified. A repository gets a commit only for work the run actually did there, under a WIP subject, never `fix:`; its draft PR is refreshed with a "Run failed" banner naming the reason and never says the run completed. A run that failed before any spec ran pushes nothing beyond the series commit, so what you find is the spec PR. The ticket gets the `agent-smith:failed` label, your configured `failed_status` if set, and a comment with the failing step, the error message and the spec PR.
 
@@ -67,14 +67,7 @@ When a repo in scope hasn't been bootstrapped yet, `BootstrapGate` stops the run
 
 ## Run identifiers
 
-Every run gets an id of the shape `{yyyy-MM-ddTHH-mm-ss}-{4hex}`: an ISO-8601 timestamp in UTC plus a 4-hex random suffix, which kills same-second collisions when a batch of tickets all queue at once. Lexicographically sortable in `ls`. The run's record directory is named after the id alone.
-
-```
-.agentsmith/runs/
-├── 2026-05-22T14-03-11-9f2a/
-├── 2026-05-22T14-29-44-4c19/
-└── 2026-05-22T15-04-02-b7d1/
-```
+Every run gets an id of the shape `{yyyy-MM-ddTHH-mm-ss}-{4hex}`: an ISO-8601 timestamp in UTC plus a 4-hex random suffix, which kills same-second collisions when a batch of tickets all queue at once. Lexicographically sortable. The run's plan and result are stored under this id and shown on its run page; nothing is written into the repository under it.
 
 ## Next
 

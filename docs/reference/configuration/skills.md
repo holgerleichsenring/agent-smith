@@ -75,7 +75,7 @@ Everything after the closing `---` is the prompt, used as it stands. There are n
 
 `{{ref:<name>}}` inlines `references/<name>.md` from the catalog root. The name is lower-case words joined by hyphens. A reference cannot cite another reference, and a citation of a file the catalog does not ship fails the prompt rather than sending it without the text.
 
-A master body can also use the master prompt tokens, in single braces: `{ProjectContextSection}`, `{CodingPrinciples}`, `{CodeMapSection}`, `{RepoNames}`, `{PlanSection}`, `{RunRecordDir}`, `{MaxFixIterations}`, `{ExpectationSection}`, `{SpecSection}`, `{ProgressLedgerSection}`, `{MemoryIndexSection}` and `{PrDiffSection}`. The step that runs the master supplies the values. A known token that the step does not fill fails the render. Braces outside this set, such as `/users/{id}` in an API example, are left alone.
+A master body can also use the master prompt tokens, in single braces: `{ProjectContextSection}`, `{CodingPrinciples}`, `{CodeMapSection}`, `{RepoNames}`, `{PlanSection}`, `{MaxFixIterations}`, `{ExpectationSection}`, `{SpecSection}`, `{ProgressLedgerSection}`, `{MemoryIndexSection}` and `{PrDiffSection}`. The step that runs the master supplies the values. A known token that the step does not fill fails the render. Braces outside this set, such as `/users/{id}` in an API example, are left alone.
 
 ## Optional companion files
 

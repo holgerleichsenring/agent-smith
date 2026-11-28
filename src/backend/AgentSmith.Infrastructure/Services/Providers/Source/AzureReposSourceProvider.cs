@@ -87,14 +87,14 @@ public sealed class AzureReposSourceProvider(
     // Azure DevOps rejects a PR whose description exceeds 4000 characters
     // ("A description for a pull request must not be longer than 4000
     // characters."). A multi-repo run record easily blows past it; truncate with
-    // a visible marker so the PR still opens — the full record lives in result.md.
+    // a visible marker so the PR still opens — the full record lives on the run page.
     internal const int MaxDescriptionChars = 4000;
 
     internal static string TruncateDescription(string? description)
     {
         if (string.IsNullOrEmpty(description) || description.Length <= MaxDescriptionChars)
             return description ?? string.Empty;
-        const string marker = "\n\n… (truncated — see result.md for the full record)";
+        const string marker = "\n\n… (truncated — see the run page for the full record)";
         return string.Concat(description.AsSpan(0, MaxDescriptionChars - marker.Length), marker);
     }
 

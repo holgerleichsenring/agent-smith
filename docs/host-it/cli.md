@@ -48,7 +48,7 @@ That's fine for single-repo work on a machine you trust. For per-repo toolchain 
 
 ## Where a run leaves its record
 
-The run record is written into each repository the run changed, under `.agentsmith/runs/<run>/` (`result.md`, and `plan.md` when the run had one), and committed on the run branch, so it travels with the pull request.
+The run's plan and result are not written into any repository. A server run stores them with the run and shows them on the run page; a CLI run keeps them in memory for that process only. Older runs may have committed a `.agentsmith/runs/<run>/` directory; it stays where it is.
 
 A CLI run also records its facts to a database, the same way a server run does. It uses the `persistence:` block when that location can be written. The default points at `/var/lib/agentsmith/agentsmith.db`, the container path, which a laptop usually can't create; then the run falls back to `~/.agentsmith/runs.db` and says so on the output.
 

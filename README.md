@@ -34,7 +34,7 @@ You drop a ticket into your tracker. codeably reads it and derives a specificati
 
 Tickets in Azure Boards and code in Azure Repos? That works end to end, no GitHub mirror needed — [the Azure DevOps page](https://codeably.ai/azure-devops/) says why that matters.
 
-The reasoning lands on disk: the specification under `.agentsmith/specs/`, every choice with the alternative it beat under `.agentsmith/decisions/`, and per run a `result.md` with the delivery account, token usage and dollar cost. Read it later, when you've forgotten why.
+The reasoning lands on disk: the specification under `.agentsmith/specs/`, every choice with the alternative it beat under `.agentsmith/decisions/`, and per run a result with the delivery account, token usage and dollar cost, on the run page. Read it later, when you've forgotten why.
 
 ## What decides that a run delivered
 

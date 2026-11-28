@@ -26,8 +26,7 @@ public sealed class PrReviewCommentRenderer
             : $"**{selection.TotalFindings} finding(s)**: {RenderTally(selection)}");
         AppendFoldedFindings(sb, selection.SummaryOnly);
         sb.AppendLine();
-        sb.Append($"Full report: run `{runId}` in the agent-smith dashboard ")
-          .Append($"(`.agentsmith/runs/{runId}/result.md`).");
+        sb.Append($"Full report: run `{runId}` on its run page in the agent-smith dashboard.");
         return sb.ToString();
     }
 

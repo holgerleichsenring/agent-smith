@@ -21,6 +21,7 @@ public sealed class WriteRunResultTopologyTests
     private const string SampleRunId = "2026-05-20T22-27-43-8a3f";
     private readonly InMemoryDialogueTrail _dialogueTrail = new();
     private readonly Dictionary<string, string> _written = new();
+    private readonly InMemoryRunArtifactStore _store = new();
     private readonly WriteRunResultHandler _sut;
 
     public WriteRunResultTopologyTests()
@@ -36,7 +37,7 @@ public sealed class WriteRunResultTopologyTests
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
 
-        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(),
+        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, _store, new AgentSmith.Tests.Events.RecordingEventPublisher(),
             new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
             new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
@@ -113,9 +114,10 @@ public sealed class WriteRunResultTopologyTests
 
     private string ResultContent()
     {
-        var entry = _written.FirstOrDefault(kv => kv.Key.EndsWith("result.md"));
-        entry.Key.Should().NotBeNull();
-        return entry.Value;
+        _written.Keys.Should().NotContain(k => k.Contains(".agentsmith/runs/"), "2026-11-28-db88b: the record lives with the run");
+        var result = _store.ReadResultMarkdownAsync(SampleRunId, CancellationToken.None).GetAwaiter().GetResult();
+        result.Should().NotBeNull();
+        return result!;
     }
 
     private PipelineContext NewPipelineWithSandbox()

@@ -97,15 +97,6 @@ public sealed class AgenticMasterHandler(
         // prompt + a ticket-parking ask_human instead of the live transport.
         var isSpecExecution = context.Pipeline.Has(ContextKeys.CurrentSpec);
         if (isSpecExecution) await memoryIndex.RefreshAsync(context.Pipeline, cancellationToken); // what spec N remembered
-        // p0244: give the master the per-run record dir so it writes plan.md /
-        // decisions.md DIRECTLY into .agentsmith/runs/{runId}/ (the same dir the
-        // framework writes result.md to + reads the plan back from), instead of a
-        // loose .agentsmith/plan.md that gets overwritten every run.
-        var runRecordDir = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var rid)
-            && !string.IsNullOrEmpty(rid)
-            ? RunRecordPaths.RelativeDir(rid!)
-            : RunRecordPaths.AgentSmithDir;
-
         // p0394a: the ratified spec is the run's single planning artifact —
         // it is rendered into the master body as the plan of record and seeds the
         // progress ledger below. Absent on non-code surfaces (scan, spec dialog).
@@ -188,7 +179,6 @@ public sealed class AgenticMasterHandler(
             ["CodeMapSection"] = MasterPromptSections.BuildCodeMapSection(context.RepoCodeMaps),
             ["RepoNames"] = MasterPromptSections.BuildRepoNamesSection(allAddresses),
             ["PlanSection"] = MasterPromptSections.BuildPlanSection(draft),
-            ["RunRecordDir"] = runRecordDir,
             // p0258: the master must iterate when its own build/tests come back
             // red (fix the code or the now-stale test, re-run) instead of stopping
             // at the first failure — bounded by this config value (agent.max_fix_
@@ -346,7 +336,7 @@ public sealed class AgenticMasterHandler(
         var extras = isSpecDialog
             ? (Conversation: string.Empty, Attachments: string.Empty, ImageParts: dialog.Parts)
             : await ticketExtras.ComposeAsync(
-                context, sandboxes[defaultKey], runRecordDir, repoPrefix, isScanMaster, cancellationToken);
+                context, sandboxes[defaultKey], repoPrefix, isScanMaster, cancellationToken);
 
         var userPrompt = isSpecDialog
             ? dialogTurn.Prompt(context, dialog)

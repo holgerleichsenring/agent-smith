@@ -244,36 +244,32 @@ public sealed class FixBugTests
     }
 
     [Fact]
-    public async Task FixBug_MasterWritesPlanIntoRunDir_LandsInSandbox()
+    public async Task Harness_ACodingRun_WritesNothingUnderRuns()
     {
-        // p0239 exception/finalization fidelity: the master writes plan.md /
-        // decisions.md DIRECTLY into the per-run record dir
-        // (.agentsmith/runs/{runId}-{slug}/), the same dir WriteRunResult caches
-        // result.md to. Prove a scripted plan.md write reaches the sandbox at the
-        // run-record path so a "wrong path" regression (plan.md landing loose at
-        // .agentsmith/plan.md, or not at all) fails this named test.
+        // 2026-11-28-db88b: a coding run's record lives with the run. The master records its plan with
+        // record_plan, the result goes to the artifact store, and no step writes under .agentsmith/runs/ —
+        // nor does the master's prompt name that directory.
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
-            // p0394a: no plan slot — the spec is the plan, the master consumes next.
-            .EnqueueToolCall("write_file", """{"path":"primary/.agentsmith/runs/run/plan.md","content":"# Plan"}""")
+            .EnqueueToolCall("record_plan", """{"markdown":"# Plan\n- src/Patch.cs: the fix"}""")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");
 
-        // Route strips the "primary/" repo prefix, so the run-record write lands
-        // as the bare repo-relative path ".agentsmith/runs/run/plan.md".
-        var wrotePlan = harness.StubSandboxFactory!.Spawned
-            .SelectMany(s => s.Sandbox.RanSteps)
-            .Any(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
-                && s.Path is { } p
-                && p.Contains(".agentsmith/runs/", StringComparison.Ordinal)
-                && p.EndsWith("plan.md", StringComparison.Ordinal));
-        wrotePlan.Should().BeTrue(
-            "the master's plan.md write must reach the sandbox under the run-record dir");
+        var steps = harness.StubSandboxFactory!.Spawned.SelectMany(s => s.Sandbox.RanSteps).ToList();
+        steps.Should().NotContain(s => s.Path != null && s.Path.Contains(".agentsmith/runs/", StringComparison.Ordinal),
+            "nothing is written under the run record directory any more");
+        steps.Should().NotContain(s => s.Args != null && s.Args.Any(a => a.Contains(".agentsmith/runs/", StringComparison.Ordinal)));
+        harness.ChatClient.CallMessages.SelectMany(m => m).Select(m => m.Text ?? string.Empty)
+            .Should().NotContain(t => t.Contains(".agentsmith/runs/", StringComparison.Ordinal) || t.Contains("{RunRecordDir}", StringComparison.Ordinal),
+                "no master prompt names the run record directory");
+        var store = harness.Services.GetRequiredService<IRunArtifactStore>();
+        (await store.ReadPlanMarkdownAsync(runner.LastRunId!, CancellationToken.None)).Should().Contain("src/Patch.cs: the fix",
+            "the plan the master recorded reaches the run page");
+        (await store.ReadResultMarkdownAsync(runner.LastRunId!, CancellationToken.None)).Should().NotBeNull();
     }
 
     [Fact]

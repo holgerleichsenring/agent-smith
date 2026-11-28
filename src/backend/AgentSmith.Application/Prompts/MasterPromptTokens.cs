@@ -16,7 +16,6 @@ public static class MasterPromptTokens
         "CodeMapSection",
         "RepoNames",
         "PlanSection",
-        "RunRecordDir",
         "MaxFixIterations",
         "ExpectationSection",     // p0328/p0393a: the acceptance contract
         "SpecSection",            // p0393a: the current spec's verbatim ticket spans

@@ -33,8 +33,16 @@ public sealed partial class MasterToolComposition
         var ensure = _ensure.Create(pipeline, fs, _logger);
         var revise = records.ReviseSpec?.JoiningThrough(ensure.EnsureRepoSandbox);
         return [.. master, .. ensure.GetTools(null, null),
-            .. progress.GetTools(null, null), .. revise?.GetTools(null, null) ?? []];
+            .. progress.GetTools(null, null), .. revise?.GetTools(null, null) ?? [], .. RecordPlan(pipeline)];
     }
+
+    // 2026-11-28-db88b: record_plan, where the run has an id the run page reads its plan by.
+    private IEnumerable<AITool> RecordPlan(Contracts.Commands.PipelineContext pipeline) =>
+        pipeline.TryGet<string>(Contracts.Commands.ContextKeys.RunId, out var runId) && !string.IsNullOrEmpty(runId)
+            ? new RecordPlanToolHost(_artifacts, runId,
+                pipeline.TryGet<Contracts.Models.SpecDraft>(Contracts.Commands.ContextKeys.CurrentSpec, out var spec) ? spec?.SpecId : null,
+                _logger).GetTools(null, null)
+            : [];
 
     private const string RememberDescription =
         "Keeps what the person said that holds beyond this turn — how they want work done, a constraint of the project, "

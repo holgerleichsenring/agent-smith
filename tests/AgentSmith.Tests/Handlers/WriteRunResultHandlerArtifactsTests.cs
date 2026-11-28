@@ -19,6 +19,7 @@ public sealed class WriteRunResultHandlerArtifactsTests
 {
     private readonly Dictionary<string, string> _written = new();
     private readonly Dictionary<string, string?> _initial = new();
+    private readonly InMemoryRunArtifactStore _store = new();
     private readonly WriteRunResultHandler _sut;
 
     public WriteRunResultHandlerArtifactsTests()
@@ -40,56 +41,22 @@ public sealed class WriteRunResultHandlerArtifactsTests
 
         _initial["/work/.agentsmith/context.yaml"] = "state:\n  done: {}\n  active: {}";
 
-        _sut = new WriteRunResultHandler(factory.Object, new InMemoryDialogueTrail(), new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(),
+        _sut = new WriteRunResultHandler(factory.Object, new InMemoryDialogueTrail(), _store, new AgentSmith.Tests.Events.RecordingEventPublisher(),
             new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
             new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
-    public async Task ExecuteAsync_PlanJsonInContext_WritesPlanJsonToRunDir()
+    public async Task ExecuteAsync_StructuredArtifactsInContext_WriteNothingIntoTheSandbox()
     {
+        // 2026-11-28-db88b: plan.json / diff.json / bootstrap.md had no writer left; nothing goes under runs/.
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PlanJson, "{\"summary\":\"x\"}");
-
-        await _sut.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
-
-        var planJson = _written.Single(kv => kv.Key.EndsWith("plan.json"));
-        planJson.Value.Should().Contain("\"summary\": \"x\"");
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_DiffJsonInContext_WritesDiffJsonToRunDir()
-    {
-        var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.DiffJson, "{\"changes\":[]}");
 
         await _sut.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
 
-        var diffJson = _written.Single(kv => kv.Key.EndsWith("diff.json"));
-        diffJson.Value.Should().Contain("\"changes\"");
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_BootstrapMarkdownInContext_WritesBootstrapMdToRunDir()
-    {
-        var pipeline = NewPipelineWithSandbox();
-        pipeline.Set(ContextKeys.BootstrapMarkdown, "# Bootstrap\n\nDetected stack: .NET 8");
-
-        await _sut.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
-
-        var bootstrap = _written.Single(kv => kv.Key.EndsWith("bootstrap.md"));
-        bootstrap.Value.Should().Contain("# Bootstrap");
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_NoArtifactsInContext_OnlyWritesPlanAndResult()
-    {
-        var pipeline = NewPipelineWithSandbox();
-
-        await _sut.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
-
-        _written.Should().NotContainKey(_written.Keys.FirstOrDefault(k => k.EndsWith("plan.json")) ?? "missing");
-        _written.Keys.Should().NotContain(k => k.EndsWith("diff.json") || k.EndsWith("bootstrap.md"));
+        _written.Keys.Should().NotContain(k => k.Contains(".agentsmith/runs/"));
     }
 
     [Fact]
@@ -102,9 +69,9 @@ public sealed class WriteRunResultHandlerArtifactsTests
 
         await _sut.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
 
-        var result = _written.Single(kv => kv.Key.EndsWith("result.md"));
-        result.Value.Should().Contain("## Per-skill cost breakdown");
-        result.Value.Should().Contain("plan-author (planner, Plan)");
+        var result = await Result();
+        result.Should().Contain("## Per-skill cost breakdown");
+        result.Should().Contain("plan-author (planner, Plan)");
     }
 
     [Fact]
@@ -114,17 +81,15 @@ public sealed class WriteRunResultHandlerArtifactsTests
 
         await _sut.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
 
-        var result = _written.Single(kv => kv.Key.EndsWith("result.md"));
-        result.Value.Should().NotContain("Per-skill cost breakdown");
+        var result = await Result();
+        result.Should().NotContain("Per-skill cost breakdown");
     }
 
     [Fact]
-    public async Task ExecuteAsync_CodingRun_RelocatesLoosePlanIntoRunDir()
+    public async Task ExecuteAsync_CodingRun_LeavesALoosePlanWhereItIs()
     {
-        // p0237: coding presets have Plan == null; the agent writes its plan to
-        // the loose /work/.agentsmith/plan.md. WriteRunResult must MOVE it into
-        // the per-run record (so it isn't overwritten next run) and leave a
-        // pointer breadcrumb at the loose path.
+        // 2026-11-28-db88b: a coding master records its plan with record_plan; a loose plan.md an old
+        // skill left is the repository's file, neither moved nor replaced by a breadcrumb.
         var pipeline = NewPipelineWithSandbox();
         _initial["/work/.agentsmith/plan.md"] = "# Agent plan\n\n- step 1";
         var repo = new Repository(new BranchName("feature/x"), "https://example.test/x");
@@ -133,10 +98,8 @@ public sealed class WriteRunResultHandlerArtifactsTests
 
         await _sut.ExecuteAsync(ctx, CancellationToken.None);
 
-        var runDirPlan = _written.Single(kv => kv.Key.Contains("/runs/") && kv.Key.EndsWith("plan.md"));
-        runDirPlan.Value.Should().Contain("# Agent plan", "the plan content belongs in the per-run record");
-        _written["/work/.agentsmith/plan.md"].Should().StartWith("Plan moved to",
-            "the loose repo-root plan.md is replaced by a pointer breadcrumb");
+        _written.Keys.Should().NotContain(k => k.EndsWith("plan.md"));
+        (await _store.ReadPlanMarkdownAsync(RunId, CancellationToken.None)).Should().BeNull();
     }
 
     [Fact]
@@ -150,17 +113,21 @@ public sealed class WriteRunResultHandlerArtifactsTests
 
         await _sut.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
 
-        var result = _written.Single(kv => kv.Key.EndsWith("result.md"));
-        result.Value.Should().Contain("## Outcome");
-        result.Value.Should().Contain("did not complete");
-        result.Value.Should().Contain("network_timeout_seconds");
+        var result = await Result();
+        result.Should().Contain("## Outcome");
+        result.Should().Contain("did not complete");
+        result.Should().Contain("network_timeout_seconds");
     }
+
+    private const string RunId = "2026-05-20T22-27-43-8a3f";
+
+    private async Task<string> Result() => (await _store.ReadResultMarkdownAsync(RunId, CancellationToken.None))!;
 
     private static PipelineContext NewPipelineWithSandbox()
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
-        pipeline.Set(ContextKeys.RunId, "2026-05-20T22-27-43-8a3f");
+        pipeline.Set(ContextKeys.RunId, RunId);
         return pipeline;
     }
 

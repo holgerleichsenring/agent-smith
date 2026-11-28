@@ -33,7 +33,7 @@ public static class CodeRunResult
         if (openedEntries.Count == 0 && failed > 0)
             return CommandResult.Fail($"All {opened.Count} PR open attempts failed.");
         if (openedEntries.Count == 0)
-            return CommandResult.Ok("No PR opened (nothing to record).");
+            return CommandResult.Ok("No PR opened: the run changed nothing to commit; its record is on the run page.");
         var urls = string.Join(", ", openedEntries.Select(o => o.Url));
         if (!anyCode)
             return CommandResult.Ok(
