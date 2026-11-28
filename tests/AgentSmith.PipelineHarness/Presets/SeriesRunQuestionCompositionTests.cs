@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
@@ -99,6 +100,43 @@ public sealed class SeriesRunQuestionCompositionTests
         await run.ResumedWithAsync("15 minutes");
     }
 
+    // 2026-11-28-b1db: the night loop. A run's environment question the master carries to the operator with a recommendation
+    // is never taken by default: hours past the configured minutes nothing is answered, no beat is due on it, the run's inbox
+    // stays empty (the run stays parked and is told nothing), and the master is not handed a default to relay or asked again.
+    [Fact]
+    public async Task EnvironmentQuestion_CarriedToTheOperator_PastTheDeadline_IsNotTakenByDefault_TheRunStaysParked()
+    {
+        await using var run = await SeriesParkAsync("environment");
+        run.Harness.ChatClient
+            .EnqueueToolCall("ask_human", """{"question":"Provision a disposable database and set its connection string for #1?","choices":[{"label":"Provision it"},{"label":"Skip the check"}],"recommended_index":0,"forTicket":"1"}""")
+            .EnqueueText("I asked the operator for #1.");
+        await run.BeatAsync();
+        var asked = (await run.RecordAsync()).Question!;
+        asked.Should().Match<SeriesQuestion>(q => q.NoDefault && q.DeadlineAt == null && q.Recommended == "Provision it");
+        (await run.TextsAsync()).Should().Contain(t => t.Contains("nothing is taken by default"));
+
+        run.Rig.Clock.Advance(TimeSpan.FromHours(7));
+        var record = await run.RecordAsync();
+        var facts = await run.Services.GetRequiredService<ISeriesTicketFacts>().ReadAsync(record, default);
+        SeriesBeatDue.Why(record with { LastTable = SeriesTable.Snapshot(
+            SeriesTable.Rows(facts, run.Rig.Clock.GetUtcNow())) }, facts, run.Rig.Clock.GetUtcNow())
+            .Should().BeNull("no deadline makes a beat due");
+        var called = false;
+        run.Harness.ChatClient.EnqueueDeferred(() =>
+        {
+            called = true;
+            return new ChatResponse(new ChatMessage(ChatRole.Assistant, "Still waiting for the operator."));
+        });
+        await run.BeatAsync();
+
+        var kept = (await run.RecordAsync()).Question!;
+        kept.Should().Match<SeriesQuestion>(q => q.Id == asked.Id && q.Answer == null && !q.ByDefault);
+        called.Should().BeFalse("no default is handed to the master and the carried question is not raised again: it takes no turn");
+        (await run.Services.GetRequiredService<IDialogueAnswerInbox>().GetAsync(RunId, QuestionId, default)).Should().BeNull();
+        (await run.Services.GetRequiredService<IRunCheckpointStore>().GetByRunIdAsync(RunId, default))!.ResumedAt.Should().BeNull();
+        (await run.TextsAsync()).Should().NotContain(t => t.StartsWith("Taken by default"));
+    }
+
     // A run retried and parked on another question is never answered with what was meant for the earlier one.
     [Fact]
     public async Task TellTicket_AnotherQuestionId_AnswersNothing_AndNamesTheCurrentQuestion()
@@ -141,7 +179,7 @@ public sealed class SeriesRunQuestionCompositionTests
     private const string Thread = "d-ask";
 
     // A filed series of three whose first ticket's run parked on a question, its run row and checkpoint as the park leaves them.
-    private static async Task<ParkedSeries> SeriesParkAsync()
+    private static async Task<ParkedSeries> SeriesParkAsync(string answerer = "target")
     {
         var rig = new SeriesRig(Noon);
         var harness = RealCompositionHarness.Build(
@@ -159,11 +197,11 @@ public sealed class SeriesRunQuestionCompositionTests
         var series = (await sp.GetRequiredService<ISeriesRunStore>().ActiveForConversationAsync(state.JobId, default))!.Id;
         var question = new DialogQuestion(QuestionId, QuestionType.FreeText, Asked, null, null, "5 minutes", TimeSpan.FromDays(3))
         {
-            Answerers = ["target"],
+            Answerers = [answerer],
         };
         await ParkAsync(sp, question);
         rig.Facts.Park("1", RunId, question);
-        return new ParkedSeries(harness, scope, series);
+        return new ParkedSeries(harness, scope, series, rig);
     }
 
     private static async Task ParkAsync(IServiceProvider sp, DialogQuestion question)
@@ -184,9 +222,10 @@ public sealed class SeriesRunQuestionCompositionTests
         new(new ChatMessage(ChatRole.Assistant,
             [new FunctionCallContent($"call_{tool}", tool, JsonSerializer.Deserialize<Dictionary<string, object?>>(arguments))]));
 
-    private sealed class ParkedSeries(RealCompositionHarness harness, AsyncServiceScope scope, string series) : IAsyncDisposable
+    private sealed class ParkedSeries(RealCompositionHarness harness, AsyncServiceScope scope, string series, SeriesRig rig) : IAsyncDisposable
     {
         public RealCompositionHarness Harness => harness;
+        public SeriesRig Rig => rig;
         public IServiceProvider Services => scope.ServiceProvider;
         public string Series => series;
 
