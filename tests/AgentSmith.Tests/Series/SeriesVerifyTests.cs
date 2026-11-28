@@ -38,6 +38,92 @@ public sealed class SeriesVerifyTests
         tool.RecordCriterion(3, true, "x").Should().Contain("1 to 2");
     }
 
+    // 2026-11-28-d1ffa: a criterion this environment cannot check is neither held nor failed, and says why.
+    [Fact]
+    public void VerdictTool_NotCheckable_IsNeitherHeldNorFailed()
+    {
+        var tool = new SeriesVerdictTool(Criteria);
+        tool.RecordCriterion(1, true, "dotnet test: 12 passed");
+        tool.RecordCriterion(2, true, "needs the database", "the disposable database connection string is not set")
+            .Should().Contain("not checkable");
+
+        var verdict = new SeriesVerdict("run-v", SeriesRecords.T, tool.Results());
+        verdict.Results[1].Should().Match<SeriesCriterionResult>(r => !r.Passed && r.NotCheckable == "the disposable database connection string is not set");
+        verdict.Failed.Should().BeEmpty();
+        verdict.NotCheckable.Should().ContainSingle().Which.Criterion.Should().Be(Criteria[1].Cited);
+    }
+
+    [Fact]
+    public void FollowUp_NotCheckableCriterion_FilesNothing()
+    {
+        var verdict = new SeriesVerdict("run-v", SeriesRecords.T,
+            [new(Criteria[0].Cited, false, "restore 401") { NotCheckable = "the feed still answers 401 after staging" }]);
+
+        SeriesFollowUp.New(SeriesRecords.Running(), verdict).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Summary_NotCheckable_ListedApart_FilesNothing()
+    {
+        var verdict = new SeriesVerdict("run-v", SeriesRecords.T,
+        [
+            new(Criteria[0].Cited, true, "ok"),
+            new(Criteria[1].Cited, false, "needs the database") { NotCheckable = "no disposable database connection string; set ConnectionStrings__Test" },
+        ]);
+        var beat = await BeatAsync(SeriesRecords.Running() with { State = SeriesRunStates.Verifying, VerifyRunId = "run-v", Verdicts = [verdict] });
+
+        await Progress.MoveAsync(beat, default);
+
+        var said = beat.Said.Single();
+        said.Should().Contain("1 of 2 hold").And.NotContain("Failing:").And.NotContain("followed up before")
+            .And.Contain($"- {Criteria[1].Cited}: not checkable here: no disposable database connection string; set ConnectionStrings__Test");
+        _store.Records["sr-1"].State.Should().Be(SeriesRunStates.Done, "a not-checkable criterion files nothing, so the check found nothing new");
+    }
+
+    // 2026-11-28-d1ffc: the check says the outcome, the counts, the not-checkable ones, what waits and the final pull request in a
+    // few lines; the failing criteria's evidence and the cost wait behind show all. A series that delivers next names its review.
+    [Fact]
+    public async Task Summary_IsShort_DetailsBehindAFence()
+    {
+        var verdict = new SeriesVerdict("run-v", SeriesRecords.T,
+        [
+            new(Criteria[0].Cited, false, "dotnet test: RequestsPersist failed with a long stack trace"),
+            new(Criteria[1].Cited, false, "needs the database") { NotCheckable = "no disposable database connection string" },
+        ]);
+        var record = SeriesRecords.Running() with
+        {
+            State = SeriesRunStates.Verifying, VerifyRunId = "run-v", Verdicts = [verdict], IntegrationBranch = "agent-smith/series/sr-1",
+            FollowedUp = [Criteria[0].Cited], Deliveries = [new SeriesDelivery("api", "https://github.com/example/api/pull/90", "90")],
+        };
+        var beat = await BeatAsync(record);
+
+        await Progress.MoveAsync(beat, default);
+
+        var said = beat.Said.Single();
+        var shown = SeriesSummaryText.Shown(said);
+        shown.Should().StartWith("All 3 tickets landed. Series check on agent-smith/series/sr-1: 0 of 2 hold, 1 fail, 1 not checkable here.")
+            .And.Contain($"- {Criteria[1].Cited}: not checkable here: no disposable database connection string")
+            .And.Contain("- Final pull request of api: [#90](https://github.com/example/api/pull/90)")
+            .And.Contain("Waiting on you: the failures were followed up before and still fail; the final pull request waits for your review.")
+            .And.NotContain("long stack trace").And.NotContain("Total $");
+        said.Should().Contain("````details").And.Contain("long stack trace").And.Contain("Total $30.0").And.EndWith("````");
+        shown.Split('\n').Length.Should().BeLessThan(10, "the message is a few lines, not one line per finding");
+    }
+
+    [Fact]
+    public async Task Summary_NothingNewOnASeriesBranch_WaitsOnTheFinalReview()
+    {
+        var verdict = new SeriesVerdict("run-v", SeriesRecords.T, [new(Criteria[0].Cited, true, "ok")]);
+        var beat = await BeatAsync(SeriesRecords.Running() with
+        {
+            State = SeriesRunStates.Verifying, VerifyRunId = "run-v", Verdicts = [verdict], IntegrationBranch = "agent-smith/series/sr-1",
+        });
+
+        await Progress.MoveAsync(beat, default);
+
+        SeriesSummaryText.Shown(beat.Said.Single()).Should().EndWith("Waiting on you: your review of the final pull request.");
+    }
+
     [Fact]
     public void FollowUp_OnlyFailuresNotFollowedUpBefore_OneWorkTicketNamingThem()
     {
@@ -78,8 +164,8 @@ public sealed class SeriesVerifyTests
 
         await Progress.MoveAsync(beat, default);
 
-        beat.Said.Should().ContainSingle().Which.Should().Contain("1 of 2 hold").And.Contain("I filed SCRUM-68 for it in this series; it is running")
-            .And.EndWith("Nothing waits on you.");
+        SeriesSummaryText.Shown(beat.Said.Should().ContainSingle().Subject).Should().Contain("1 of 2 hold")
+            .And.Contain("I filed SCRUM-68 for it in this series; it is running").And.EndWith("Nothing waits on you.");
         _store.Records["sr-1"].Should().Match<SeriesRunRecord>(r => r.State == SeriesRunStates.Running && r.Verdicts[0].Reported);
     }
 
@@ -92,7 +178,8 @@ public sealed class SeriesVerifyTests
         await Progress.MoveAsync(beat, default);
 
         _store.Records["sr-1"].State.Should().Be(SeriesRunStates.Done);
-        beat.Said.Single().Should().Contain("1 of 1 hold").And.Contain("Total $30.0, 4 h 00 min").And.EndWith("Nothing waits on you.");
+        beat.Said.Single().Should().Contain("1 of 1 hold").And.Contain("Total $30.0, 4 h 00 min");
+        SeriesSummaryText.Shown(beat.Said.Single()).Should().EndWith("Nothing waits on you.").And.NotContain("Total $30.0", "the cost is behind show all");
     }
 
     [Fact]

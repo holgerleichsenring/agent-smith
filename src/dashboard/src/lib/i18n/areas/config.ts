@@ -1420,9 +1420,15 @@ export const configMessages = {
     de: "der Serien-Master wird geweckt, sobald das älteste Ereignis so lange gewartet hat, damit gemeinsam eintreffende Ereignisse einen Durchlauf kosten; 0 weckt ihn sofort. Deine Nachrichten erreichen ihn sofort",
   },
   "config.dialogue.questionDefault.label": { en: "Question default after (minutes)", de: "Standardantwort auf Fragen nach (Minuten)" },
+  // 2026-11-28-d1ffb: each help names the value, the reason and the key.
   "config.dialogue.questionDefault.help": {
-    en: "a series question that names a recommendation takes it after this; one without waits for you",
-    de: "eine Serienfrage mit Empfehlung übernimmt sie danach; eine ohne wartet auf dich",
+    en: "120 by default. How long a series question that names a recommendation waits for you before the series takes the recommendation, so a choice nobody answers does not hold the series up. A question without a recommendation waits. Key: dialogue.question_default_minutes",
+    de: "Standard 120. So lange wartet eine Serienfrage mit Empfehlung auf dich, bevor die Serie die Empfehlung übernimmt, damit eine unbeantwortete Wahl die Serie nicht aufhält. Eine Frage ohne Empfehlung wartet. Schlüssel: dialogue.question_default_minutes",
+  },
+  "config.dialogue.questionDefaultEnabled.label": { en: "Take recommended answers by default", de: "Empfohlene Antworten standardmäßig übernehmen" },
+  "config.dialogue.questionDefaultEnabled.help": {
+    en: "On by default. On: a series question that names a recommendation is taken after the minutes below, so the series keeps moving. Off: every series question waits for your answer. Merge questions and what only you can do never default. Key: dialogue.question_default_enabled",
+    de: "Standard an. An: eine Serienfrage mit Empfehlung wird nach den Minuten unten übernommen, damit die Serie weiterläuft. Aus: jede Serienfrage wartet auf deine Antwort. Merge-Fragen und was nur du tun kannst, haben nie einen Standard. Schlüssel: dialogue.question_default_enabled",
   },
 
   // --- settings: skills ---

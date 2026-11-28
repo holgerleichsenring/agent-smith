@@ -39,7 +39,8 @@ public sealed class VerifySeriesHandler(ISeriesRunStore store, ISeriesCriteria c
             Verdicts = [.. r.Verdicts, verdict], FollowedUp = [.. r.FollowedUp, .. fresh.Select(f => f.Criterion)],
         }, cancellationToken);
         if (fresh.Count > 0) Seed(pipeline, SeriesFollowUp.Request(record, fresh));
-        return CommandResult.Ok($"{verdict.Results.Count - verdict.Failed.Count} of {verdict.Results.Count} criteria hold; {fresh.Count} new failure(s) to file.");
+        return CommandResult.Ok($"{verdict.Results.Count(r => r.Passed)} of {verdict.Results.Count} criteria hold; "
+            + $"{verdict.NotCheckable.Count} not checkable here; {fresh.Count} new failure(s) to file.");
     }
 
     private async Task CheckAsync(VerifySeriesContext context, IReadOnlyList<SeriesCriterion> list, SeriesVerdictTool verdict,
@@ -48,6 +49,7 @@ public sealed class VerifySeriesHandler(ISeriesRunStore store, ISeriesCriteria c
         // 2026-11-24-f9c5b: a series with a series branch landed there, and that branch is checked out.
         var prompt = new StringBuilder($"The series' tickets all landed on {branch}, checked out here. Check each criterion:\n");
         for (var i = 0; i < list.Count; i++) prompt.Append($"{i + 1}. {list[i].Cited}\n");
+        prompt.Append(SpecExecutionPromptBlocks.StagedRegistries(context.Pipeline)); // 2026-11-28-d1ffa: what was staged for it, as a code run is told
         var request = new AgenticLoopRequest(context.Project.Agent, TaskType.Primary, prompts.Get(MasterName), prompt.ToString(),
             SeriesVerifySurface.Tools(context.Pipeline, verdict), Name: MasterName, Compaction: context.Project.Agent.Compaction);
         var result = await loop.RunAsync(request, ct);

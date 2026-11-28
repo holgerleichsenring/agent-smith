@@ -11,5 +11,11 @@ What you can do: read and search the repositories, run their own build and test 
 printed, the file and line, the test that shows it. A criterion you cannot show to hold is recorded as not holding,
 with what you found instead; a criterion you never record counts as not shown.
 
+Some criteria cannot be checked in this sandbox at all: they need a secret or a service it lacks (a disposable database's
+connection string, an external account), or a package feed still refuses after the credentials staged for you (listed
+in your input). Record those with `notCheckable`: what is missing here and what would make it checkable. They are
+neither held nor failed, and nothing is filed for them. A build that fails on the code, or a test that runs and fails,
+is not this: record it as not holding.
+
 Prefer the repository's own tests and build over reading alone. When one command shows several criteria, record each.
 End with one sentence: how many hold and what fails.

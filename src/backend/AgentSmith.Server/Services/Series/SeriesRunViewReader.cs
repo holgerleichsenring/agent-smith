@@ -10,7 +10,7 @@ namespace AgentSmith.Server.Services.Series;
 /// when the conversation never filed one.</summary>
 public sealed class SeriesRunViewReader(
     SpecDialogSessionRepository sessions, ISeriesRunStore store, ISeriesTicketFacts facts, TicketProjects projects,
-    AgentSmithConfig config, TimeProvider clock)
+    DialogueGlobalConfig dialogue, TimeProvider clock) // 2026-11-28-d1ffb: the store's current dialogue: block
 {
     public async Task<SeriesRunView?> ReadAsync(string dialogId, CancellationToken ct)
     {
@@ -18,6 +18,6 @@ public sealed class SeriesRunViewReader(
         if (session is null || await store.LatestForConversationAsync(session.SessionId, ct) is not { } record) return null;
         if (projects.Of(record.Project) is not { } project) return null;
         var read = await facts.ReadAsync(record, ct);
-        return SeriesPanel.Of(record, read, clock.GetUtcNow(), project, config.Dialogue);
+        return SeriesPanel.Of(record, read, clock.GetUtcNow(), project, dialogue);
     }
 }

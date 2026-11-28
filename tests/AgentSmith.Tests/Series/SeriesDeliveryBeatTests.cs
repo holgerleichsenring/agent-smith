@@ -55,7 +55,7 @@ public sealed class SeriesDeliveryBeatTests
         var factsReader = Mock.Of<ISeriesTicketFacts>(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>())
             == Task.FromResult<IReadOnlyList<SeriesTicketFact>>(facts));
         var read = new ReadSeriesHandler(_store, factsReader, _conversation.Object, _config, clock.Object,
-            new SeriesQuestions(_store, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store, _config)), new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()));
+            new SeriesQuestions(_store, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store, _config), _config.Dialogue), new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()));
 
         await read.ExecuteAsync(new ReadSeriesContext(pipeline, _config.Projects["sample"]), default);
         await Master().ExecuteAsync(new SeriesMasterContext(pipeline, _config.Projects["sample"]), default);

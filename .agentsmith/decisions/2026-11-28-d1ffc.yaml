@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-d1ffc
+
+decisions:
+  - category: Architecture
+    chose: "The delivery step asks the final merge question itself, once, when every final pull request is open and the question slot is free — through SeriesMergeQuestion, the one shape of a merge question"
+    over: "Raising a beat reason so the master asks it; relying on the master to ask on its own"
+    reason: "decider: operator (2026-11-28) — the question 'must appear at the bottom of the chat when delivery starts; check that it is actually posted'. Root cause: no beat reason is raised when delivery starts, so the master is never called and never asks. A structural question costs no model call and cannot be forgotten; it reuses SeriesMergeQuestion (no second merge-question path), and its answer goes to the master as every answered question does."
+  - category: Implementation
+    chose: "The once-key merge:final in Raised is written in the same store update as the question; the master's ask_human with mergeOf 'final' writes it too; a slot holding an answer not yet handed to the master is never overwritten"
+    over: "beat.Raised, which only the master's judged turn persists; asking whenever no question waits"
+    reason: "decider: claude (from the spec review) — beat.Raised is lost when the master is not called or its loop fails; a handed-but-undelivered answer is re-handed after a failed loop and must survive."
+  - category: Implementation
+    chose: "SeriesQuestion.MergeOf, so the answer handed to the master names what to merge and how (merge_pull_request, ticket 'final'; or wait after 'Look at the pull request first')"
+    over: "Leaving the master to infer the subject from the question's link text"
+    reason: "decider: claude — the master never asked this question, so its thread has no context for it."
+  - category: Scope
+    chose: "Delivering always reads as a person's review: a series delivers only with a series branch, which only review end has"
+    over: "Separate wording for review each or none while delivering"
+    reason: "decider: claude (from the spec review) — SeriesMembership gives a branch only under end, so those states cannot occur."
+  - category: Implementation
+    chose: "The series-check message keeps its detail (failing criteria with evidence, unread specs, cost) in a ````details fence the dashboard chat draws collapsed behind 'show all'"
+    over: "Cutting the detail; a second message; HTML <details> (the chat's markdown is sanitized)"
+    reason: "decider: operator (2026-11-28) — 'shorten it to outcome, counts, the not-checkable list one line each and the final PR link; details go behind show all'. The fence follows the existing ````document convention (documentBlocks); like it, a chat platform receives it as written."

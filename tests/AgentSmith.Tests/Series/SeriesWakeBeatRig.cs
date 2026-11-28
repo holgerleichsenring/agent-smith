@@ -63,7 +63,7 @@ internal sealed class SeriesWakeBeatRig
         clock.Setup(c => c.GetUtcNow()).Returns(now);
         var facts = Mock.Of<ISeriesTicketFacts>(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>()) == Task.FromResult(Facts));
         await new ReadSeriesHandler(Store, facts, _conversation.Object, Config, clock.Object,
-                new SeriesQuestions(Store, SeriesWakeDoubles.Budget(Store, Config)),
+                new SeriesQuestions(Store, SeriesWakeDoubles.Budget(Store, Config), Config.Dialogue),
                 new SeriesProgress(Store, Launch.Object))
             .ExecuteAsync(new ReadSeriesContext(pipeline, Config.Projects["sample"]), default);
         await Master().ExecuteAsync(new SeriesMasterContext(pipeline, Config.Projects["sample"]), default);

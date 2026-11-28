@@ -45,6 +45,17 @@ public sealed class SeriesPanelTests
         view.Question.Should().Be("Keep it?");
     }
 
+    // 2026-11-28-d1ffc: a delivering series merges nothing by itself — its final pull request waits for a person's review.
+    [Fact]
+    public void Panel_DeliveringSeries_ReadsAsTheFinalPullRequestWaitingForReview()
+    {
+        var record = SeriesRecords.Running() with { State = SeriesRunStates.Delivering, IntegrationBranch = "agent-smith/series/sr-1" };
+
+        var view = SeriesPanel.Of(record, Facts(5), SeriesRecords.T.AddHours(1), Project, new DialogueGlobalConfig());
+
+        view.HeadState.Should().Be("series: final pull request waits for your review").And.NotContain("delivering into");
+    }
+
     [Fact]
     public void Panel_PausedSeries_HeadsItselfPaused_AndListsEveryTicketWithItsState()
     {

@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-d1ffb
+goal: "Whether a series question's recommendation is taken by default at all is a dialogue setting beside its minutes, shown in the Dialogue settings; off, every question waits."
+
+applies_to: "default (DialogueGlobalConfig, SeriesQuestions, SeriesAskTool, SeriesQuestionText, SeriesPolicy) + dashboard (Dialogue settings)"
+
+requires: [2026-11-17-0207c, 2026-11-28-b1db]
+
+facts:
+  - claim: "dialogue.question_default_minutes (120) is the deadline of a series question with a recommendation; it is read only by the series' ask_human and policy line, and no setting turns the default off."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/DialogueGlobalConfig.cs:79-81; src/backend/AgentSmith.Application/Services/Series/SeriesMasterSurface.cs:34; src/backend/AgentSmith.Application/Services/Series/SeriesPolicy.cs:26-27"
+  - claim: "SeriesQuestions.Ask sets DeadlineAt from the minutes when a recommendation is given, and AnswerAsync takes the recommendation once DeadlineAt passed."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesQuestions.cs:35-41,89-93"
+  - claim: "The chat line says 'If you don't answer, I take the recommendation at HH:MM UTC' when the question has a deadline."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesQuestionText.cs:18-22"
+  - claim: "The Dialogue settings already show the minutes as 'Question default after (minutes)'; its help names neither the value, the reason nor the key."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:507-509; src/dashboard/src/lib/i18n/areas/config.ts:1403-1407"
+  - claim: "The operator did not know the default existed and wants it configurable: on or off, and after how long."
+    evidence: "observed: 2026-11-28, operator brief"
+
+upgrade_impact: "None by default: dialogue.question_default_enabled is on, as before. Turned off, a series question with a recommendation waits for the operator; one already waiting keeps its deadline until it passes, and the beat it starts then clears it and says the question waits. Turned on again, a question asked while it was off has no deadline and keeps waiting."
+
+scope:
+  in: |
+    DialogueGlobalConfig.QuestionDefaultEnabled (yaml dialogue.question_default_enabled, default true; declared in
+    config/agentsmith.schema.json) beside the existing QuestionDefaultMinutes, which stays the minutes key — a second minutes key
+    would be a second path to the same deadline. SeriesQuestions.Ask takes the minutes as null when defaults are off, and gives no deadline then;
+    SeriesAskTool takes them from the config. AnswerAsync, with defaults off, takes no default and clears a stored deadline (before the
+    take-by-default branch), so no beat is due on it, and says once that the question waits. NoDefault stays the only-a-person
+    flag and is not set for this. The chat line of a recommended question without a deadline and without NoDefault says
+    it waits (a branch of its own); SeriesPolicy's line says questions
+    wait. ask_human's description stays static (it names the default as conditional), so the
+    prompt cache holds. The Dialogue settings get a toggle for it, and both fields' help names the value, the reason and the key.
+  out: "The run's own checkpoint answer deadline; merge, budget and only-a-person questions (no default already); a second minutes key."
+
+steps:
+  - id: pin
+    action: "Pin today: a recommended question gets a deadline of the configured minutes and is taken at it; the chat line names the time."
+  - id: config
+    action: "DialogueGlobalConfig.QuestionDefaultEnabled; config/agentsmith.schema.json; docs in agentsmith-yml.md and series-run.md (table and prose)."
+  - id: backend
+    action: "SeriesQuestions.Ask with int? minutes; SeriesQuestions, SeriesMasterHandler/SeriesMasterSurface and SeriesRunViewReader read the registered DialogueGlobalConfig (in the server the config store's current dialogue: block, so a dashboard change reaches the next beat without a restart); SeriesQuestions clears a stored deadline when off; SeriesMasterSurface passes null minutes when off; SeriesPolicy and SeriesQuestionText follow. Test constructors: SeriesWakeBeatRig, SeriesMasterLineTests, SeriesQuestionsStaleTests, SeriesQuestionsTests, SeriesDeliveryBeatTests."
+  - id: dashboard
+    action: "DialogueSetting.questionDefaultEnabled (absent reads as on); a CheckField before the minutes field; help texts for both fields in en and de."
+  - id: tests
+    action: "Unit: on with 30 minutes gives 30; off gives no deadline and the chat says it waits; a stored deadline is not taken when off. Dashboard: the toggle patches questionDefaultEnabled."
+
+tests:
+  - "SeriesQuestionsTests.RecommendedQuestion_DefaultOn_TakesTheConfiguredMinutes"
+  - "SeriesQuestionsTests.RecommendedQuestion_DefaultOff_HasNoDeadline_AndSaysItWaits"
+  - "SeriesQuestionsTests.StoredDeadline_DefaultOff_IsNotTaken_AndClearsTheDeadline"
+  - "SeriesReportTests: the policy line says questions wait when off"
+  - "SeriesQuestionDefaultCompositionTests.DefaultsOff_RecommendedQuestion_WaitsWithoutADeadline"
+  - "DialogueSettingsForm.test.tsx: the question-default toggle patches questionDefaultEnabled; both help texts name value, reason and key"
+
+done:
+  - "With dialogue.question_default_enabled on and 30 minutes, a recommended question is taken at 30 minutes and the chat says when (test)."
+  - "With it off, no question is taken by default, a stored deadline is cleared, and the chat says it waits (test)."
+  - "The Dialogue settings show the toggle and both help texts name value, reason and key (dashboard test)."
+  - "dotnet build, the full suite and the dashboard tests and build are green; the spec gate passes."

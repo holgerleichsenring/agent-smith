@@ -33,7 +33,8 @@ public sealed class SeriesMasterHandler(
     ILogger<SeriesMasterHandler> logger, ISeriesRecordReads? records = null, TimeProvider? clock = null,
     AgentSmith.Contracts.Runs.IRunReportReader? reports = null, // 2026-11-26-a12ed
     ISeriesSourceScopes? sources = null, // 2026-11-27-3532c
-    ISeriesSpecRetirement? retirement = null) // 2026-11-27-3532d
+    ISeriesSpecRetirement? retirement = null, // 2026-11-27-3532d
+    DialogueGlobalConfig? dialogue = null) // 2026-11-28-d1ffb: the store's current dialogue: block (DI always has one); else the boot config's
     : ICommandHandler<SeriesMasterContext>
 {
     public const string MasterName = "series-master";
@@ -88,7 +89,7 @@ public sealed class SeriesMasterHandler(
 
     private AgenticLoopRequest Request(SeriesMasterContext context, SeriesBeat beat, string prompt, SeriesSourceMap readable)
     {
-        var tools = new SeriesMasterSurface(acts, store, config, conversation, progress, pause, pullRequests, finals, finalCi,
+        var tools = new SeriesMasterSurface(acts, store, config, dialogue ?? config.Dialogue, conversation, progress, pause, pullRequests, finals, finalCi,
             edits, logger, records, clock, reports, retirement).Tools(beat, context, readable); // 2026-11-27-3532c
         var agent = context.Project.Agent;
         return new AgenticLoopRequest(agent, TaskType.Primary, prompts.Get(MasterName), prompt, tools,

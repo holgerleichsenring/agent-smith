@@ -48,6 +48,19 @@ public sealed class PipelinePresetsSystemTests
         PipelinePresets.IsSystem(preset).Should().BeFalse();
     }
 
+    // 2026-11-28-d1ffa: the series check builds and tests, so it stages private-feed credentials right after its checkout,
+    // the step a code run and a refresh-base run take.
+    [Theory]
+    [InlineData(PipelinePresets.SeriesVerifyName)]
+    [InlineData(PipelinePresets.RefreshBaseName)]
+    [InlineData(PipelinePresets.CodeName)]
+    public void BuildingPreset_StagesFeedCredentials_AfterItsCheckout(string preset)
+    {
+        var steps = PipelinePresets.TryResolve(preset)!;
+        steps.Should().Contain(CommandNames.SetupRegistryAuth);
+        steps.ToList().IndexOf(CommandNames.SetupRegistryAuth).Should().BeGreaterThan(steps.ToList().IndexOf(CommandNames.CheckoutSource));
+    }
+
     [Fact]
     public void UnknownName_IsWork()
     {

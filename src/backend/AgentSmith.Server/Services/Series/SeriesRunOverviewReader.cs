@@ -28,5 +28,8 @@ public sealed class SeriesRunOverviewReader(
     // 849e: read holds, none is no merge
     private static SeriesRunRow Row(SeriesRunRecord record, string name, SeriesRunStatus status) => new(
         record.Id, name, record.Project, record.State, status.Shape.Counts,
-        status.Shape.NextMerge, SeriesRunQuestion.Of(record), record.LastActivityAt);
+        status.Shape.NextMerge, SeriesRunQuestion.Of(record), record.LastActivityAt)
+    {
+        FinalPullRequests = record.Deliveries.Count(d => d.Url.Length > 0), // 2026-11-28-d1ffc
+    };
 }

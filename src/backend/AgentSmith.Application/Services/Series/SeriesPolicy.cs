@@ -19,11 +19,20 @@ public static class SeriesPolicy
         seriesBranch is not null || project.RequiresStart == RequiresStart.OnMerge
             ? "start once the ticket they need is merged" : "start on green push";
 
+    /// <summary>2026-11-28-d1ffb: the minutes after which a recommended series question is taken by default
+    /// (dialogue.question_default_minutes), or null when dialogue.question_default_enabled is off and every question waits.</summary>
+    public static int? QuestionDefaultMinutes(DialogueGlobalConfig dialogue)
+    {
+        ArgumentNullException.ThrowIfNull(dialogue);
+        return dialogue.QuestionDefaultEnabled ? dialogue.QuestionDefaultMinutes : null;
+    }
+
     public static string Line(ResolvedProject project, DialogueGlobalConfig dialogue, ReviewMode review, string? seriesBranch = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(dialogue);
-        return $"{Merge(review)} · {Start(project, seriesBranch)} · questions default "
-            + $"to the recommendation after {SeriesTable.Duration(TimeSpan.FromMinutes(dialogue.QuestionDefaultMinutes))}";
+        return $"{Merge(review)} · {Start(project, seriesBranch)} · " + (QuestionDefaultMinutes(dialogue) is { } minutes
+            ? $"questions default to the recommendation after {SeriesTable.Duration(TimeSpan.FromMinutes(minutes))}"
+            : "questions wait for your answer"); // 2026-11-28-d1ffb: dialogue.question_default_enabled off
     }
 }

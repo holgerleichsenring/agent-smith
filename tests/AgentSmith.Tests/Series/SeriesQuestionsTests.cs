@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Series;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Series;
 using AgentSmith.Domain.Entities;
 using FluentAssertions;
@@ -15,7 +16,7 @@ public sealed class SeriesQuestionsTests
 {
     private readonly InMemorySeriesRunStore _store = new();
 
-    private SeriesQuestions Questions => new(_store, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store));
+    private SeriesQuestions Questions => new(_store, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store), new DialogueGlobalConfig());
 
     private async Task<SeriesBeat> BeatAsync(SeriesQuestion? question, DateTimeOffset now, IReadOnlyList<SeriesTicketFact>? facts = null,
         SeriesRunRecord? with = null, params string[] messages)
@@ -52,6 +53,80 @@ public sealed class SeriesQuestionsTests
         question.ByDefault.Should().BeTrue();
         beat.Said.Should().ContainSingle().Which.Should().StartWith("Taken by default at 20:38 UTC: keep");
         beat.Reasons.Should().ContainSingle().Which.Should().Contain("answered by default: keep");
+    }
+
+    // 2026-11-28-d1ffc: the answer to a merge question reaches the master naming what to merge and how — the delivery asks the
+    // final one without the master, so the answer has to carry it.
+    [Theory]
+    [InlineData(SeriesAskTool.MergeIt, "merge the final pull requests with merge_pull_request (ticket 'final')")]
+    [InlineData(SeriesAskTool.LookFirst, "the operator looks at the final pull requests first: merge nothing until they write that it may merge")]
+    public async Task FinalMergeQuestion_Answered_TellsTheMasterWhatToDo(string answer, string told)
+    {
+        var asked = SeriesQuestions.Ask(SeriesMergeQuestion.FinalText, [SeriesAskTool.MergeIt, SeriesAskTool.LookFirst], null, SeriesRecords.T, 0)
+            with { NoDefault = true, MergeOf = "final" };
+
+        var beat = await BeatAsync(asked, SeriesRecords.T.AddMinutes(5), null, null, answer);
+
+        beat.Reasons.Should().ContainSingle().Which.Should().Contain($"is answered: {answer}").And.Contain(told);
+    }
+
+    // 2026-11-28-d1ffc: the master's own final merge question marks the once-key, so the delivery never asks it a second time.
+    [Fact]
+    public async Task AskHuman_MergeOfFinal_MarksTheFinalAsked()
+    {
+        var record = SeriesRecords.Running() with { IntegrationBranch = "agent-smith/series/sr-1",
+            Deliveries = [new SeriesDelivery("api", "https://github.com/example/api/pull/90", "90")] };
+        await _store.OpenAsync(record, default);
+        var beat = new SeriesBeat(record, [], SeriesRecords.T);
+
+        await new SeriesAskTool(beat, _store, 120).AskHumanAsync("Merge the series?", mergeOf: "final");
+
+        _store.Records["sr-1"].Raised.Should().Contain(SeriesBeatDemand.FinalAskedKey);
+        _store.Records["sr-1"].Question!.MergeOf.Should().Be("final");
+    }
+
+    // 2026-11-28-d1ffb: dialogue.question_default_enabled on (as before) takes the configured minutes; the chat says when.
+    [Fact]
+    public void RecommendedQuestion_DefaultOn_TakesTheConfiguredMinutes()
+    {
+        var minutes = SeriesPolicy.QuestionDefaultMinutes(new DialogueGlobalConfig { QuestionDefaultMinutes = 30 });
+        var asked = SeriesQuestions.Ask("Keep the original deadline?", ["keep", "restart"], 0, SeriesRecords.T, minutes);
+
+        minutes.Should().Be(30);
+        asked.DeadlineAt.Should().Be(SeriesRecords.T.AddMinutes(30));
+        SeriesQuestionText.Asked(asked).Should().Contain($"I take the recommendation at {SeriesRecords.T.AddMinutes(30).UtcDateTime:HH:mm} UTC");
+    }
+
+    // 2026-11-28-d1ffb: off, a recommended question has no deadline and the chat says it waits.
+    [Fact]
+    public void RecommendedQuestion_DefaultOff_HasNoDeadline_AndSaysItWaits()
+    {
+        var minutes = SeriesPolicy.QuestionDefaultMinutes(new DialogueGlobalConfig { QuestionDefaultEnabled = false, QuestionDefaultMinutes = 30 });
+        var asked = SeriesQuestions.Ask("Keep the original deadline?", ["keep", "restart"], 0, SeriesRecords.T, minutes);
+
+        minutes.Should().BeNull();
+        asked.Should().Match<SeriesQuestion>(q => q.DeadlineAt == null && q.Recommended == "keep" && !q.NoDefault);
+        SeriesQuestionText.Asked(asked).Should().Contain("Nothing is taken by default (dialogue.question_default_enabled is off): it waits for your answer")
+            .And.NotContain("I take the recommendation");
+    }
+
+    // 2026-11-28-d1ffb: a question asked with a deadline before defaults were turned off is not taken past it: its deadline is
+    // cleared, so no beat is due on it, and the conversation is told once that it waits.
+    [Fact]
+    public async Task StoredDeadline_DefaultOff_IsNotTaken_AndClearsTheDeadline()
+    {
+        var off = new DialogueGlobalConfig { QuestionDefaultEnabled = false };
+        var record = SeriesRecords.Running() with { Question = Asked(0) };
+        await _store.OpenAsync(record, default);
+        var beat = new SeriesBeat(record, [], SeriesRecords.T.AddMinutes(121));
+
+        await new SeriesQuestions(_store, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store), off).SettleAsync(beat, default);
+
+        var kept = _store.Records["sr-1"];
+        kept.Question!.Should().Match<SeriesQuestion>(q => q.Answer == null && q.DeadlineAt == null && !q.ByDefault);
+        SeriesBeatDue.Why(kept, [], beat.Now).Should().NotBe("a question's deadline passed");
+        beat.Reasons.Should().BeEmpty("nothing was answered, so nothing reaches the master");
+        beat.Said.Should().ContainSingle().Which.Should().Contain("no longer taken by default").And.Contain("Keep the original deadline?");
     }
 
     // 2026-11-28-b1db: a question carried for a run that only the environment can answer, stored with a deadline before, is

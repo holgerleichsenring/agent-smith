@@ -460,6 +460,9 @@ export const coreMessages = {
   "dialog.transcript.agent": { en: "agent", de: "Agent" },
   "dialog.transcript.youSaid": { en: "You:", de: "Du:" },
   "dialog.document": { en: "Document", de: "Dokument" },
+  // 2026-11-28-d1ffc: a message's ````details part, collapsed until asked.
+  "dialog.details.show": { en: "show all", de: "alles zeigen" },
+  "dialog.details.hide": { en: "show less", de: "weniger zeigen" },
   "dialog.document.mark": { en: "document", de: "Dokument" },
   "dialog.document.copyLabel": { en: "Copy the document: {title}", de: "Dokument kopieren: {title}" },
   "dialog.document.copy": { en: "Copy", de: "Kopieren" },
@@ -874,7 +877,13 @@ export const coreMessages = {
   },
   "series.state.running": { en: "running", de: "läuft" },
   "series.state.verifying": { en: "checking", de: "prüft" },
-  "series.state.delivering": { en: "merging into the default branch", de: "mergt in den Default-Branch" },
+  // 2026-11-28-d1ffc: a delivering series merges nothing by itself — its final pull request waits for a person (review end).
+  "series.state.delivering": { en: "final pull request waits for your review", de: "finaler Pull Request wartet auf dein Review" },
+  "series.state.deliveringRepos": {
+    en: { one: "final pull request waits for your review (1 repo)", other: "final pull requests wait for your review ({count} repos)" },
+    de: { one: "finaler Pull Request wartet auf dein Review (1 Repo)", other: "finale Pull Requests warten auf dein Review ({count} Repos)" },
+  },
+  "series.state.deliveringOpens": { en: "opening the final pull request", de: "öffnet den finalen Pull Request" },
   "series.state.paused": { en: "paused", de: "pausiert" },
   "series.state.done": { en: "done", de: "fertig" },
   "series.state.stopped": { en: "stopped", de: "gestoppt" },
@@ -967,6 +976,7 @@ export const coreMessages = {
   // 2026-11-25-433fa: the status line pinned at the top of the chat, worded from what the server read.
   "series.status.label": { en: "Where the series stands", de: "Stand der Serie" },
   "series.status.merged": { en: "{merged} of {total} merged", de: "{merged} von {total} gemergt" },
+  "series.status.mergedIntoBranch": { en: "{merged} of {total} merged into the series branch", de: "{merged} von {total} in den Serien-Branch gemergt" },
   "series.status.working": { en: { one: "1 in progress: {keys}", other: "{count} in progress: {keys}" }, de: { one: "1 in Arbeit: {keys}", other: "{count} in Arbeit: {keys}" } },
   "series.status.more": { en: "+{count}", de: "+{count}" },
   "series.status.needsYou": { en: { one: "1 needs you", other: "{count} need you" }, de: { one: "1 braucht dich", other: "{count} brauchen dich" } },

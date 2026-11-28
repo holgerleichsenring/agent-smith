@@ -21,4 +21,15 @@ describe("SeriesSectionBar", () => {
     expect(screen.queryByTestId("series-counts")).toBeNull();
     expect(screen.queryByRole("navigation")).toBeNull();
   });
+
+  // 2026-11-28-d1ffc: the rail says the final pull request waits for review and links it.
+  it("SeriesSectionBar_ADeliveringSeries_LinksTheFinalPullRequest", () => {
+    render(<SeriesSectionBar detail={seriesDetail({
+      state: "delivering", integrationBranch: "agent-smith/series/sr-1",
+      deliveries: [{ repo: "server", url: "https://git.test/server/pull/90", number: "90", said: null }],
+    })} />);
+
+    expect(screen.getByTestId("series-state-word")).toHaveTextContent("final pull request waits for your review (1 repo) server #90");
+    expect(screen.getByTestId("series-rail-final-link-server")).toHaveAttribute("href", "https://git.test/server/pull/90");
+  });
 });

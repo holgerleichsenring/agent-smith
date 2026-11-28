@@ -25,7 +25,12 @@ describe("seriesNextStep", () => {
 
   it("seriesStateWord_KnownAndUnknown", () => {
     expect(seriesStateWord("verifying", t)).toBe("checking");
-    expect(seriesStateWord("delivering", t)).toBe("merging into the default branch"); // 2026-11-24-f9c5e
+    // 2026-11-28-d1ffc: nothing merges by itself — the final pull request waits for the operator (review end)
+    expect(seriesStateWord("delivering", t)).toBe("final pull request waits for your review");
+    expect(seriesStateWord("delivering", t, 1)).toBe("final pull request waits for your review (1 repo)");
+    expect(seriesStateWord("delivering", t, 2)).toBe("final pull requests wait for your review (2 repos)");
+    expect(seriesStateWord("delivering", t, 0)).toBe("opening the final pull request");
+    expect(seriesStateWord("delivering", t, 1)).not.toContain("merging");
     expect(seriesStateWord("odd", t)).toBe("odd");
     expect(seriesStateWord("paused", translator("de"))).toBe("pausiert");
   });

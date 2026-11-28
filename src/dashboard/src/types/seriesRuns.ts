@@ -27,6 +27,8 @@ export interface SeriesRunRow {
   /** The master's question still waiting for a person. */
   question: string | null;
   lastActivityAt: string;
+  /** 2026-11-28-d1ffc: the final pull requests open into the default branch; absent from an older server. */
+  finalPullRequests?: number;
 }
 
 export interface SeriesRunActiveCount {

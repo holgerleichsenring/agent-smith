@@ -4,9 +4,12 @@
 // clipboard, and the prose around it renders as before. A fence the reply cap cut off before it
 // closed is a document to the end, so the part that did arrive is still copyable.
 
-export type ReplyPart = { kind: "prose"; text: string } | { kind: "document"; text: string };
+// 2026-11-28-d1ffc: a ````details fence holds what a message keeps one click away — the series check's evidence behind
+// "show all" — split the same way and drawn collapsed.
 
-const OPEN = /^````document[^\n]*\n/m;
+export type ReplyPart = { kind: "prose"; text: string } | { kind: "document"; text: string } | { kind: "details"; text: string };
+
+const OPEN = /^````(document|details)[^\n]*\n/m;
 const CLOSE = /^````[ \t]*$/m;
 
 export function documentBlocks(reply: string): ReplyPart[] {
@@ -16,7 +19,8 @@ export function documentBlocks(reply: string): ReplyPart[] {
     pushProse(parts, rest.slice(0, open.index));
     const body = rest.slice(open.index + open[0].length);
     const close = CLOSE.exec(body);
-    parts.push({ kind: "document", text: (close ? body.slice(0, close.index) : body).replace(/\n$/, "") });
+    const text = (close ? body.slice(0, close.index) : body).replace(/\n$/, "");
+    parts.push(open[1] === "details" ? { kind: "details", text } : { kind: "document", text });
     rest = close ? body.slice(close.index + close[0].length) : "";
   }
   pushProse(parts, rest);

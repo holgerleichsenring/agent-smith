@@ -71,7 +71,7 @@ The head of the conversation reads **series running**, **· 1 question for you**
 
 Write in the same conversation. A message from someone holding `runs.control` goes to the master of the running beat, or the next one.
 
-When the master asks a question with a recommended answer, or a ticket's run parks on a question with one, the question appears in the conversation. Answer it there. If nobody answers within `dialogue.question_default_minutes` (default 120), the series takes the recommendation, posts *Taken by default at HH:mm: …* and hands the answer on: to the master, or to the parked run, which resumes. A question without a recommendation waits for you.
+When the master asks a question with a recommended answer, or a ticket's run parks on a question with one, the question appears in the conversation. Answer it there. If nobody answers within `dialogue.question_default_minutes` (default 120), the series takes the recommendation, posts *Taken by default at HH:mm: …* and hands the answer on: to the master, or to the parked run, which resumes. A question without a recommendation waits for you. With `dialogue.question_default_enabled` off (it is on by default), no question is taken by default: every one waits for you, and a question already waiting loses its deadline at the next beat.
 
 ## When you look: review
 
@@ -89,14 +89,15 @@ Whatever the review, the master's merge is checked first. A ticket whose prerequ
 
 A series under `review: end` works on its own branch in every repository it touches, `agent-smith/series/<id>`, cut from the default branch by its first ticket there. Each ticket starts from that branch once the tickets it requires have landed on it, opens its pull request against it, and the series master merges it there. What else lands on the default branch meanwhile does not reach the series until its end. A ticket outside the series that requires one of its tickets waits until the series has reached the default branch. If a series pull request reports no CI, agent-smith starts its repository's pull-request CI ([CI loop](ci-loop.md#series-branches)).
 
-When every ticket has landed on the series branch, one pull request per repository takes it into the default branch. Its description has a section per ticket: the ticket's title and pull request, what the master did on it and why, and what it could not verify, such as a CI on the ticket's last head that wasn't green or was never read. After the check passes, a person reviews and merges it, or asks the master to; a conflict with the default branch is the master's to refresh. The series is done once every one has merged. A closed one is said, and the branch is kept: only its final merge removes it.
+When every ticket has landed on the series branch, one pull request per repository takes it into the default branch. Its description has a section per ticket: the ticket's title and pull request, what the master did on it and why, and what it could not verify, such as a CI on the ticket's last head that wasn't green or was never read. After the check passes, the series asks in the chat, once: *The series is ready. Shall I merge it, or do you want to look at the pull request first?*, with the two answers as quick replies. A person reviews and merges it, or answers *Merge it* and the master merges it; nothing merges into the default branch by itself. The series page says *final pull request waits for your review* with a link to it; a conflict with the default branch is the master's to refresh. The series is done once every one has merged. A closed one is said, and the branch is kept: only its final merge removes it.
 
 A series opened before series branches existed keeps working ticket by ticket into the default branch. A series opened before the `review` setting keeps its branch or its lack of one, and runs as `end` with a branch, as `each` without.
 
 ## The check on main
 
-Once every ticket has landed, a `series-verify` run checks out the series branch (the default branch for a series without one) and runs the specs' done criteria against the merged result. This is the cross-ticket check no single ticket's verification can make.
+Once every ticket has landed, a `series-verify` run checks out the series branch (the default branch for a series without one) and runs the specs' done criteria against the merged result. This is the cross-ticket check no single ticket's verification can make. Its sandbox is sized for a build, and the project's private-feed credentials are staged in it as for a code run.
 
+- A criterion the check's environment cannot check (a secret it lacks, such as a disposable database's connection string, or a feed that still refuses after staging) is reported as *not checkable here*, with what would make it checkable. It is not a failure and files nothing.
 - New failures become **one follow-up ticket**, filed and started in the same series.
 - A check with nothing new closes the series with a summary: cost, duration, landed, open, and *Nothing waits on you.* when nothing does.
 
@@ -107,6 +108,7 @@ Once every ticket has landed, a `series-verify` run checks out the series branch
 | `dialogue.series_wake_settle_seconds` | 60 | How long the oldest event may wait so events that arrive together are one master turn; 0 wakes it at once |
 | `dialogue.series_status_minutes` | 15 | How long the master's events wait after its loop failed before it is tried again |
 | `dialogue.question_default_minutes` | 120 | When a recommended answer is taken by default |
+| `dialogue.question_default_enabled` | true | Whether a recommended answer is taken by default at all; off, every question waits |
 | `dialogue.series_master_budget_usd` | 20 | The series master's own spend |
 | `dialogue.series_master_budget_ask_usd` | 2 | At or below this much left, the series asks to raise the budget or stop |
 | `dialogue.series_master_thread_max_chars` | 60000 | Past this size the master's older beats become its notes; 0 turns it off |

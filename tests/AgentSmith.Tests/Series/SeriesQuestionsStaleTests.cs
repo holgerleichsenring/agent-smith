@@ -33,7 +33,7 @@ public sealed class SeriesQuestionsStaleTests
         await _store.OpenAsync(SeriesRecords.Running() with { Question = question }, default);
         var beat = new SeriesBeat(_store.Records["sr-1"], facts, Later);
         beat.Messages.AddRange(messages.Select((m, i) => new SeriesOperatorMessage(20 + i, m, Later, "Dana")));
-        await new SeriesQuestions(_store, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store)).SettleAsync(beat, default);
+        await new SeriesQuestions(_store, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store), new AgentSmith.Contracts.Models.Configuration.DialogueGlobalConfig()).SettleAsync(beat, default);
         return beat;
     }
 

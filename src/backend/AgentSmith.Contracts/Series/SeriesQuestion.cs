@@ -51,6 +51,10 @@ public sealed record SeriesQuestion(
     /// <summary>2026-11-25-9992g: the series' own question on the master's budget (raise it or stop the series).</summary>
     public bool Budget { get; init; }
 
+    /// <summary>2026-11-28-d1ffc: a merge question's subject — a ticket's key or id, or "final" for the series' final pull
+    /// requests — so its answer reaches the master naming what to merge; null for any other question.</summary>
+    public string? MergeOf { get; init; }
+
     /// <summary>The recommended choice's label, if any.</summary>
     public string? Recommended =>
         RecommendedIndex is { } at && at >= 0 && at < Choices.Count ? Choices[at] : null;

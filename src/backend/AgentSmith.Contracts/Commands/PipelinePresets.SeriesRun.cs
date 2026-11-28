@@ -36,6 +36,7 @@ public static partial class PipelinePresets
     [
         CommandNames.LoadCatalog,
         CommandNames.CheckoutSource,
+        CommandNames.SetupRegistryAuth, // 2026-11-28-d1ffa: the check builds and tests, so private feeds need their credentials
         CommandNames.VerifySeries,
         CommandNames.PlanFiling,
         CommandNames.FileTickets,

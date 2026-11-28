@@ -11,6 +11,7 @@ import { MockShot } from "./MockShot";
 import { TurnMessage } from "./TurnMessage";
 import { turnProposalOf } from "./turnProposal";
 import { DialogDocumentCard } from "./DialogDocumentCard";
+import { DialogDetailsBlock } from "./DialogDetailsBlock";
 import { documentBlocks } from "./documentBlocks";
 import { sizeOf } from "./referenceSelection";
 import { sinceClock } from "@/components/tickets/holds/holdWords";
@@ -129,6 +130,8 @@ function AgentText({ text }: { text: string }) {
       {documentBlocks(body).map((part, i) =>
         part.kind === "document" ? (
           <DialogDocumentCard key={i} text={part.text} />
+        ) : part.kind === "details" ? (
+          <DialogDetailsBlock key={i} text={part.text} />
         ) : (
           <Markdown key={i}>{part.text}</Markdown>
         ),

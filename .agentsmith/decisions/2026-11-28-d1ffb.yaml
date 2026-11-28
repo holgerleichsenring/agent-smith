@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-d1ffb
+
+decisions:
+  - category: Architecture
+    chose: "One new switch, dialogue.question_default_enabled (default true), beside the existing dialogue.question_default_minutes, which stays the minutes key"
+    over: "dialogue.series_question_default plus dialogue.series_question_default_minutes, the operator's example names; minutes 0 meaning off"
+    reason: "decider: claude, within the operator's 'for example' (2026-11-28) — question_default_minutes is already the series questions' deadline and read only by the series, and already in the Dialogue settings, so a second minutes key would be a second path to the same deadline (CLAUDE.md). 0 would mix 'off' with 'at once'. The switch is named for what it turns on, as the other config booleans are."
+  - category: Implementation
+    chose: "Off, SeriesQuestions.Ask gives no deadline, and a question stored with one has it cleared at its next beat, which says once that it waits; NoDefault is not set for this"
+    over: "Leaving stored deadlines to default once; reusing NoDefault"
+    reason: "decider: claude — a setting turned off must hold for a question already waiting; NoDefault switches the chat to 'only you can do this', which is not why it waits. A question asked while off keeps no deadline when defaults are turned on again: stated in upgrade_impact."
+  - category: Implementation
+    chose: "The setting is read from the registered DialogueGlobalConfig (SeriesQuestions requires it; SeriesMasterHandler takes it, falling back to the boot config; SeriesRunViewReader); ask_human's description stays static and says the default applies where the series takes defaults"
+    over: "Reading AgentSmithConfig.Dialogue, as the minutes were read; a description that changes with the setting"
+    reason: "decider: claude (from the diff review) — in the server AgentSmithConfig is the boot-time singleton, while DialogueGlobalConfig is re-registered over the config store's current snapshot (274ca, f9b0c), so only it lets a toggle flipped in the Dialogue settings reach the next beat without a restart. A static description keeps the master's prompt cache stable; the tool's answer says whether a deadline was set."
+  - category: Scope
+    chose: "Both help texts in the Dialogue settings name the value, the reason and the key"
+    over: "A toggle with a bare label"
+    reason: "decider: operator (2026-11-28) — 'each field's help text names what it does; follow the repo rule for limits: the value, the reason, the key'."

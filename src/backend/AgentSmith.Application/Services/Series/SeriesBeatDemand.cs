@@ -16,6 +16,10 @@ public sealed class SeriesBeatDemand(ISeriesConversation conversation, AgentSmit
 
     public const string CheckEnded = "the series check ended without a verdict";
 
+    /// <summary>2026-11-28-d1ffc: the once-key in Raised of the series' final merge question — asked by its delivery, or by
+    /// the master's ask_human with mergeOf 'final'. Never cleared: the final merge is asked about once.</summary>
+    public const string FinalAskedKey = "merge:final";
+
     public async Task<string?> WhyAsync(
         SeriesRunRecord record, IReadOnlyList<SeriesTicketFact> facts, DateTimeOffset now, CancellationToken ct)
     {
