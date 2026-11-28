@@ -225,7 +225,7 @@ Where tickets come from and how their workflow looks. The tracker owns the workf
 | `work_item_kinds` | Azure DevOps and Jira: filing role (`work`, `bug`, `spec` — `phase` still accepted — `chat`) → work-item or issue type. GitHub and GitLab ignore it |
 | `extra_fields` | additional work-item fields to fetch |
 | `zero_match_comment` | comment on a ticket no project matched |
-| `polling` | `enabled` (false), `interval_seconds` (60), `jitter_percent` (10). See [Polling](../../trigger-it/polling.md) |
+| `polling` | `enabled` (false), `interval_seconds` (60). See [Polling](../../trigger-it/polling.md) |
 | `endpoints` | Jira: override individual REST paths — `search`, `issue`, `comment`, `transitions`, `create`. A path left out keeps its Jira Cloud v3 default. See [Jira](../../connect-your-stuff/tracker-jira.md) |
 
 A label the framework writes may not be spelled like one of your routing words (a `pipeline_from_label` key or a project's resolution value); that configuration is refused. The tracker pages under [Connect your stuff](../../connect-your-stuff/tracker-azure-devops.md) show each type in context.
@@ -421,7 +421,7 @@ These blocks apply to every project unless a project overrides them. On a server
 | `primary_provider` | the agent used when a project names none |
 | `limits` | per-skill ceilings of the agentic loop |
 | `pipeline_cost_cap` | money and token caps per run, see [Pipeline cost cap](pipeline-cost-cap.md) |
-| `queue` | `max_parallel_jobs` (4), `consume_block_seconds` (5), `shutdown_grace_seconds` (30), `redis_retry_interval_seconds` (30) |
+| `queue` | `max_parallel_jobs` (4), `shutdown_grace_seconds` (30), `redis_retry_interval_seconds` (30) |
 | `dialogue` | `hot_wait_seconds` (600), `approval_timeout_seconds` (259200), `dashboard_url`, `admin_agent` (the agent the admin assistant runs on), `admin_read_limit` (50), `admin_result_max_chars` (40000), `series_master_budget_usd` (20), `series_master_budget_ask_usd` (2), `series_master_thread_max_chars` (60000), `series_master_thread_keep_turns` (4), `series_status_minutes` (15), `series_wake_settle_seconds` (60), `question_default_minutes` (120) |
 | `skills` | an override for where the skill catalog comes from; normally unset |
 | `pipeline_data_flow` | whether the data-flow gate warns or enforces |

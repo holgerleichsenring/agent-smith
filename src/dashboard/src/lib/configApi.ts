@@ -546,7 +546,6 @@ export interface AgentCacheConfig {
 
 export interface AgentCompactionConfig {
   isEnabled: boolean;
-  thresholdIterations: number;
   maxContextTokens: number;
   keepRecentIterations: number;
   /** 2026-11-17-b34eb: absent leaves the stored ratio alone. */
@@ -593,7 +592,6 @@ export interface StudioAgent {
 export interface TrackerPollingConfig {
   enabled: boolean;
   intervalSeconds: number;
-  jitterPercent: number;
 }
 
 /** p0345c TrackerEntity v2 — type + auth are the invariants; every other field
@@ -1074,7 +1072,6 @@ export async function fetchImageTrust(signal?: AbortSignal): Promise<ImageTrustB
 
 export interface QueueSetting {
   maxParallelJobs: number;
-  consumeBlockSeconds: number;
   shutdownGraceSeconds: number;
   redisRetryIntervalSeconds: number;
 }

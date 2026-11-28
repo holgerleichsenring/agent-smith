@@ -64,7 +64,6 @@ BeginCallWithRepoName_BuildSummary_GroupsRecordsByRepoAndPhase	anywhere	G2	test 
 Bootstrap-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 BuildSummary_MixedModels_PhaseCostsSumToHeadlineAccrual	anywhere	G2	test name about the execution stage of a model call
 CodingPresets_DoNotContainRunVerifyPhase_PostP0179b	anywhere	G2	test name about the execution stage of a model call
-GetPhaseBreakdown	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
 GetToolsFor_BootstrapPhase_IncludesWriteFileAndRunCommand	anywhere	G2	test name about the execution stage of a model call
 GetToolsFor_FixBugImplementationPhase_AllToolsAvailable	anywhere	G2	test name about the execution stage of a model call
 GetToolsFor_FixBugPlanPhase_ComposesAllHostsAndFilters	anywhere	G2	test name about the execution stage of a model call
@@ -84,7 +83,6 @@ GetTools_VerifyPhase_IncludesRunCommandExcludesWriteFile	anywhere	G2	test name a
 NonImplementationPresets_DoNotContainRunVerifyPhase	anywhere	G2	test name about the execution stage of a model call
 Per-phase	listed	G2	per execution stage (cost breakdown, tool filter)
 PhaseCost	anywhere	G2	cost per execution stage (RunCostSummary, result.md cost.phases)
-PhaseUsage	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
 Plan-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 Review-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 RunFinalPhase	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
@@ -93,16 +91,10 @@ RunReviewPhase	anywhere	G2	triage / verify / final stage commands of the scan an
 RunReviewPhaseCommand	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
 RunVerifyPhase	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
 RunVerifyPhaseCommand	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
-RunVerifyPhaseContext	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
-RunVerifyPhaseContextBuilder	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
-SetPhase	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
 SkillExecutionPhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
 StoreRewrite_LlmEventPhase_Untouched	anywhere	G2	test name about the execution stage an LLM event carries, which the store rewrite must leave alone
-Track_CompactionPhase_AttributesInputAndOutputSeparately	anywhere	G2	test name about the execution stage of a model call
 Verify-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 WriteForbiddenInPhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
-_currentPhase	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
-_phases	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
 _writePhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
 lastPhase	anywhere	G2	Kubernetes pod phase
 max_skills_per_phase	anywhere	G2	skills per triage stage; persisted config key
@@ -111,7 +103,6 @@ phase-based	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verif
 phase-discipline	anywhere	G2	skill reference document phase-discipline (skills repo)
 phase-matrix	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 phase-only	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
-phaseUsage	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
 receivedPhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
 verify-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 writePhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call

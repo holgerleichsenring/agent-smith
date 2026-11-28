@@ -32,23 +32,6 @@ public sealed class AgentPromptBuilder
             """;
     }
 
-    /// <summary>
-    /// 2026-11-09-0620c: the system prompt of a pass that follows a change — tests or documentation. It used to be the
-    /// whole coding master with its run tokens bound empty ("up to  attempts", a verdict block nobody parses), for a
-    /// call that has none of that master's surface. 2026-11-09-0620k: the project's principles, context and code map
-    /// come first, in the coding master's own order, and the pass's job and reach follow.
-    /// </summary>
-    public string BuildChangePassSystemPrompt(
-        ChangePass pass, string codingPrinciples, IReadOnlyDictionary<string, string>? repoCodeMaps,
-        string? projectContext = null) =>
-        $"""
-        ## Coding Principles
-        {codingPrinciples}
-        {BuildProjectContextSection(projectContext)}
-        {BuildCodeMapSection(repoCodeMaps)}
-        {ChangePassText.For(pass)}
-        """;
-
     public string BuildExecutionUserPrompt(
         Plan plan, Repository repository, string? verifyNotes = null,
         IReadOnlyList<string>? contextKeys = null,

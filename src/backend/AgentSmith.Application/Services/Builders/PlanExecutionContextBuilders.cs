@@ -16,21 +16,6 @@ public sealed class AnalyzeCodeContextBuilder : IContextBuilder
     }
 }
 
-public sealed class EmptyPlanCheckContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-        => new EmptyPlanCheckContext(pipeline);
-}
-
-public sealed class ApprovalContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-    {
-        pipeline.TryGet<Plan>(ContextKeys.Plan, out var plan);
-        return new ApprovalContext(plan, pipeline);
-    }
-}
-
 public sealed class WriteRunResultContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
@@ -76,31 +61,5 @@ public sealed class InitCommitContextBuilder : IContextBuilder
         var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
         return new InitCommitContext(repo, repos, project.Tracker, pipeline,
             Tickets.TicketParkStatuses.Of(project).Done, project.Name); // 2026-11-18-550aa
-    }
-}
-
-public sealed class GenerateTestsContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-    {
-        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
-        var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
-        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.RepoCodeMaps, out var repoCodeMaps);
-        pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new GenerateTestsContext(repo, changes, principles, pipeline.Resolved().Agent, pipeline, repoCodeMaps, projectContext);
-    }
-}
-
-public sealed class GenerateDocsContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-    {
-        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
-        var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
-        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.RepoCodeMaps, out var repoCodeMaps);
-        pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new GenerateDocsContext(repo, changes, principles, pipeline.Resolved().Agent, pipeline, repoCodeMaps, projectContext);
     }
 }

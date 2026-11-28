@@ -27,7 +27,7 @@ export function TrackerPollingBlock({
             className="pick"
             data-testid="form-field-polling-add"
             onClick={() =>
-              onChange({ ...tracker, polling: { enabled: true, intervalSeconds: 300, jitterPercent: 10 } })
+              onChange({ ...tracker, polling: { enabled: true, intervalSeconds: 300 } })
             }
           >
             {t("config.polling.configure")}
@@ -50,12 +50,6 @@ export function TrackerPollingBlock({
         value={polling.intervalSeconds}
         testId="form-field-polling-intervalSeconds"
         onChange={(v) => onChange({ ...tracker, polling: { ...polling, intervalSeconds: v ?? 0 } })}
-      />
-      <NumberField
-        label={t("config.polling.jitter")}
-        value={polling.jitterPercent}
-        testId="form-field-polling-jitterPercent"
-        onChange={(v) => onChange({ ...tracker, polling: { ...polling, jitterPercent: v ?? 0 } })}
       />
       <div className="picks">
         <button

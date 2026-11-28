@@ -57,12 +57,6 @@ public sealed class LoadSkillsContextBuilder : IContextBuilder
         => new LoadSkillsContext(pipeline.Resolved().SkillsPath, pipeline);
 }
 
-public sealed class CompileFindingsContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-        => new CompileFindingsContext(pipeline);
-}
-
 public sealed class CollectMasterFindingsContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)

@@ -61,8 +61,8 @@ public sealed record TrackerConnection
     public bool ZeroMatchComment { get; init; } = false;
 
     /// <summary>
-    /// p0140c: per-tracker polling cadence. Pollers go per-tracker after p0140c so the polling
-    /// settings move from ResolvedProject.Polling (deprecated) to here. Disabled by default so
+    /// p0140c: per-tracker polling cadence. Pollers go per-tracker after p0140c, so the polling
+    /// settings live here (the project-level block is retired, 2026-11-28-34d9d). Disabled by default so
     /// trackers used only as webhook destinations don't trigger polling.
     /// </summary>
     public PollingConfig Polling { get; init; } = new();

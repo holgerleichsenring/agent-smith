@@ -446,8 +446,6 @@ function QueueForm({ value, onChange }: { value: QueueSetting; onChange: (v: Set
       <NumberField label={t("config.queue.parallel.label")} value={value.maxParallelJobs}
         onChange={(v) => set({ maxParallelJobs: keep(v, value.maxParallelJobs) })} testId="setting-queue-parallel"
         help={t("config.queue.parallel.help")} />
-      <NumberField label={t("config.queue.block")} value={value.consumeBlockSeconds}
-        onChange={(v) => set({ consumeBlockSeconds: keep(v, value.consumeBlockSeconds) })} testId="setting-queue-block" />
       <NumberField label={t("config.queue.shutdown")} value={value.shutdownGraceSeconds}
         onChange={(v) => set({ shutdownGraceSeconds: keep(v, value.shutdownGraceSeconds) })} testId="setting-queue-shutdown" />
       <NumberField label={t("config.queue.retry.label")} value={value.redisRetryIntervalSeconds}

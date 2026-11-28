@@ -97,5 +97,16 @@ public static class RetiredConfigKeys
         new("projects.*.merge.refresh_open_pull_requests", "2026-11-25",
             "Nothing merges a landed base into conflict-free pull requests any more; a conflicting one is still refreshed. "
             + ReviewReplaces),
+        new("queue.consume_block_seconds", "2026-11-28",
+            "The queue consumer never read it, so it bounded nothing (2026-11-28-34d9d). Remove the key."),
+        new("trackers.*.polling.jitter_percent", "2026-11-28",
+            "The poller never read it: one sleep serves every polling tracker and varies by a fixed ±10% (2026-11-28-34d9d). "
+            + "Remove the key."),
+        new("agents.*.compaction.threshold_iterations", "2026-11-28",
+            "Compaction fires on token pressure only (max_context_tokens x max_context_tokens_trigger_ratio); the "
+            + "iteration count did nothing since p0357. Remove the key."),
+        new("projects.*.polling", "2026-11-28",
+            "Polling belongs to the tracker entry, trackers.<name>.polling, and a project's own block was ignored since "
+            + "p0140c. Set polling on the project's tracker and remove the block."),
     ];
 }

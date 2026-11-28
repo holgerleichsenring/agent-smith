@@ -38,21 +38,17 @@ public static class StartupSummaryLogger
     private static void LogProject(string name, ResolvedProject project, ILogger logger)
     {
         logger.LogInformation(
-            "  • {Project}: {RepoCount} repo(s), tickets={Tickets}, agent={Agent}{LegacyPolling}, pipelines=[{Pipelines}]{Triggers}",
+            "  • {Project}: {RepoCount} repo(s), tickets={Tickets}, agent={Agent}, pipelines=[{Pipelines}]{Triggers}",
             name,
             project.Repos.Count,
             FormatTickets(project.Tracker),
             FormatAgent(project.Agent),
-            FormatLegacyPolling(project.Polling),
             FormatPipelines(project),
             FormatTriggers(project));
 
         foreach (var repo in project.Repos)
             logger.LogInformation("      - {Repo}: {Source}", repo.Name, FormatSource(repo));
     }
-
-    private static string FormatLegacyPolling(PollingConfig polling)
-        => polling.Enabled ? " [DEPRECATED project-level polling — move to tracker]" : "";
 
     private static string FormatSource(RepoConnection source) =>
         string.IsNullOrEmpty(source.Url) ? source.Type.ToString() : $"{source.Type} ({source.Url})";

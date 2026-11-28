@@ -92,12 +92,6 @@ public static partial class CommandNames
     /// needs and no other handler learns that sequences exist.</summary>
     public const string SelectSpec = "SelectSpecCommand";
 
-    /// <summary>p0140e: post-Plan gate that decides "skip cleanly" when plan has zero steps.
-    /// Emits agent_smith_pipeline_skipped_as_irrelevant_total with reason='empty_plan' and
-    /// sets ContextKeys.EmptyPlanSkipped; PipelineExecutor short-circuits on the flag.</summary>
-    public const string EmptyPlanCheck = "EmptyPlanCheckCommand";
-
-    public const string Approval = "ApprovalCommand";
     public const string AgenticExecute = "AgenticExecuteCommand";
 
     /// <summary>p0179b: master-driven coding step. Loads a master skill body
@@ -141,10 +135,7 @@ public static partial class CommandNames
     /// opened PR's body with the actual sibling URL list via the source provider's
     /// UpdatePullRequestBodyAsync. No-op when fewer than two PRs opened.</summary>
     public const string PrCrossLink = "PrCrossLinkCommand";
-    public const string GenerateTests = "GenerateTestsCommand";
-    public const string GenerateDocs = "GenerateDocsCommand";
     public const string Triage = "TriageCommand";
-    public const string SwitchSkill = "SwitchSkillCommand";
     public const string SkillRound = "SkillRoundCommand";
     public const string ConvergenceCheck = "ConvergenceCheckCommand";
     public const string CompileDiscussion = "CompileDiscussionCommand";
@@ -172,9 +163,6 @@ public static partial class CommandNames
     // p0125c: typed concept publication
     public const string PipelineNameInitializer = "PipelineNameInitializerCommand";
     public const string BootstrapCheck = "BootstrapCheckCommand";
-
-    // p0129a: Verify phase between Implementation and delivery
-    public const string RunVerifyPhase = "RunVerifyPhaseCommand";
 
     // p0130a: bootstrap-files gate (aborts when context.yaml or principles.md is missing)
     public const string BootstrapGate = "BootstrapGateCommand";

@@ -595,10 +595,6 @@ projects:
     tracker: acme-ado
     repos: [acme-platform]
     pipeline: code
-    polling:
-      enabled: true
-      interval_seconds: 60
-      jitter_percent: 10
     resolution:
       area_path: AcmeMain/Platform
 

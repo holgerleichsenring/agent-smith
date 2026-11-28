@@ -35,8 +35,6 @@ public static class ContextBuildersExtensions
         AddBuilder<SpecHandbackContextBuilder>(services, CommandNames.SpecHandback); // p0393a
         AddBuilder<SpecSequenceContextBuilder>(services, CommandNames.SpecSequence); // p0393a
         AddBuilder<SelectSpecContextBuilder>(services, CommandNames.SelectSpec); // p0393a
-        AddBuilder<EmptyPlanCheckContextBuilder>(services, CommandNames.EmptyPlanCheck);
-        AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
         services.AddSingleton(sp => new KeyedContextBuilder(
             CommandNames.AgenticMaster, new AgenticMasterContextBuilder(sp.GetRequiredService<IMasterCatalog>())));
         AddBuilder<LoadCachedCodeMapContextBuilder>(services, CommandNames.LoadCachedCodeMap);
@@ -64,11 +62,7 @@ public static class ContextBuildersExtensions
         AddBuilder<RefreshBranchBaseContextBuilder>(services, CommandNames.RefreshBranchBase); // 2026-11-17-023fb
         AddBuilder<DeployToEnvironmentContextBuilder>(services, CommandNames.DeployToEnvironment); // 2026-11-18-3863c
         AddBuilder<PocIntakeContextBuilder>(services, CommandNames.PocIntake); AddBuilder<PocCodeScanContextBuilder>(services, CommandNames.PocCodeScan); AddBuilder<PocSourceCommitContextBuilder>(services, CommandNames.PocSourceCommit); AddBuilder<PocPipelineBuildContextBuilder>(services, CommandNames.PocPipelineBuild); AddBuilder<PocTargetInstallContextBuilder>(services, CommandNames.PocTargetInstall); AddBuilder<WritePocVariablesContextBuilder>(services, CommandNames.WritePocVariables); AddBuilder<SealPocVariablesContextBuilder>(services, CommandNames.SealPocVariables); AddBuilder<GitOpsCommitContextBuilder>(services, CommandNames.GitOpsCommit); AddBuilder<PocRolloutFollowContextBuilder>(services, CommandNames.PocRolloutFollow); AddBuilder<PocActContextBuilder>(services, CommandNames.PocAct); AddBuilder<PocExtendContextBuilder>(services, CommandNames.PocExtend); AddBuilder<PurgePocUploadsContextBuilder>(services, CommandNames.PurgePocUploads); // 933db, 933dc, 933dd
-        AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
-        AddBuilder<RunVerifyPhaseContextBuilder>(services, CommandNames.RunVerifyPhase);
         AddBuilder<PersistWorkBranchContextBuilder>(services, CommandNames.PersistWorkBranch);
-        AddBuilder<GenerateTestsContextBuilder>(services, CommandNames.GenerateTests);
-        AddBuilder<GenerateDocsContextBuilder>(services, CommandNames.GenerateDocs);
         AddBuilder<AcquireSourceContextBuilder>(services, CommandNames.AcquireSource);
         AddBuilder<BootstrapDocumentContextBuilder>(services, CommandNames.BootstrapDocument);
         AddBuilder<DeliverOutputContextBuilder>(services, CommandNames.DeliverOutput);
@@ -77,20 +71,17 @@ public static class ContextBuildersExtensions
         AddBuilder<SpawnNucleiContextBuilder>(services, CommandNames.SpawnNuclei);
         AddBuilder<SpawnSpectralContextBuilder>(services, CommandNames.SpawnSpectral);
         AddBuilder<SpawnZapContextBuilder>(services, CommandNames.SpawnZap);
-        AddBuilder<CompileFindingsContextBuilder>(services, CommandNames.CompileFindings);
         AddBuilder<CollectMasterFindingsContextBuilder>(services, CommandNames.CollectMasterFindings);
         AddBuilder<LoadSkillsContextBuilder>(services, CommandNames.LoadSkills);
         AddBuilder<DeliverFindingsContextBuilder>(services, CommandNames.DeliverFindings);
         AddBuilder<StaticPatternScanContextBuilder>(services, CommandNames.StaticPatternScan);
         AddBuilder<GitHistoryScanContextBuilder>(services, CommandNames.GitHistoryScan);
         AddBuilder<DependencyAuditContextBuilder>(services, CommandNames.DependencyAudit);
-        AddBuilder<CompressSecurityFindingsContextBuilder>(services, CommandNames.CompressSecurityFindings);
         AddBuilder<MergeMasterFindingsContextBuilder>(services, CommandNames.MergeMasterFindings);
         AddBuilder<RatifyScanContractContextBuilder>(services, CommandNames.RatifyScanContract);
         AddBuilder<AccountScanCoverageContextBuilder>(services, CommandNames.AccountScanCoverage);
         AddBuilder<SubstantiateFindingsContextBuilder>(services, CommandNames.SubstantiateFindings);
         AddBuilder<AccountSurfaceDifferenceContextBuilder>(services, CommandNames.AccountSurfaceDifference);
-        AddBuilder<CompressApiScanFindingsContextBuilder>(services, CommandNames.CompressApiScanFindings);
         AddBuilder<SecurityTrendContextBuilder>(services, CommandNames.SecurityTrend);
         AddBuilder<SecuritySnapshotWriteContextBuilder>(services, CommandNames.SecuritySnapshotWrite);
         AddBuilder<AskContextBuilder>(services, CommandNames.Ask);

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-34d9c
+goal: "The nine pipeline steps no preset runs lose their handlers, contexts, builders and constants; an old run's steps still classify, beat and read as before."
+
+applies_to: "default (Contracts commands, Application handlers, builders, models)"
+
+requires: [2026-11-28-34d9b]
+
+facts:
+  - claim: "A run's command list comes only from a named preset (PipelinePresets) and from handlers inserting named follow-ups; no preset, follow-up list or string literal in src/ names Approval, GenerateTests, GenerateDocs, EmptyPlanCheck, SwitchSkill, CompileFindings, CompressApiScanFindings, CompressSecurityFindings or RunVerifyPhase."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:26; src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:50; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawPipelineEntry.cs"
+  - claim: "Step classes, beats and gate silence are read when an old run's steps are shown; a retired command keeps its row as a string literal so old records still classify (the p0394a precedent)."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunStepsReader.cs:54; src/backend/AgentSmith.Server/Services/Events/RunBeatsComputer.cs:29; src/backend/AgentSmith.Contracts/Commands/CommandStepClasses.Map.cs:24"
+  - claim: "RunVerifyPhase has a builder and no handler at all."
+    evidence: "src/backend/AgentSmith.Application/Services/Builders/RunVerifyPhaseContextBuilder.cs"
+  - claim: "CompileKnowledge is resolved directly by the CLI and Ask is run by DurableDialogueTests; both stay."
+    evidence: "src/backend/AgentSmith.Cli/Commands/CompileWikiCommand.cs:69; src/backend/AgentSmith.Application/Services/Handlers/AskCommandHandler.cs"
+
+scope:
+  in: |
+    The handlers, contexts and builders of the nine steps, their DI registrations, their CommandNames constants, their
+    rows in the write-time maps (SandboxRequiringCommands, PipelineStepRunner's skill-switch detail), the types only they
+    use (SecurityFindingsCompressor, the Nuclei, Zap and Spectral top selectors, PostExecutePassTools, RepoDiffPartitioner,
+    RepoDiffPartition, ChangePass, ChangePassText with AgentPromptBuilder.BuildChangePassSystemPrompt), and their tests. The read-time tables an old run's steps are read through (CommandBeats, CommandStepClasses,
+    GateSilence, the no-op summaries, CommandDisplayNames, CommandProgressLabels) keep each row, keyed by the literal
+    command name, as p0394a did for GeneratePlan.
+  out: "CompileKnowledge, Ask, every other orphan constant, context keys, methods of live classes only these called, dialogue.approval_timeout_seconds, the skipped-as-irrelevant metric, the merge order, the rework path, lifecycle tags, milestones."
+
+steps:
+  - id: verify
+    action: "Re-verify on origin/main that no preset, follow-up or literal reaches the nine; a fresh reviewer looks for one live route."
+  - id: delete
+    action: "Delete handlers, contexts, builders, registrations and constants; turn the read-time map rows into literal keys; delete helpers that become dead."
+  - id: tests
+    action: "Delete the tests of the deleted handlers; point remaining tests at the literal names."
+  - id: prove
+    action: "dotnet build, full suite, dry-runs and harness presets green; counts differ only by the deleted tests."
+
+tests:
+  - "No new test: the change deletes code. The deleted tests are listed in decisions/2026-11-28-34d9c.yaml."
+
+done:
+  - "No production code constructs or registers a handler, context or builder of the nine steps."
+  - "An old run whose steps name one of them still reads the same step class, beat and label (existing coverage tests)."
+  - "dotnet build, the full suite, the CLI dry-runs and the harness presets are green; the test count drops only by tests of deleted code."

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-34d9a
+goal: "The dashboard loses the 51 modules no app entry reaches, with their tests and the 183 dictionary keys only they read; nothing a page renders changes."
+
+applies_to: "dashboard (components/jobs, components/system, hooks, lib, i18n areas)"
+
+facts:
+  - claim: "An import walk from every non-test file under src/app/** (static imports, re-exports, import(), require) reaches none of the 51 modules; it was re-run on origin/main at 0.233.1."
+    evidence: "src/dashboard/src/app/**; src/dashboard/src/components/jobs/ActivityTab.tsx; src/dashboard/src/lib/TrailAssembler.ts; src/dashboard/src/components/system/PullCycleLog.tsx"
+  - claim: "Outside the deleted files, their names appear only in comments; no barrel file, next/dynamic, React.lazy, middleware or instrumentation entry exists."
+    evidence: "src/dashboard/src/components/ui/Chip.tsx:7; src/dashboard/src/components/jobs/runStatus.ts:4; src/dashboard/next.config.ts"
+  - claim: "One live test reads deleted files by name (toolPanelTokens.test.ts) and one live test file holds a RunCard case beside live cases (RunsGerman.test.tsx)."
+    evidence: "src/dashboard/src/components/jobs/__tests__/toolPanelTokens.test.ts:9; src/dashboard/src/components/jobs/__tests__/RunsGerman.test.tsx:39"
+  - claim: "A dictionary key is keyof typeof messages, so a key a live file still names fails tsc; the only runtime-built keys in live code are tickets.* keys."
+    evidence: "src/dashboard/src/lib/i18n/translate.ts:1; src/dashboard/src/components/tickets/TicketStrip.tsx"
+
+scope:
+  in: |
+    The 51 production modules unreachable from any src/app entry: the old run Activity tab (ActivityTab, ActivityRow,
+    ActivityPills, FilterRail, EventFilterContext, eventFilterQuery, dimensionFilterQuery, activityPillQuery), the Trail
+    tab (TrailTab, TrailTree, TrailNode*, TrailTimelineSlider, TrailTruncationBanner, TrailExpiredEmptyState, useTrail,
+    TrailAssembler, types/trail-node, payload/*), the Tools panel (RunToolsPanel, ToolPairCard, ToolCallRow,
+    ToolResultRow, ToolCountChip, ToolEventPairer), the sub-agent timeline (SubAgentTimelinePanel, SubAgentTreeNode,
+    rows/SubAgent*Row, useSubAgentObservations), the old system widgets (PullCycleLog, WebhookLog, SystemStatusCard,
+    ChannelBreakdown, usePullCycleLog, useWebhookLog, useTriggerLog) and the singles RunCard, SandboxBox, sandboxStatus,
+    StepProgressList, StepGateChips, ExpandCollapseControls, StatusIcon, ui/Button, questionJoin, useParkedQuestion.
+    The 28 test files that test only them, the RunCard case of RunsGerman.test.tsx, and the 183 dictionary keys that
+    only those modules name (literally, or by the two template prefixes runs.step.node.* and runs.subagent.state.*).
+  out: "Any module an app entry reaches, any key a live file names, CSS, the backend."
+
+steps:
+  - id: verify
+    action: "Re-run the import walk and the key scan on origin/main; a fresh reviewer looks for one live reference per candidate."
+  - id: delete
+    action: "Delete the modules, their tests and toolPanelTokens.test.ts; drop the RunCard case and its fixture from RunsGerman.test.tsx; delete the keys from the area dictionaries."
+  - id: prove
+    action: "pnpm test and pnpm build green; the import walk reports nothing dead; test counts before and after differ only by the deleted tests."
+
+tests:
+  - "No new test: the change deletes code. The deleted test files are listed in decisions/2026-11-28-34d9a.yaml."
+
+done:
+  - "The import walk from src/app/** reports no unreachable production module."
+  - "pnpm test and pnpm build are green; the test count drops only by the tests of deleted modules."
+  - "A fresh reviewer of the diff finds nothing at runtime that still reaches a deleted module or key."

@@ -65,7 +65,6 @@ export function AgentTuningTab({
                 ...draft,
                 compaction: {
                   isEnabled: true,
-                  thresholdIterations: 0,
                   maxContextTokens: 0,
                   keepRecentIterations: 0,
                 },
@@ -79,12 +78,6 @@ export function AgentTuningTab({
               value={draft.compaction.isEnabled}
               testId="form-field-compaction-isEnabled"
               onChange={(v) => onChange({ ...draft, compaction: { ...draft.compaction!, isEnabled: v } })}
-            />
-            <NumberField
-              label={t("config.tuning.compaction.threshold")}
-              value={draft.compaction.thresholdIterations}
-              testId="form-field-compaction-thresholdIterations"
-              onChange={(v) => onChange({ ...draft, compaction: { ...draft.compaction!, thresholdIterations: v ?? 0 } })}
             />
             <NumberField
               label={t("config.tuning.compaction.maxContext")}
