@@ -25,37 +25,12 @@ public sealed class WriteRunResultInitProjectTests
     private const string SampleRunId = "2026-05-25T22-27-43-8a3f";
 
     private readonly InMemoryDialogueTrail _dialogueTrail = new();
-    // (sandboxId, path) → content. Per-sandbox prefixes make multi-repo writes
-    // distinguishable even when they share a relative path under /work.
-    private readonly Dictionary<string, string> _written = new();
-    private readonly Dictionary<ISandbox, string> _sandboxIds = new();
     private readonly InMemoryRunArtifactStore _store = new();
     private readonly WriteRunResultHandler _sut;
 
     public WriteRunResultInitProjectTests()
     {
-        var factory = new Mock<ISandboxFileReaderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<ISandbox>()))
-            .Returns<ISandbox>(sandbox =>
-            {
-                if (!_sandboxIds.TryGetValue(sandbox, out var id))
-                {
-                    id = $"sb{_sandboxIds.Count}";
-                    _sandboxIds[sandbox] = id;
-                }
-                var reader = new Mock<ISandboxFileReader>();
-                reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                    .Returns<string, CancellationToken>((p, _) =>
-                        _written.TryGetValue($"{id}::{p}", out var c)
-                            ? Task.FromResult<string?>(c) : Task.FromResult<string?>(null));
-                reader.Setup(r => r.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                    .Callback<string, string, CancellationToken>((p, c, _) => _written[$"{id}::{p}"] = c)
-                    .Returns(Task.CompletedTask);
-                return reader.Object;
-            });
-        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, _store, new AgentSmith.Tests.Events.RecordingEventPublisher(),
-            new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
-            new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
+        _sut = new WriteRunResultHandler(_dialogueTrail, _store, new AgentSmith.Tests.Events.RecordingEventPublisher(), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
@@ -96,7 +71,6 @@ public sealed class WriteRunResultInitProjectTests
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        _written.Should().BeEmpty();
         var plan = await Plan();
         plan.Should().Contain("repo `server`").And.Contain("repo `client`");
         var resultMd = await Result();

@@ -23,37 +23,17 @@ public sealed class WriteRunResultHandlerTests
     private const string SampleRunId = "2026-05-20T22-27-43-8a3f";
 
     private readonly InMemoryDialogueTrail _dialogueTrail = new();
-    private readonly Dictionary<string, string> _written = new();
-    private readonly Dictionary<string, string?> _initialFiles = new();
     private readonly InMemoryRunArtifactStore _store = new();
     private readonly WriteRunResultHandler _sut;
 
     public WriteRunResultHandlerTests()
     {
-        var reader = new Mock<ISandboxFileReader>();
-        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns<string, CancellationToken>((p, _) =>
-            {
-                if (_written.TryGetValue(p, out var c)) return Task.FromResult<string?>(c);
-                if (_initialFiles.TryGetValue(p, out var i)) return Task.FromResult(i);
-                return Task.FromResult<string?>(null);
-            });
-        reader.Setup(r => r.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((p, c, _) => _written[p] = c)
-            .Returns(Task.CompletedTask);
-
-        var factory = new Mock<ISandboxFileReaderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
-
-        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, _store, new AgentSmith.Tests.Events.RecordingEventPublisher(),
-            new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
-            new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
+        _sut = new WriteRunResultHandler(_dialogueTrail, _store, new AgentSmith.Tests.Events.RecordingEventPublisher(), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
     public async Task ExecuteAsync_StoresThePlan()
     {
-        SetupContextYaml();
         var context = CreateContext("Add login feature");
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -66,7 +46,6 @@ public sealed class WriteRunResultHandlerTests
     [Fact]
     public async Task ExecuteAsync_WritesResultWithFrontmatter()
     {
-        SetupContextYaml();
         var context = CreateContext("Add login feature");
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -83,7 +62,6 @@ public sealed class WriteRunResultHandlerTests
     [Fact]
     public async Task ExecuteAsync_WithCostData_IncludesCostInFrontmatter()
     {
-        SetupContextYaml();
         var pipeline = NewPipelineWithSandbox();
         var phases = new Dictionary<string, PhaseCost>
         {
@@ -112,7 +90,6 @@ public sealed class WriteRunResultHandlerTests
     [Fact]
     public async Task ExecuteAsync_WithoutCostData_OmitsCostSections()
     {
-        SetupContextYaml();
         var context = CreateContext("Add login feature");
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -147,7 +124,6 @@ public sealed class WriteRunResultHandlerTests
     [Fact]
     public async Task ExecuteAsync_WithDecisionsInPipeline_IncludesDecisionsInResult()
     {
-        SetupContextYaml();
         var pipeline = NewPipelineWithSandbox();
         var decisions = new List<PlanDecision>
         {
@@ -172,7 +148,6 @@ public sealed class WriteRunResultHandlerTests
     [Fact]
     public async Task ExecuteAsync_WithoutDecisions_OmitsDecisionsSection()
     {
-        SetupContextYaml();
         var context = CreateContext("Add login feature");
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -180,19 +155,6 @@ public sealed class WriteRunResultHandlerTests
         var content = await Result();
 
         content.Should().NotContain("## Decisions");
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WritesNothingIntoTheSandbox()
-    {
-        // 2026-11-28-db88b: the run's plan and result live with the run, on its run page.
-        SetupContextYaml();
-        var context = CreateContext("Add login feature");
-
-        await _sut.ExecuteAsync(context, CancellationToken.None);
-
-        _written.Keys.Should().NotContain(k => k.Contains(".agentsmith/runs/"));
-        (await _store.ReadResultMarkdownAsync(SampleRunId, CancellationToken.None)).Should().Contain("Add login feature");
     }
 
     [Fact]
@@ -256,11 +218,6 @@ public sealed class WriteRunResultHandlerTests
 
     private async Task<string> Result() =>
         (await _store.ReadResultMarkdownAsync(SampleRunId, CancellationToken.None))!;
-
-    private void SetupContextYaml()
-    {
-        _initialFiles["/work/.agentsmith/context.yaml"] = "state:\n  done: {}\n  active: {}";
-    }
 
     private PipelineContext NewPipelineWithSandbox()
     {

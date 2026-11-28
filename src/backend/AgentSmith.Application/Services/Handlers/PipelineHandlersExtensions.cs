@@ -71,10 +71,9 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<EnsurePrerequisitesContext>, EnsurePrerequisitesHandler>();
         services.AddTransient<PrerequisiteInstall>(); // 2026-11-25-9992b
         services.AddContextLoading(); // 2026-09-04-cf3d: both loaders + the per-context reader
-        // p0380: plan-time experiential-memory index + green-run narrative twin.
+        // p0380: plan-time experiential-memory index.
         services.AddTransient<ICommandHandler<LoadMemoryIndexContext>, LoadMemoryIndexHandler>();
         services.AddTransient<ICommandHandler<LoadDesignSystemContext>, LoadDesignSystemHandler>(); // 283dg
-        services.AddTransient<Memory.RunNarrativeMemoryWriter>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
         services.AddTransient<IProjectMapJsonReader, ProjectMapJsonReader>().AddTransient<IProjectMapFinalizer, ProjectMapFinalizer>();
         services.AddTransient<IProjectAnalyzer, ProjectAnalyzer>();

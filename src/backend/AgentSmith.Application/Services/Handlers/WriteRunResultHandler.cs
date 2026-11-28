@@ -24,12 +24,10 @@ namespace AgentSmith.Application.Services.Handlers;
 /// never overwritten. Earlier runs' <c>runs/</c> directories stay in their repositories.</para>
 /// </summary>
 public sealed class WriteRunResultHandler(
-    ISandboxFileReaderFactory readerFactory,
     IDialogueTrail dialogueTrail,
     IRunArtifactStore artifactStore,
     IEventPublisher events,
-    Memory.RunNarrativeMemoryWriter narrativeWriter, Memory.MemoryOutcomeRecorder outcomes, // p0380, 9324c: run-end memory
-    SandboxTargets sandboxTargets,
+    Memory.MemoryOutcomeRecorder outcomes, // 9324c: run-end memory standing
     RunResultChanges runResultChanges, // 2026-10-13-3890b: the branch is the record
     ILogger<WriteRunResultHandler> logger)
     : ICommandHandler<WriteRunResultContext>
@@ -115,40 +113,19 @@ public sealed class WriteRunResultHandler(
         var perSkillBreakdown = ResolvePerSkillBreakdown(context.Pipeline);
         var topology = ResolveTopology(context.Pipeline, runId);
 
-        // p0380: the early verdict is computed ONCE here (it is pipeline-scoped) — the result renders it, and the
-        // green-run narrative twin below gates on it.
+        // p0380: the early verdict is computed ONCE here (it is pipeline-scoped) and the result renders it.
         var failureReason = ResolveFailureReason(context);
 
         // 2026-11-28-db88b: one run-wide record — every repository's changes, the run's whole cost.
         await StoreRunRecordAsync(context, runId, changeSet.All, cost, duration, trail, decisions, trend,
             dialogueEntries, perSkillBreakdown, topology, failureReason, cancellationToken);
 
-        if (repos is null)
-        {
-            var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-            await narrativeWriter.TryWriteAsync(
-                readerFactory.Create(sandbox), sandbox.WorkDirectory(), context.Ticket, runId,
-                failureReason, changeSet.For(null), decisions, cancellationToken);
-            logger.LogInformation("Recorded run result {RunId} (single sandbox)", RunIdGenerator.FormatForDisplay(runId));
-            return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded");
-        }
-
-        foreach (var repo in repos)
-        {
-            var sandbox = ResolvePerRepoSandbox(context.Pipeline, repo);
-            if (sandbox is null) continue;
-            var repoChanges = changeSet.For(repo.Name);
-            // p0380 / 2026-10-12-f5f7c: the curated project memory of a green ticket run, in every
-            // repository it changed — the store that repository's pull request carries.
-            if (repos.Count == 1 || repoChanges.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString())))
-                await narrativeWriter.TryWriteAsync(
-                    readerFactory.Create(sandbox), sandbox.WorkDirectory(), context.Ticket, runId,
-                    failureReason, repoChanges, decisions, cancellationToken);
-        }
-        logger.LogInformation("Recorded run result {RunId} ({Repos} repo(s))",
-            RunIdGenerator.FormatForDisplay(runId), repos.Count);
-        return CommandResult.Ok(
-            $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded for {repos.Count} repo(s)");
+        // 2026-11-28-db88c: no per-ticket memory file — the run's narrative is this record; memory/ holds what
+        // a master keeps with remember.
+        logger.LogInformation("Recorded run result {RunId}", RunIdGenerator.FormatForDisplay(runId));
+        return CommandResult.Ok(repos is null
+            ? $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded"
+            : $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded for {repos.Count} repo(s)");
     }
 
     // p0341: done-status honesty DIAGNOSTIC — a done ledger step whose EXPLICIT target is
@@ -275,13 +252,6 @@ public sealed class WriteRunResultHandler(
         {
             logger.LogWarning(ex, "Failed to store the plan of {RunId} in the artifact store", runId);
         }
-    }
-
-    private ISandbox? ResolvePerRepoSandbox(PipelineContext pipeline, RepoConnection repo)
-    {
-        var matches = sandboxTargets.SandboxesForRepo(pipeline, repo);
-        if (matches.Count > 0) return matches[0].Value;
-        return pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var legacy) ? legacy : null;
     }
 
     private static (RunCostSummary? Cost, int DurationSeconds) ResolveCostAndDuration(PipelineContext pipeline)

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-db88c
+
+decisions:
+  - category: Architecture
+    chose: "memory/ holds only transferable facts a master writes with remember; a green run writes no per-ticket memory file (memory/ticket-<id>.md) and no index line for one — its narrative is the run record on the run page"
+    over: "The p0380 green-run narrative twin, written into every repository the run changed"
+    reason: "decider: operator, 2026-11-28 — processing information lives in the database; the repository keeps specs, memory and decisions, and a per-ticket narrative is processing information, not a transferable fact."
+  - category: Scope
+    chose: "ticket-*.md files and their index lines already in repositories stay; nothing deletes them"
+    over: "A migration removing them from memory/ and MEMORY.md"
+    reason: "decider: operator, 2026-11-28 — existing repositories keep what they have; nothing may break a running series or an in-flight run."
+  - category: Scope
+    chose: "The 2026-10-12-f5f7c rule 'a repository that changed gets its memory in its pull request' is dropped with the writer, and the per-ticket hint in the memory index goes with it"
+    over: "Keeping the rule for remember entries"
+    reason: "decider: claude — the rule existed only for the narrative writer; remember already names the repository a memory belongs to."
+  - category: Implementation
+    chose: "RunNarrativeMemoryWriter, RunNarrativeComposer, their registration and tests, the composer's hard-coded-limits baseline row and its limits inventory note are deleted; WriteRunResultHandler drops the sandbox reader factory and SandboxTargets it only needed for the narrative; MemoryOutcomeRecorder stays"
+    over: "Leaving the writer registered but uncalled"
+    reason: "decider: claude — dead code with a baseline row is debt the ratchet would have to carry."

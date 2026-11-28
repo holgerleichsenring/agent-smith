@@ -244,6 +244,29 @@ public sealed class FixBugTests
     }
 
     [Fact]
+    public async Task Harness_AGreenRun_WritesNoTicketMemoryFile()
+    {
+        // 2026-11-28-db88c: memory/ holds what a master keeps with remember; a green run's narrative is its
+        // run record, not a memory/ticket-<id>.md (nor an index line for one).
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
+        harness.ChatClient
+            .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
+            .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
+            .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
+            .EnqueueReport();
+
+        var runner = new PipelineRunner(harness.Services);
+        var result = await runner.RunAsync("code");
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        harness.StubSandboxFactory!.Spawned.SelectMany(s => s.Sandbox.RanSteps)
+            .Should().NotContain(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
+                && s.Path != null && s.Path.Contains(".agentsmith/memory/", StringComparison.Ordinal),
+                "a green run writes no per-ticket memory file and no index line for one");
+    }
+
+    [Fact]
     public async Task Harness_ACodingRun_WritesNothingUnderRuns()
     {
         // 2026-11-28-db88b: a coding run's record lives with the run. The master records its plan with

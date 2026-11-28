@@ -17,46 +17,12 @@ namespace AgentSmith.Tests.Handlers;
 
 public sealed class WriteRunResultHandlerArtifactsTests
 {
-    private readonly Dictionary<string, string> _written = new();
-    private readonly Dictionary<string, string?> _initial = new();
     private readonly InMemoryRunArtifactStore _store = new();
     private readonly WriteRunResultHandler _sut;
 
     public WriteRunResultHandlerArtifactsTests()
     {
-        var reader = new Mock<ISandboxFileReader>();
-        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns<string, CancellationToken>((p, _) =>
-            {
-                if (_written.TryGetValue(p, out var c)) return Task.FromResult<string?>(c);
-                if (_initial.TryGetValue(p, out var i)) return Task.FromResult(i);
-                return Task.FromResult<string?>(null);
-            });
-        reader.Setup(r => r.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((p, c, _) => _written[p] = c)
-            .Returns(Task.CompletedTask);
-
-        var factory = new Mock<ISandboxFileReaderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
-
-        _initial["/work/.agentsmith/context.yaml"] = "state:\n  done: {}\n  active: {}";
-
-        _sut = new WriteRunResultHandler(factory.Object, new InMemoryDialogueTrail(), _store, new AgentSmith.Tests.Events.RecordingEventPublisher(),
-            new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
-            new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_StructuredArtifactsInContext_WriteNothingIntoTheSandbox()
-    {
-        // 2026-11-28-db88b: plan.json / diff.json / bootstrap.md had no writer left; nothing goes under runs/.
-        var pipeline = NewPipelineWithSandbox();
-        pipeline.Set(ContextKeys.PlanJson, "{\"summary\":\"x\"}");
-        pipeline.Set(ContextKeys.DiffJson, "{\"changes\":[]}");
-
-        await _sut.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
-
-        _written.Keys.Should().NotContain(k => k.Contains(".agentsmith/runs/"));
+        _sut = new WriteRunResultHandler(new InMemoryDialogueTrail(), _store, new AgentSmith.Tests.Events.RecordingEventPublisher(), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
@@ -86,19 +52,17 @@ public sealed class WriteRunResultHandlerArtifactsTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_CodingRun_LeavesALoosePlanWhereItIs()
+    public async Task ExecuteAsync_CodingRunWithoutARecordedPlan_StoresNoPlan()
     {
-        // 2026-11-28-db88b: a coding master records its plan with record_plan; a loose plan.md an old
-        // skill left is the repository's file, neither moved nor replaced by a breadcrumb.
+        // 2026-11-28-db88b: a coding master records its plan with record_plan; nothing is read back
+        // from the sandbox, so a run whose master recorded none has no plan.
         var pipeline = NewPipelineWithSandbox();
-        _initial["/work/.agentsmith/plan.md"] = "# Agent plan\n\n- step 1";
         var repo = new Repository(new BranchName("feature/x"), "https://example.test/x");
         var ticket = new Ticket(new TicketId("99"), "fix: the bug", "desc", null, "Open", "github");
         var ctx = new WriteRunResultContext(repo, Plan: null, ticket, Array.Empty<CodeChange>(), pipeline);
 
         await _sut.ExecuteAsync(ctx, CancellationToken.None);
 
-        _written.Keys.Should().NotContain(k => k.EndsWith("plan.md"));
         (await _store.ReadPlanMarkdownAsync(RunId, CancellationToken.None)).Should().BeNull();
     }
 
