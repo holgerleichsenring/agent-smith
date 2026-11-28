@@ -17,7 +17,9 @@ public static class SeriesQuestionText
         if (question.Recommended is { } recommended) text += $"\n\nRecommended: {recommended}";
         return text + "\n\n" + (question.DeadlineAt is { } at
             ? $"If you don't answer, I take the recommendation at {at.UtcDateTime:HH:mm} UTC · or reply below."
-            : "Reply below; the series goes on meanwhile.");
+            : question is { NoDefault: true, Recommended: not null } // 2026-11-28-b1db
+                ? "Only you can do this, so nothing is taken by default: it waits for your answer · the series goes on meanwhile."
+                : "Reply below; the series goes on meanwhile.");
     }
 
     public static string TakenByDefault(SeriesQuestion question, DateTimeOffset at) =>

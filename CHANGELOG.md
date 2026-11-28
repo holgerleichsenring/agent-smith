@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.234.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.2...v0.234.0) (2026-11-28)
+
+
+### Features
+
+* **config:** settings rail grouped into Runs & limits, Workflow and Diagnostics; group pages hold the former pages as sections that count changes from the default (2026-11-28-9bd1) ([f9d7505](https://github.com/holgerleichsenring/agent-smith/commit/f9d7505c299aba11780a33a8398085fc8836f777))
+* **config:** settings rail grouped; group pages count changes from the default (2026-11-28-9bd1) ([b394778](https://github.com/holgerleichsenring/agent-smith/commit/b394778ed6c11b61b726856854341ccd72ca4e64))
+
+## [0.233.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.1...v0.233.2) (2026-11-28)
+
+
+### Bug Fixes
+
+* **series:** a question only a person or the environment can act on is never taken by default (2026-11-28-b1db) ([6d7acc9](https://github.com/holgerleichsenring/agent-smith/commit/6d7acc9755b4662396366ed8233cc1c19b4fd6ed))
+* **series:** a question only a person or the environment can act on is never taken by default; the parked run is told nothing until the operator replies (2026-11-28-b1db) ([6602d25](https://github.com/holgerleichsenring/agent-smith/commit/6602d257c17a4a461931cf1a791dcb68311c3831))
+
 ## [0.233.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.0...v0.233.1) (2026-11-27)
 
 

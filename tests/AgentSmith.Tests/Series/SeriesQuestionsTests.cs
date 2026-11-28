@@ -54,6 +54,62 @@ public sealed class SeriesQuestionsTests
         beat.Reasons.Should().ContainSingle().Which.Should().Contain("answered by default: keep");
     }
 
+    // 2026-11-28-b1db: a question carried for a run that only the environment can answer, stored with a deadline before, is
+    // never taken by default — it waits without a deadline, and nothing is handed to the master or the run.
+    [Fact]
+    public async Task CarriedEnvironmentQuestion_StoredWithADeadline_IsNotTakenByDefault()
+    {
+        var parked = Parked("50", "Inject the disposable database's connection string?", "environment");
+        var carried = Asked(0) with { ForTicket = "SCRUM-50", ForRunId = "run-50", ForQuestionId = "q-50" };
+        var record = SeriesRecords.Running() with { Raised = [SeriesRunAsk.KeyOf(parked)!] };
+
+        var beat = await BeatAsync(carried, SeriesRecords.T.AddHours(3), [parked], record);
+
+        _store.Records["sr-1"].Question.Should().Match<SeriesQuestion>(q => q.Answer == null && q.NoDefault && q.DeadlineAt == null && !q.ByDefault);
+        beat.Said.Should().BeEmpty();
+        beat.Reasons.Should().BeEmpty("no answer reaches the master, so the run is told nothing");
+        beat.MasterAnswered.Should().BeFalse();
+    }
+
+    // A question carried for a ticket whose run waits on no question is no environment question: it defaults as before.
+    [Fact]
+    public async Task CarriedQuestion_RunParkedOnNothing_IsTakenByDefault()
+    {
+        var carried = Asked(0) with { ForTicket = "SCRUM-52", ForRunId = "run-52" };
+
+        await BeatAsync(carried, SeriesRecords.T.AddMinutes(121), [SeriesRecords.Fact("52", "running", finished: false)]);
+
+        _store.Records["sr-1"].Question!.ByDefault.Should().BeTrue();
+    }
+
+    // 2026-11-28-b1db: a plan question the master carries for a run still takes its recommendation at the deadline.
+    [Fact]
+    public async Task CarriedPlanQuestion_PastItsDeadline_IsStillTakenByDefault()
+    {
+        var parked = Parked("52", "Keep the original deadline?", "target");
+        var carried = Asked(0) with { ForTicket = "SCRUM-52", ForRunId = "run-52", ForQuestionId = "q-52" };
+        var record = SeriesRecords.Running() with { Raised = [SeriesRunAsk.KeyOf(parked)!] };
+
+        var beat = await BeatAsync(carried, SeriesRecords.T.AddMinutes(121), [parked], record);
+
+        _store.Records["sr-1"].Question!.Should().Match<SeriesQuestion>(q => q.Answer == "keep" && q.ByDefault);
+        beat.Said.Should().ContainSingle().Which.Should().StartWith("Taken by default at 20:38 UTC: keep");
+        beat.Reasons.Should().ContainSingle().Which.Should().Contain("answered by default: keep")
+            .And.Contain("tell it only the choice, never that anything was set up");
+    }
+
+    [Fact]
+    public async Task OnlyAPersonQuestion_HasNoDeadline_AndSaysItWaits()
+    {
+        var asked = SeriesQuestions.Ask("Grant the pipeline access to the registry?", ["grant", "skip"], 0, SeriesRecords.T, 120, noDefault: true);
+
+        asked.Should().Match<SeriesQuestion>(q => q.DeadlineAt == null && q.NoDefault && q.Recommended == "grant");
+        SeriesQuestionText.Asked(asked).Should().Contain("Recommended: grant").And.Contain("nothing is taken by default")
+            .And.NotContain("I take the recommendation");
+        await BeatAsync(asked, SeriesRecords.T.AddDays(3));
+        _store.Records["sr-1"].Question!.Answer.Should().BeNull();
+    }
+
     [Fact]
     public async Task QuestionWithoutRecommendation_WaitsPastAnyTime()
     {
@@ -96,7 +152,7 @@ public sealed class SeriesQuestionsTests
         var beat = await BeatAsync(null, SeriesRecords.T, [Parked("50", "The registry token is missing.", "environment")]);
 
         beat.Reasons.Should().ContainSingle().Which.Should().Contain("Only the environment can answer it")
-            .And.Contain("naming what to set or grant and where, with your recommendation");
+            .And.Contain("naming what to set or grant and where, with your recommendation").And.Contain("It has no default");
     }
 
     [Fact]

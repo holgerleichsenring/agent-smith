@@ -19,7 +19,14 @@ vi.mock("@/components/system/ConnectionsView", () => ({
   ConnectionsView: () => <div data-testid="connections-view" />,
 }));
 vi.mock("@/components/config/ConfigStudio", () => ({ ConfigStudio: () => <div data-testid="studio" /> }));
-vi.mock("@/components/config/SettingsStudio", () => ({ SettingsStudio: () => <div data-testid="settings" /> }));
+vi.mock("@/components/config/SettingsStudio", () => ({
+  SettingsStudio: ({ settingKey }: { settingKey: string }) => <div data-testid={`settings-${settingKey}`} />,
+}));
+vi.mock("@/components/config/SettingsGroupStudio", () => ({
+  SettingsGroupStudio: ({ groupId, open }: { groupId: string; open: string | null }) => (
+    <div data-testid={`group-${groupId}`} data-open={open ?? ""} />
+  ),
+}));
 vi.mock("@/components/access/AccessStudio", () => ({ AccessStudio: () => <div data-testid="access" /> }));
 
 // React.use() unwraps an already-instrumented promise synchronously — no Suspense
@@ -30,10 +37,16 @@ function resolvedParams(slug: string[]): Promise<{ slug?: string[] }> {
   return params;
 }
 
-const renderConfig = (slug: string[]) =>
+function resolved<T>(value: T): Promise<T> {
+  const promise = Promise.resolve(value);
+  Object.assign(promise, { status: "fulfilled", value });
+  return promise;
+}
+
+const renderConfig = (slug: string[], search: { open?: string } = {}) =>
   render(
     <Suspense fallback={null}>
-      <ConfigPage params={resolvedParams(slug)} />
+      <ConfigPage params={resolvedParams(slug)} searchParams={resolved(search)} />
     </Suspense>,
   );
 
@@ -65,5 +78,39 @@ describe("Configuration route", () => {
 
     ConnectionsRedirect();
     expect(redirect).toHaveBeenCalledWith("/config/connection-check");
+  });
+
+  // 2026-11-28-9bd1: the settings rail lists groups; a former page's path still lands on it.
+  it("OldSettingPath_RedirectsToItsGroupWithTheSectionOpen", () => {
+    for (const [key, group] of [
+      ["orchestrator", "runs"], ["primary_provider", "runs"], ["limits", "runs"], ["pipeline_cost_cap", "runs"],
+      ["queue", "runs"], ["deployment", "runs"], ["dialogue", "workflow"], ["spec_review", "workflow"],
+      ["preconditions", "workflow"], ["holds", "workflow"], ["branch_cleanup", "workflow"],
+      ["pipeline_data_flow", "diagnostics"], ["trace", "diagnostics"],
+    ]) {
+      redirect.mockClear();
+      const view = renderConfig(["settings", key]);
+      expect(redirect).toHaveBeenCalledWith(`/config/settings/${group}?open=${key}`);
+      view.unmount();
+    }
+  });
+
+  it("SettingsRoute_AGroup_RendersItWithTheSectionToOpen", async () => {
+    renderConfig(["settings", "runs"], { open: "queue" });
+    expect(await screen.findByTestId("group-runs")).toHaveAttribute("data-open", "queue");
+    renderConfig(["settings", "workflow"], { open: "not-a-key" });
+    expect(await screen.findByTestId("group-workflow")).toHaveAttribute("data-open", "");
+  });
+
+  it("SettingsRoute_APageOfItsOwn_RendersIt_ABareOrUnknownOne_GoesToTheFirstEntry", async () => {
+    redirect.mockClear();
+    renderConfig(["settings", "sandbox"]);
+    expect(await screen.findByTestId("settings-sandbox")).toBeInTheDocument();
+    expect(redirect).not.toHaveBeenCalled();
+    renderConfig(["settings"]);
+    expect(redirect).toHaveBeenCalledWith("/config/settings/runs");
+    redirect.mockClear();
+    renderConfig(["settings", "nope"]);
+    expect(redirect).toHaveBeenCalledWith("/config/settings/runs");
   });
 });

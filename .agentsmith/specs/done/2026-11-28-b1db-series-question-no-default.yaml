@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-b1db
+goal: "A series question only a person or the environment can act on (a secret, a database, access) is never taken by default: it waits, and the parked run is told nothing."
+
+applies_to: "default (Application series questions: SeriesAskTool, SeriesQuestions, SeriesQuestionText, SeriesRunAsk)"
+
+requires: [2026-11-27-3532b, 2026-11-25-9992g, 2026-11-17-0207c]
+
+facts:
+  - claim: "ask_human with a recommendation always gets a deadline of dialogue.question_default_minutes; only a merge or budget question is NoDefault."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesQuestions.cs:36; src/backend/AgentSmith.Application/Services/Series/SeriesMergeQuestion.cs:17; src/backend/AgentSmith.Application/Services/Series/SeriesBudgetQuestion.cs:100"
+  - claim: "A question the master carries for a ticket (forTicket) records the run and question id but not the run question's answerer, so an environment question gets the same deadline."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesAskTool.cs:52"
+  - claim: "Past the deadline the recommendation is taken and handed to the master as 'answered by default … answer the run with tell_ticket'."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesQuestions.cs:75; src/backend/AgentSmith.Application/Services/Series/SeriesQuestions.cs:90"
+  - claim: "The master is told to forward an environment question with ask_human 'with your recommendation', and the tool says a recommendation is taken by default."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesRunAsk.cs:34; src/backend/AgentSmith.Application/Services/Series/SeriesAskTool.cs:24"
+  - claim: "The chat already says 'If you don't answer, I take the recommendation at HH:MM UTC' on a question with a deadline; one without says only 'Reply below'."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesQuestionText.cs:18"
+  - claim: "An unanswered master question stands in the series page's questions block above the chat until answered."
+    evidence: "src/dashboard/src/components/series/page/SeriesQuestionBlock.tsx:37; src/backend/AgentSmith.Server/Services/Series/SeriesRunQuestion.cs:15"
+  - claim: "A beat is due on a waiting question whose DeadlineAt passed, whatever its NoDefault."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesBeatDue.cs:22"
+  - claim: "The master's prompt says it carries an environment question with a recommendation the series takes after the configured deadline."
+    evidence: "src/backend/AgentSmith.Application/Prompts/Resources/series-master.md:31; src/backend/AgentSmith.Application/Prompts/Resources/series-master.md:60"
+
+scope:
+  in: |
+    A question carried for a ticket whose run question names the environment as answerer is NoDefault with no deadline
+    (structural, from the parked run's answerers). ask_human gains an explicit flag onlyAPerson: the master sets it when only
+    a person or the environment can carry out the answer (a secret, a database, quota, a credential, access, a host approval);
+    the question is then NoDefault too. A NoDefault question keeps its recommendation for the reader but has no DeadlineAt, so
+    no beat is due on it and nothing is handed to the master or the run until the operator answers. A waiting question already
+    stored with a deadline that carries an environment question (matched on beat.Facts by run and question id) is turned
+    NoDefault with its deadline cleared and persisted at the next beat instead of defaulting; one whose run no longer waits
+    on that question is not matched and keeps its old behaviour.
+    The tool description and the environment reason say plainly such a question has no default. The chat line of a NoDefault
+    question with a recommendation says it waits for the operator and is never taken by default.
+    A default taken on a carried question tells the master to pass the run only the choice, never that anything was set up.
+  out: "The run's own checkpoint answer deadline (PendingQuestionInfo.AnswerDeadlineAt); dashboard changes (the questions block already shows an open question); classifying question text by keywords."
+
+steps:
+  - id: contract
+    action: "SeriesQuestions.Ask gains noDefault (no deadline when set); SeriesAskTool gains onlyAPerson and derives NoDefault from the carried run question's environment answerer; descriptions updated."
+  - id: settle
+    action: "SeriesQuestions.AnswerAsync turns a stored deadline question carrying an environment question NoDefault instead of defaulting; Hand's by-default wording for a carried question."
+  - id: text
+    action: "SeriesQuestionText.Asked says a NoDefault recommendation waits; SeriesRunAsk's environment reason and series-master.md say it has no default and the run is answered only after the operator replied."
+  - id: tests
+    action: "Composition: an environment run question carried by the master, clock past the deadline, beat: no default, nothing in the run's inbox, no beat due (SeriesBeatDue.Why null), no second ask. Unit: onlyAPerson NoDefault; a plan question still defaults."
+
+tests:
+  - "SeriesRunQuestionCompositionTests.EnvironmentQuestion_CarriedToTheOperator_PastTheDeadline_IsNotTakenByDefault_TheRunStaysParked"
+  - "SeriesQuestionsTests.CarriedEnvironmentQuestion_StoredWithADeadline_IsNotTakenByDefault"
+  - "SeriesQuestionsTests.OnlyAPersonQuestion_HasNoDeadline_AndSaysItWaits"
+  - "SeriesQuestionsTests.CarriedPlanQuestion_PastItsDeadline_IsStillTakenByDefault"
+  - "SeriesQuestionsTests.CarriedQuestion_RunParkedOnNothing_IsTakenByDefault"
+  - "SeriesQuestionsTests.RecommendedQuestion_PastItsDeadline_IsTakenByDefaultAndSaysWhen"
+
+done:
+  - "An environment question the master carries for a run, past the configured minutes, is not answered, hands nothing to the master or the run, and no beat is due on it (test)."
+  - "ask_human with onlyAPerson asks without a deadline and the chat says it waits (test)."
+  - "A plan question with a recommendation still defaults at its deadline and says when (test)."
+  - "dotnet build, the full suite and the dashboard tests and build are green."

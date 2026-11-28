@@ -1418,6 +1418,15 @@ export async function fetchSetting<K extends SettingKey>(
   return getJson<SettingShapes[K]>(`/api/config/settings/${key}`, signal);
 }
 
+/** 2026-11-28-9bd1: what one settings singleton holds when nobody set it — a group page counts
+ *  each section's differences from it. */
+export async function fetchSettingDefault<K extends SettingKey>(
+  key: K,
+  signal?: AbortSignal,
+): Promise<SettingShapes[K]> {
+  return getJson<SettingShapes[K]>(`/api/config/settings/${key}/default`, signal);
+}
+
 /** Save one settings singleton. The backend records an attributed version and bumps
  *  the config epoch so the change applies live. Returns the persisted value. */
 export async function saveSetting<K extends SettingKey>(

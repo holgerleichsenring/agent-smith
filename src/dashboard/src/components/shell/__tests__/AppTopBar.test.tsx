@@ -26,6 +26,18 @@ describe("AppTopBar", () => {
     expect(placeForQuery("   ")).toBeNull();
   });
 
+  // 2026-11-28-9bd1: a settings page that became a section is still found by its old name; its path
+  // redirects to the group with that section open.
+  it("PlaceForQuery_FormerSettingsPages_AndTheGroups_AreFound", () => {
+    expect(placeForQuery("Queue")).toBe("/config/settings/queue");
+    expect(placeForQuery("Branch cleanup")).toBe("/config/settings/branch_cleanup");
+    expect(placeForQuery("Trace")).toBe("/config/settings/trace");
+    expect(placeForQuery("Ticket limits")).toBe("/config/settings/tickets");
+    expect(placeForQuery("Workflow")).toBe("/config/settings/workflow");
+    expect(placeForQuery("Diagnostics")).toBe("/config/settings/diagnostics");
+    expect(placeForQuery("Runs & limits")).toMatch(/^\/config\/settings(\/runs)?$/);
+  });
+
   it("SearchablePlaces_OnePathPerName", () => {
     const names = SEARCHABLE_PLACES.map((p) => p.name);
     expect(new Set(names).size).toBe(names.length);

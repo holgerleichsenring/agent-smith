@@ -414,12 +414,34 @@ export const configMessages = {
   "config.setting.series": { en: "Series", de: "Serien" },
   "config.setting.preconditions": { en: "Preconditions", de: "Vorbedingungen" },
   "config.setting.branchCleanup": { en: "Branch cleanup", de: "Branch-Bereinigung" },
-  "config.setting.tickets": { en: "Tickets", de: "Tickets" },
+  "config.setting.tickets": { en: "Ticket limits", de: "Ticket-Limits" },
   "config.setting.holds": { en: "Holds", de: "Holds" },
   "config.setting.pocs": { en: "PoCs", de: "PoCs" },
   "config.setting.skills": { en: "Skills", de: "Skills" },
   "config.setting.pipelineDataFlow": { en: "Pipeline data flow", de: "Datenfluss der Pipeline" },
   "config.setting.trace": { en: "Trace", de: "Trace" },
+  // 2026-11-28-9bd1: the settings groups and what a group page says about its sections.
+  "config.settingGroup.runs": { en: "Runs & limits", de: "Runs & Limits" },
+  "config.settingGroup.runs.sub": {
+    en: "how long a run may take, what it may spend and call, the queue it waits in and the image it runs",
+    de: "wie lange ein Run dauern darf, was er ausgeben und aufrufen darf, seine Warteschlange und sein Image",
+  },
+  "config.settingGroup.workflow": { en: "Workflow", de: "Ablauf" },
+  "config.settingGroup.workflow.sub": {
+    en: "the waits, re-checks and sweeps around a ticket's work",
+    de: "das Warten, erneute Prüfen und Aufräumen rund um die Arbeit an einem Ticket",
+  },
+  "config.settingGroup.diagnostics": { en: "Diagnostics", de: "Diagnose" },
+  "config.settingGroup.diagnostics.sub": {
+    en: "what a run records about itself",
+    de: "was ein Run über sich selbst aufzeichnet",
+  },
+  "config.settingGroup.changed": { en: "{count} changed", de: "{count} geändert" },
+  "config.settingGroup.onlyChanged": { en: "Show only changed values", de: "Nur geänderte Werte zeigen" },
+  "config.settingGroup.noneChanged": {
+    en: "Every value here is its default.",
+    de: "Jeder Wert hier hat seinen Standardwert.",
+  },
   "config.setting.orchestrator.sub": { en: "the run wall-time ceiling", de: "die Obergrenze der Laufzeit eines Runs" },
   "config.setting.sandbox.sub": {
     en: "sandbox agent image, per-step / per-command timeouts and trusted image registries",
