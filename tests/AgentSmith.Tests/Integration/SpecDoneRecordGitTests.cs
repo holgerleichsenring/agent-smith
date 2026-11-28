@@ -185,9 +185,11 @@ public sealed class SpecDoneRecordGitTests
         result.IsSuccess.Should().BeTrue(result.Message);
         (await git.GitAsync("rev-list", "--count", "HEAD")).Trim().Should().Be("3", "the copy rides the ONE series commit");
         (await git.GitAsync("show", "--name-only", "--format=", "HEAD")).Should()
-            .Contain($".agentsmith/decisions/{A}.yaml").And.Contain(".agentsmith/decisions/2026-10-05T09-00-00-0001.yaml");
+            .Contain($".agentsmith/decisions/{A}.yaml").And.NotContain(".agentsmith/decisions/2026-10-05T09-00-00-0001.yaml",
+                "2026-11-28-db88d: a row naming no spec goes to the set's first spec's file, not one named after its run");
         File.ReadAllText(Path.Combine(git.WorkDir, $".agentsmith/decisions/{A}.yaml"))
-            .Should().Contain("[default #11] overruled by ana").And.Contain("Which queue? -> polling; note: use the bus");
+            .Should().Contain("[default #11] overruled by ana").And.Contain("Which queue? -> polling; note: use the bus")
+            .And.Contain("[default #12] ratified by ben");
     }
 
     private static async Task<SpecSet> PublishAsync(SeriesGitRepo git, SpecSet set, RepoConnection? repo = null)

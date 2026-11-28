@@ -18,7 +18,7 @@ internal sealed class RepositoryDecisionFile(ILogger logger)
 {
     private const string DecisionsDir = ".agentsmith/decisions";
 
-    // Sub-agents of one run share that run's decisions/<runId>.yaml, so the read-append-write is
+    // Sub-agents of one spec's run share that spec's decisions/<specId>.yaml, so the read-append-write is
     // serialised — one semaphore for the process, because the contended file is reachable from
     // several tool hosts and each builds its own reader over the same sandbox.
     //

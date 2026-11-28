@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
-/// 2026-10-13-8762p: the repository copy of a decided default, one TradeOff entry in the spec's or the run's
+/// 2026-10-13-8762p: the repository copy of a decided default, one TradeOff entry in a spec's
 /// decision file, written once. It holds its own <see cref="RepositoryDecisionFile"/>, so its lock is not the
 /// decision logger's: the record step that calls it runs after the spec's master under the ticket's one lease.
 /// </summary>
@@ -18,7 +18,7 @@ public sealed class RepositoryVerdictFile : IDefaultVerdictFile
     public async Task<string?> AppendAsync(
         ISandboxFileReader files, string fileId, string marker, string entry, CancellationToken cancellationToken)
     {
-        if (DecisionFileLabel.Resolve(fileId, fileId) is not { } label) return null;
+        if (DecisionFileLabel.Resolve(fileId, specId: null) is not { } label) return null; // 2026-11-28-db88d: a spec's file only
         return await _file.AppendAsync(files, label, DecisionCategory.TradeOff, entry, cancellationToken, unlessPresent: marker)
             ? RepositoryDecisionFile.PathOf(label)
             : null;

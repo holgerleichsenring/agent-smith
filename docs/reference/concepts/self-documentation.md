@@ -59,7 +59,7 @@ Below the frontmatter it lists the changed files, the decisions, and the executi
 
 ### Layer 3: Decisions (the "why not")
 
-Decisions are YAML files in `.agentsmith/decisions/`, one per spec (`decisions/<spec-id>.yaml`) or per run (`decisions/<run-id>.yaml`). Each entry records what was chosen and, in the spec files, what it was chosen over and why:
+Decisions are YAML files in `.agentsmith/decisions/`, one per spec (`decisions/<spec-id>.yaml`); every run of a spec appends to its file. Older runs may have left files named after a run id. Each entry records what was chosen and, in the spec files, what it was chosen over and why:
 
 ```yaml
 spec: 2026-09-27-481bf

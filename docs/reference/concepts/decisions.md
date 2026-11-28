@@ -9,12 +9,12 @@ The agent records a decision by calling its `log_decision` tool with a category 
 Each decision goes to two places:
 
 - The run's event stream, as a `DecisionLogged` event. This is the record the dashboard reads, and you can filter a run's trail down to it.
-- A YAML file in the target repository, `.agentsmith/decisions/<run-id>.yaml`, which travels with the code on the run's branch.
+- A YAML file in the target repository, `.agentsmith/decisions/<spec-id>.yaml` of the spec the run is working, which travels with the code on the run's branch. Every run of that spec appends to the same file. A decision made outside a spec (an init, a scan or review, a pass outside the spec sequence) is on the event stream only. Files older runs wrote under a run id stay as they are.
 
 The repository file has one entry per decision:
 
 ```yaml
-run: 2026-05-20T22-27-43-8a3f
+spec: 2026-05-20-8a3fa
 decisions:
   - category: Architecture
     chose: "Used the existing ITodoRepository instead of a new service: the module already follows that pattern"

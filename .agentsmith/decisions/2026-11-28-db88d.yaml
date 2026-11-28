@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-db88d
+
+decisions:
+  - category: Architecture
+    chose: "Decisions are one file per spec: a run's log_decision lands in decisions/{specId}.yaml of the spec the logging step works (the source label when it is a spec id, else IRunContextAccessor.CurrentSpecId), and every run of that spec appends to it; no file is named after a run"
+    over: "decisions/<runId>.yaml for every decision without a spec label (p0380's revived run: slot)"
+    reason: "decider: operator, 2026-11-28 — processing information lives in the database; the repository keeps decisions one file per spec, several runs appending, so the next reader of a spec finds its decisions beside it."
+  - category: Scope
+    chose: "decisions/<runId>.yaml files already in repositories stay; the schema's run: slot and DecisionFileKeyTests keep them valid"
+    over: "Renaming or merging them into spec files"
+    reason: "decider: operator, 2026-11-28 — existing repositories keep what they have; nothing may break a running series or an in-flight run."
+  - category: Scope
+    chose: "A decision logged outside a spec is recorded on the run's event stream (and the run's result) only: init and bootstrap rounds (BootstrapToolHostFactory), the passes after the master (PostExecutePassTools), scan and review masters, and a coding master run outside a spec sequence"
+    over: "A fallback file for them"
+    reason: "decider: claude — a fallback named after anything but a spec is the run-named file this removes; the event stream already holds every decision. CurrentSpecId is the step scope PipelineStepRunner opens around the whole step (SpecSequenceHandler stamps each spec's commands), so the master loop, re-engagement passes and an ask_human re-dispatch of a spec are covered."
+  - category: Implementation
+    chose: "A decided default naming no spec of the set is written once, into the set's first spec's file in that spec's repository; RepositoryVerdictFile resolves a spec's file only"
+    over: "The file of the spec whose record step writes it, as the spec text first said; the deciding run's file as before"
+    reason: "decider: claude, flagged for the operator — the record step of every spec reads all the ticket's rows, and the marker check is per file, so 'the recording spec' would copy one verdict into every later spec's file; the first spec's file is one deterministic place, in the repository the old run file went to."
+  - category: Implementation
+    chose: "When revise_spec retires the spec a step is building, the rest of that step keeps logging into the retired spec's file"
+    over: "Re-reading the current spec on every call"
+    reason: "decider: claude — the step scope carries the id the step was dispatched with; the replacement's own steps log under its id. Noted, not changed."
+  - category: Implementation
+    chose: "The harness StubSandbox lists seeded source files in their directory, so a composition test can start a second run on a branch that already carries the first run's decision file"
+    over: "Proving the append only in unit tests"
+    reason: "decider: claude — the spec asks for the two-runs case through the real composition; a listing that never shows a seeded file made every run start the file from its header."

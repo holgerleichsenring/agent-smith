@@ -113,7 +113,7 @@ internal sealed class StubSandbox(
         if (sourceFiles is not null && SourceAnswer(step, tree) is { } source) return Task.FromResult(source);
         var output = step.Kind switch
         {
-            StepKind.ListFiles => DefaultListing(step.Path),
+            StepKind.ListFiles => SeededListing(step.Path, tree) ?? DefaultListing(step.Path),
             StepKind.ReadFile => step.Path is { } rp
                 ? tree.Written.GetValueOrDefault(tree.Normalize(rp), string.Empty)
                 : string.Empty,
@@ -207,6 +207,15 @@ internal sealed class StubSandbox(
 
     // Synthetic workspace tree for handlers that enumerate files: the non-md entry covers
     // BootstrapDocument, the .agentsmith/ entries LoadContext / LoadCodingPrinciples.
+    // 2026-11-28-db88d: a directory holding seeded sources lists them, as an earlier run's committed file would be.
+    private string? SeededListing(string? path, StubTree tree)
+    {
+        if (sourceFiles is null || string.IsNullOrEmpty(path)) return null;
+        var dir = tree.Normalize(path).TrimEnd('/') + "/";
+        var listed = sourceFiles.Keys.Where(k => k.StartsWith(dir, StringComparison.Ordinal) && !k[dir.Length..].Contains('/')).ToList();
+        return listed.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(listed);
+    }
+
     private static string DefaultListing(string? path)
     {
         if (string.IsNullOrEmpty(path)) return "[]";

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-db88d
+goal: "A run's decisions land in decisions/{specId}.yaml of the spec the logging step works, so several runs of one spec append to one file and no file is named after a run."
+
+applies_to: "default (DecisionFileLabel, RepositoryDecisionLogger, RepositoryVerdictFile, DefaultVerdictRecord)"
+
+requires: [2026-11-28-db88c]
+
+facts:
+  - claim: "DecisionFileLabel names decisions/<spec>.yaml only when the caller passes a spec label, else decisions/<runId>.yaml; log_decision passes none."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/DecisionFileLabel.cs:14-21; src/backend/AgentSmith.Application/Services/Tools/LogDecisionToolHost.cs:66"
+  - claim: "The step runner opens a step scope carrying the spec id of the step's command, readable as IRunContextAccessor.CurrentSpecId."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs:53; src/backend/AgentSmith.Contracts/Events/IRunContextAccessor.cs:37"
+  - claim: "The append reads the existing file and adds the entry, so a second run of a spec appends."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/RepositoryDecisionFile.cs:40-70"
+
+scope:
+  in: "RepositoryDecisionLogger resolves the file from a spec-shaped source label, else the step's CurrentSpecId; a decision with neither (init, scan and review masters, passes outside a spec) is recorded on the run's event stream only, never in a run-named file. A decided default that names no spec of the set is written once, to the set's first spec's file in that spec's repository, not to decisions/<runId>.yaml."
+  out: "Renaming existing decisions/<runId>.yaml files (decision: they stay); routing a multi-repository spec's decisions to one repository (they go where the call names, as today)."
+
+steps:
+  - id: label
+    action: "DecisionFileLabel.Resolve(sourceLabel, specId): spec label, else spec id, else null."
+  - id: logger
+    action: "RepositoryDecisionLogger passes _runContext.CurrentSpecId."
+  - id: verdicts
+    action: "RepositoryVerdictFile resolves a spec's file only; DefaultVerdictRecord routes a row naming no spec of the set to the set's first spec."
+  - id: tests
+    action: "Unit tests for the label, the logger and the verdict record; a composition test that a spec run's log_decision lands in decisions/{specId}.yaml and two runs of one spec append to it."
+
+tests:
+  - "Resolve_NoSpecLabel_UsesTheStepsSpec"
+  - "Resolve_NoSpec_NamesNoFile"
+  - "Harness_TwoRunsOfOneSpec_AppendToOneDecisionFile"
+  - "DecisionLog_TwoRunsOfOneSpec_AppendToOneFile"
+  - "DecisionLog_RunScopeWithoutASpec_WritesNoRunNamedFile"
+  - "DefaultVerdictRecord_RowNamingNoSpecOfTheSet_GoesToTheFirstSpecsDecisionFile_InItsRepository"
+
+done:
+  - "A spec run's decisions land in decisions/{specId}.yaml and a second run appends (composition test)."
+  - "No decisions/<runId>.yaml is written (unit tests for the logger and the verdict record, composition test)."
+  - "The spec gate passes."

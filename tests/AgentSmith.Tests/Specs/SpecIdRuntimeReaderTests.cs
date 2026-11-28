@@ -16,13 +16,13 @@ public sealed class SpecIdRuntimeReaderTests
     private const string Minted = "2026-08-24-8a3f";
 
     /// <summary>
-    /// An unrecognised id sends a spec's decisions to decisions/{runId}.yaml, where the
+    /// An unrecognised id would send a spec's decisions to the step's spec instead (2026-11-28-db88d), where the
     /// next agent reading the spec will never find them.
     /// </summary>
     [Fact]
     public void DecisionFileLabel_DateMintedSpec_WritesToItsOwnFile()
     {
-        var label = DecisionFileLabel.Resolve(Minted, runId: "2026-08-24T09-15-00-1c2d");
+        var label = DecisionFileLabel.Resolve(Minted, specId: "2026-08-24-0000");
 
         label.Should().NotBeNull();
         label!.FileName.Should().Be($"{Minted}.yaml");
@@ -32,12 +32,29 @@ public sealed class SpecIdRuntimeReaderTests
     /// <summary>2026-10-06-03c7b: a spec's decision file opens with the key the schema requires.</summary>
     [Fact]
     public void DecisionFileLabel_SpecLabel_HeaderIsSpec() =>
-        DecisionFileLabel.Resolve(Minted, runId: null)!.Header
+        DecisionFileLabel.Resolve(Minted, specId: null)!.Header
             .Should().StartWith($"spec: {Minted}\n");
 
     [Fact]
+    public void Resolve_NoSpecLabel_UsesTheStepsSpec()
+    {
+        var label = DecisionFileLabel.Resolve(sourceLabel: null, specId: $"{Minted}a")!;
+
+        label.FileName.Should().Be($"{Minted}a.yaml");
+        label.Header.Should().StartWith($"spec: {Minted}a\n");
+    }
+
+    [Fact]
+    public void Resolve_NoSpec_NamesNoFile()
+    {
+        DecisionFileLabel.Resolve(sourceLabel: null, specId: null).Should().BeNull();
+        DecisionFileLabel.Resolve("spec-set", specId: null).Should().BeNull("2026-11-28-db88d: no file is named after a run or a label");
+        DecisionFileLabel.Resolve("2026-08-24T09-15-00-1c2d", specId: null).Should().BeNull("a run id is not a spec");
+    }
+
+    [Fact]
     public void DecisionFileLabel_CounterSpec_StillWritesToItsOwnFile() =>
-        DecisionFileLabel.Resolve("p0507", runId: null)!.FileName.Should().Be("p0507.yaml");
+        DecisionFileLabel.Resolve("p0507", specId: null)!.FileName.Should().Be("p0507.yaml");
 
     /// <summary>
     /// A requirement the checker does not recognise is treated as a free-text precondition
@@ -63,8 +80,8 @@ public sealed class SpecIdRuntimeReaderTests
     [Fact]
     public void DecisionFileLabel_TwoMembersOfOneSeries_WriteToTwoFiles()
     {
-        var first = DecisionFileLabel.Resolve($"{Minted}a", runId: null)!.FileName;
-        var second = DecisionFileLabel.Resolve($"{Minted}b", runId: null)!.FileName;
+        var first = DecisionFileLabel.Resolve($"{Minted}a", specId: null)!.FileName;
+        var second = DecisionFileLabel.Resolve($"{Minted}b", specId: null)!.FileName;
 
         first.Should().Be($"{Minted}a.yaml");
         second.Should().Be($"{Minted}b.yaml");

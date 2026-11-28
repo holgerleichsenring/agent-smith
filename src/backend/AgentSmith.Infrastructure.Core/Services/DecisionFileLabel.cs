@@ -3,20 +3,20 @@ using System.Text.RegularExpressions;
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
-/// p0380: resolves WHICH decision YAML a logged decision belongs to —
-/// decisions/&lt;spec&gt;.yaml when the source label is a spec id, else
-/// decisions/&lt;runId&gt;.yaml for the active run (the revived `run:` slot of
-/// decision.schema.json, parallel to `spec:` decisions). No spec label and no
-/// run scope =&gt; null (nothing schema-conformant to write).
+/// p0380: resolves WHICH decision YAML a logged decision belongs to — decisions/&lt;spec&gt;.yaml.
+/// 2026-11-28-db88d: the spec is the source label when it is a spec id, else the spec the logging step works
+/// (IRunContextAccessor.CurrentSpecId), so several runs of one spec append to one file. A decision with neither
+/// names no file: it is recorded on the run's event stream only, never in a file named after a run. Files an
+/// earlier version named after a run (the schema's `run:` slot) stay as they are.
 /// </summary>
 internal sealed partial record DecisionFileLabel(string FileName, string HeaderKey, string Id)
 {
-    public static DecisionFileLabel? Resolve(string? sourceLabel, string? runId)
+    public static DecisionFileLabel? Resolve(string? sourceLabel, string? specId)
     {
         if (sourceLabel is not null && SpecPattern().IsMatch(sourceLabel))
             return new DecisionFileLabel($"{sourceLabel}.yaml", "spec", sourceLabel);
-        if (!string.IsNullOrEmpty(runId))
-            return new DecisionFileLabel($"{runId}.yaml", "run", runId);
+        if (specId is not null && SpecPattern().IsMatch(specId))
+            return new DecisionFileLabel($"{specId}.yaml", "spec", specId);
         return null;
     }
 

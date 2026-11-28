@@ -43,7 +43,7 @@ Every run leaves a record, shown on its run page in the dashboard. It is stored 
 
 **The plan** — the master's own working plan for the run, when it recorded one with `record_plan`.
 
-**Decisions** — non-obvious choices the agent made during the run. "Picked `400 BadRequest` over `404 Not Found` because the OpenAPI spec already documents 400 for malformed input". The agent records these with the `log_decision` tool when something would surprise a future reader; they land in `.agentsmith/decisions/<run-id>.yaml` and in the run's event stream.
+**Decisions** — non-obvious choices the agent made during the run. "Picked `400 BadRequest` over `404 Not Found` because the OpenAPI spec already documents 400 for malformed input". The agent records these with the `log_decision` tool when something would surprise a future reader; they land in `.agentsmith/decisions/<spec-id>.yaml` of the spec being worked, which every run of that spec appends to, and in the run's event stream.
 
 The specification itself lives next to the code: one YAML spec and one Markdown companion per spec under `.agentsmith/specs/planned/`, moved to `.agentsmith/specs/done/` once it ran, and one manifest per series at `.agentsmith/series/{base}.yaml`, which also records where every part of the ticket went. The [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles the `.agentsmith/runs/` directories that older runs committed; new runs add none.
 
