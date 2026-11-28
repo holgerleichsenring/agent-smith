@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-d1ffa
+
+decisions:
+  - category: Architecture
+    chose: "The series-verify preset runs the existing SetupRegistryAuth step after CheckoutSource, the same command and handler a code and a refresh-base run take"
+    over: "A credential step of the verify handler's own; letting the verify master ask for credentials mid-loop"
+    reason: "decider: operator (2026-11-28) — 'reuse the same step and handler; no second path'. The step's label, beat, step class and model use are keyed per command, so nothing else needed mapping."
+  - category: Architecture
+    chose: "series-verify joins BuildingPresets, so its sandbox is sized for a build"
+    over: "Keeping the light profile (1Gi) for the check"
+    reason: "decider: claude — with restore fixed, the check's next environment wall would be a .NET build and test run out of memory in the light profile; refresh-base was added for the same reason (6811c). Only sandbox sizing reads BuildingPresets."
+  - category: Architecture
+    chose: "A not-checkable criterion is an outcome of the series check of its own (SeriesCriterionResult.NotCheckable), excluded from SeriesVerdict.Failed"
+    over: "Reusing the acceptance account's 'unproven' status; recording such criteria as failing as before"
+    reason: "decider: operator (2026-11-28) — a criterion the environment cannot check is 'not checkable here: <reason, what would make it checkable>', never failed, never followed up, listed apart. The series result carries no status vocabulary to share: it is a bool plus evidence, and the acceptance account's unproven also covers a red build, which the series check must keep as a failure."
+  - category: Implementation
+    chose: "The verify master records not checkable (record_criterion's optional notCheckable reason, holds kept), and is told which feeds were staged for it"
+    over: "The framework classifying NU1301 or a missing variable from the command output"
+    reason: "decider: claude — no heuristic over output text; the staged-feed block (SpecExecutionPromptBlocks.StagedRegistries, p0422) makes 'still unreachable after staging' a fact the master reads rather than guesses."
+  - category: Implementation
+    chose: "The harness proves it with an opt-in StubSandboxFactory.ListedFiles and a fixture of its own (agentsmith-series-feed.yml)"
+    over: "Adding registries to the shared filing fixture; reusing SourceFiles, which drives git ls-files"
+    reason: "decider: claude — every other filing test keeps its config and listing; the restore answers 401 until the user NuGet config is written, so green proves staging came first."

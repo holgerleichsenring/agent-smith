@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-d1ffc
+goal: "A delivering series reads as a final pull request waiting for the operator's review, asks its merge question at the bottom of the chat, and says its series check in a few lines."
+
+applies_to: "default (DeliverSeriesHandler, SeriesPanel, SeriesSummaryText, SeriesAskTool) + dashboard (series state word, status line, rail, series list, chat details block)"
+
+requires: [2026-11-24-f9c5e, 2026-11-25-9992i, 2026-11-25-96aea, 2026-11-27-3532e, 2026-11-28-d1ffa]
+
+facts:
+  - claim: "The dashboard words state delivering as 'merging into the default branch' in the status line, the rail and the series list; the backend panel head says 'series delivering into the default branch'."
+    evidence: "src/dashboard/src/lib/i18n/messages.ts:877; src/dashboard/src/components/series/page/SeriesStatusLine.tsx:35; src/dashboard/src/components/series/page/SeriesSectionBar.tsx:34; src/dashboard/src/components/series/SeriesRunListRow.tsx:23; src/backend/AgentSmith.Application/Services/Series/SeriesPanel.cs:31-32"
+  - claim: "Under review end the tickets merge into the series branch and a person reviews the final pull request into the default branch; the master merges it only on 'Merge it'."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesPolicy.cs:11-16; src/backend/AgentSmith.Application/Prompts/Resources/series-master.md:76-83"
+  - claim: "No beat reason is raised when delivery starts: the verdict report and the opened final pull request are said, the master is called only with a reason, so no merge question follows them."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesProgress.cs:47-63; src/backend/AgentSmith.Application/Services/Series/DeliverSeriesHandler.cs:30; src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:48; src/backend/AgentSmith.Application/Services/Series/ReadSeriesHandler.cs:35-38"
+  - claim: "SeriesMergeQuestion is the one shape of a merge question: 'Merge it' / 'Look at the pull request first', the final pull requests' links, no default."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMergeQuestion.cs:12-18"
+  - claim: "The series check's summary is one paragraph naming every failing criterion with its evidence; the chat renders an agent text as markdown, with ````document fences split out first."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesSummaryText.cs:9-22; src/dashboard/src/components/dialog/DialogTranscript.tsx:125-138; src/dashboard/src/components/dialog/documentBlocks.ts:9-24"
+  - claim: "Seen live on series sr-8ce5ebb2e598: the status line read 'merging into the default branch · 4 of 4 merged' while final pull request #10132 waited for review; the chat ended with the long series-check message and no question."
+    evidence: "observed: 2026-11-28, operator screenshot"
+
+upgrade_impact: "A delivering series now posts one merge question once its final pull requests are open; one already delivering asks at its next beat (its final pull requests are read every merge.ci_poll_seconds). The series-check message is shorter, with its detail behind 'show all'."
+
+scope:
+  in: |
+    A series delivers only with a series branch, which only review end has (SeriesMembership), so Delivering always means a person
+    reviews the final pull requests. Once a series is Delivering with every final pull request open and none merged in this beat,
+    and the question slot free (no question, or one answered and handed: Delivered), DeliverSeriesHandler asks SeriesMergeQuestion
+    ('final') with "The series is ready. Shall I merge it, or do you want to look at the pull request first?" and says it after its
+    own lines. The once-key SeriesBeatDemand.FinalAskedKey is written into Raised in the same store update as the question; the
+    master's ask_human with mergeOf 'final' writes it in its own update. SeriesQuestion gains MergeOf, so the answer handed to the
+    master names merge_pull_request with ticket 'final'. The question is last in the chat when the master has no reason in that beat;
+    with one, the master's line follows it.
+    The words: the dashboard state word for delivering is "final pull request waits for your review" with the number of repos
+    when known, else as today's opens line; the status line and the rail link each final pull request; "4 of 4 merged" names the
+    series branch when there is one. SeriesRunRow carries the final pull request count. SeriesPanel's head says the same.
+    The series-check message: the outcome with its counts, one line per not-checkable criterion (d1ffa), the follow-up, what waits
+    on the operator (the final review when the series delivers next), and the final pull requests' links; the failing criteria with
+    their evidence, the unread specs and the cost go in a ````details fence the chat draws collapsed behind "show all". A chat
+    platform receives the fence as written, as it does ````document (decision).
+  out: "Merging anything without the operator's answer; the final pull request's body; a dashboard card for the question (3532e keeps it a chat message); review each or none for a delivering series (none exists)."
+
+steps:
+  - id: pin
+    action: "Pin today: the delivering state word, the merge question's shape and that a master-asked merge question waits; the verdict summary's outcome words."
+  - id: question
+    action: "DeliverSeriesHandler asks the final merge question once inside its store update (free slot, FinalAskedKey in Raised); SeriesQuestion.MergeOf; Hand names merge_pull_request final; SeriesAskTool writes the key on mergeOf final."
+  - id: summary
+    action: "SeriesSummaryText: short lines plus a details fence; final pull request links from the record's deliveries; WaitsOnOperator names the final review when the series delivers next. Tests that assert the old text: SeriesVerifyTests, SeriesCriteriaTests:102, SeriesRunCompositionTests:88."
+  - id: words
+    action: "SeriesPanel head; SeriesRunRow.FinalPullRequests; dashboard seriesStateWord with the final pull request count; status line and rail links; merged-into-branch count; documentBlocks' details part and its collapsed block in AgentText."
+  - id: tests
+    action: "Harness: a series with a branch reaching Delivering posts the merge question last in the chat, once. Unit and dashboard tests for the words and the details block."
+
+tests:
+  - "SeriesFinalQuestionCompositionTests.Delivering_PostsTheMergeQuestionLast_Once"
+  - "SeriesDeliveryBeatTests: a waiting or undelivered question defers it; asked once; mergeOf final marks the key; the answer names merge_pull_request final"
+  - "SeriesVerifyTests.Summary_IsShort_DetailsBehindAFence"
+  - "seriesNextStep.test: delivering under end reads as a final pull request waiting for review"
+  - "SeriesStatusLine / SeriesSectionBar tests: the final pull request is linked"
+  - "documentBlocks.test / DialogTranscript test: a details fence renders collapsed behind show all"
+
+done:
+  - "When delivery starts and the master has no reason, the chat's last message is the merge question with its two quick replies, asked once (harness test)."
+  - "The status line, rail and list say the final pull request waits for review and link it (dashboard tests)."
+  - "The series-check message is a few lines with its detail behind show all (tests)."
+  - "dotnet build, the full suite and the dashboard tests and build are green; the spec gate passes."

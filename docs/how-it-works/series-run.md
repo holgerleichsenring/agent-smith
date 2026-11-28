@@ -95,8 +95,9 @@ A series opened before series branches existed keeps working ticket by ticket in
 
 ## The check on main
 
-Once every ticket has landed, a `series-verify` run checks out the series branch (the default branch for a series without one) and runs the specs' done criteria against the merged result. This is the cross-ticket check no single ticket's verification can make.
+Once every ticket has landed, a `series-verify` run checks out the series branch (the default branch for a series without one) and runs the specs' done criteria against the merged result. This is the cross-ticket check no single ticket's verification can make. Its sandbox is sized for a build, and the project's private-feed credentials are staged in it as for a code run.
 
+- A criterion the check's environment cannot check (a secret it lacks, such as a disposable database's connection string, or a feed that still refuses after staging) is reported as *not checkable here*, with what would make it checkable. It is not a failure and files nothing.
 - New failures become **one follow-up ticket**, filed and started in the same series.
 - A check with nothing new closes the series with a summary: cost, duration, landed, open, and *Nothing waits on you.* when nothing does.
 

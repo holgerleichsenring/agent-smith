@@ -38,6 +38,48 @@ public sealed class SeriesVerifyTests
         tool.RecordCriterion(3, true, "x").Should().Contain("1 to 2");
     }
 
+    // 2026-11-28-d1ffa: a criterion this environment cannot check is neither held nor failed, and says why.
+    [Fact]
+    public void VerdictTool_NotCheckable_IsNeitherHeldNorFailed()
+    {
+        var tool = new SeriesVerdictTool(Criteria);
+        tool.RecordCriterion(1, true, "dotnet test: 12 passed");
+        tool.RecordCriterion(2, true, "needs the database", "the disposable database connection string is not set")
+            .Should().Contain("not checkable");
+
+        var verdict = new SeriesVerdict("run-v", SeriesRecords.T, tool.Results());
+        verdict.Results[1].Should().Match<SeriesCriterionResult>(r => !r.Passed && r.NotCheckable == "the disposable database connection string is not set");
+        verdict.Failed.Should().BeEmpty();
+        verdict.NotCheckable.Should().ContainSingle().Which.Criterion.Should().Be(Criteria[1].Cited);
+    }
+
+    [Fact]
+    public void FollowUp_NotCheckableCriterion_FilesNothing()
+    {
+        var verdict = new SeriesVerdict("run-v", SeriesRecords.T,
+            [new(Criteria[0].Cited, false, "restore 401") { NotCheckable = "the feed still answers 401 after staging" }]);
+
+        SeriesFollowUp.New(SeriesRecords.Running(), verdict).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Summary_NotCheckable_ListedApart_FilesNothing()
+    {
+        var verdict = new SeriesVerdict("run-v", SeriesRecords.T,
+        [
+            new(Criteria[0].Cited, true, "ok"),
+            new(Criteria[1].Cited, false, "needs the database") { NotCheckable = "no disposable database connection string; set ConnectionStrings__Test" },
+        ]);
+        var beat = await BeatAsync(SeriesRecords.Running() with { State = SeriesRunStates.Verifying, VerifyRunId = "run-v", Verdicts = [verdict] });
+
+        await Progress.MoveAsync(beat, default);
+
+        var said = beat.Said.Single();
+        said.Should().Contain("1 of 2 hold").And.NotContain("Failing:").And.NotContain("followed up before")
+            .And.Contain($"- {Criteria[1].Cited}: not checkable here: no disposable database connection string; set ConnectionStrings__Test");
+        _store.Records["sr-1"].State.Should().Be(SeriesRunStates.Done, "a not-checkable criterion files nothing, so the check found nothing new");
+    }
+
     [Fact]
     public void FollowUp_OnlyFailuresNotFollowedUpBefore_OneWorkTicketNamingThem()
     {

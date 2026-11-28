@@ -18,7 +18,8 @@ internal sealed class StubSandbox(
     IReadOnlyDictionary<string, (int ExitCode, string Output)>? shellAnswers = null,
     bool advancesHead = false,
     IReadOnlyDictionary<string, (int ExitCode, string Output)>? gitAnswers = null,
-    string? root = "/work")
+    string? root = "/work",
+    IReadOnlyDictionary<string, string>? listedFiles = null)
     : IHoldableSandbox, ISandboxToolchainImage
 {
     // 2026-11-25-9992c: the repository's root the paths arrive under — /work/<repo> behind a RepoSandbox.
@@ -105,6 +106,7 @@ internal sealed class StubSandbox(
         // 2026-11-04-6768a: a git command whose space-joined argv starts with a key answers as scripted;
         // '{grep}' in the output stands for the command's own --grep value.
         if (step.Command == "git" && GitAnswer(step) is { } git) return Task.FromResult(git);
+        if (listedFiles is not null && ListedAnswer(step, tree) is { } listed) return Task.FromResult(listed);
         if (baseFiles is not null && BaseAnswer(step, tree) is { } answer) return Task.FromResult(answer);
         // 2026-11-02-2b26d: and every write is a staged change, so each revision is a commit of its own.
         if (advancesHead && IsGit(step, "--cached") && IsGit(step, "--quiet")) return Task.FromResult(Answer(step, 1, null));
@@ -176,6 +178,19 @@ internal sealed class StubSandbox(
         var listed = sourceFiles!.Keys.Order(StringComparer.Ordinal).Where(p => specs.Any(s =>
             s.Length == 2 && p.StartsWith(s[0], StringComparison.Ordinal) && p.EndsWith(s[1], StringComparison.Ordinal)));
         return Answer(step, 0, string.Join('\0', listed) + "\0\n");
+    }
+
+    // 2026-11-28-d1ffa: files a test lays in every repository's tree, by repo-relative path — listed under the path a ListFiles
+    // names (beside the synthetic entry) and read back by a ReadFile whose path ends in one, until the run writes it.
+    private StepResult? ListedAnswer(Step step, StubTree tree)
+    {
+        if (step.Kind == StepKind.ListFiles && step.Path is { } dir && !dir.Contains(".agentsmith/contexts", StringComparison.Ordinal))
+            return Answer(step, 0, System.Text.Json.JsonSerializer.Serialize(
+                listedFiles!.Keys.Order(StringComparer.Ordinal).Select(rel => $"{dir.TrimEnd('/')}/{rel}").Append("document.txt")));
+        if (step.Kind == StepKind.ReadFile && step.Path is { } path && !tree.Written.ContainsKey(tree.Normalize(path))
+            && listedFiles!.FirstOrDefault(f => path.EndsWith("/" + f.Key, StringComparison.Ordinal)) is { Key: not null } file)
+            return Answer(step, 0, file.Value);
+        return null;
     }
 
     private static StepResult Answer(Step step, int exit, string? output) => new(

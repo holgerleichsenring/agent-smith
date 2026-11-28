@@ -15,5 +15,10 @@ public sealed record SeriesVerdict(string RunId, DateTimeOffset At, IReadOnlyLis
     /// <summary>True once a beat reported it into the conversation.</summary>
     public bool Reported { get; init; }
 
-    public IReadOnlyList<SeriesCriterionResult> Failed => [.. Results.Where(r => !r.Passed)];
+    /// <summary>The criteria checked and found not to hold. 2026-11-28-d1ffa: a criterion that could not be checked here is none
+    /// of them.</summary>
+    public IReadOnlyList<SeriesCriterionResult> Failed => [.. Results.Where(r => r is { Passed: false, NotCheckable: null })];
+
+    /// <summary>2026-11-28-d1ffa: the criteria the check's environment kept from being checked, each with why.</summary>
+    public IReadOnlyList<SeriesCriterionResult> NotCheckable => [.. Results.Where(r => r.NotCheckable is not null)];
 }
