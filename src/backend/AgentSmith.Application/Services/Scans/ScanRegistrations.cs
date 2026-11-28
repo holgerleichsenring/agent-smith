@@ -27,12 +27,7 @@ public static class ScanRegistrations
         services.AddTransient<ICommandHandler<StaticPatternScanContext>, StaticPatternScanHandler>();
         services.AddTransient<ICommandHandler<GitHistoryScanContext>, GitHistoryScanHandler>();
         services.AddTransient<ICommandHandler<DependencyAuditContext>, DependencyAuditHandler>();
-        services.AddTransient<ICommandHandler<CompressSecurityFindingsContext>, CompressSecurityFindingsHandler>();
         services.AddTransient<ICommandHandler<MergeMasterFindingsContext>, MergeMasterFindingsHandler>();
-        services.AddTransient<NucleiTopSelector>();
-        services.AddTransient<ZapTopSelector>();
-        services.AddTransient<SpectralTopSelector>();
-        services.AddTransient<ICommandHandler<CompressApiScanFindingsContext>, CompressApiScanFindingsHandler>();
         services.AddTransient<ICommandHandler<SecurityTrendContext>, SecurityTrendHandler>();
         services.AddTransient<ICommandHandler<SecuritySnapshotWriteContext>, SecuritySnapshotWriter>();
         return services.AddScanAccountability().AddSurfaceDifference();

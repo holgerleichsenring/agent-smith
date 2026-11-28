@@ -89,7 +89,6 @@ src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs	ph
 src/backend/AgentSmith.Application/Services/Triage/PlanOpenQuestionsPoster.cs	phase	1
 src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs	phase	1
 src/backend/AgentSmith.Contracts/Commands/CommandDisplayNames.Labels.cs	phase	3
-src/backend/AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs	phase	1
 src/backend/AgentSmith.Contracts/Commands/CommandProgressLabels.cs	phase	3
 src/backend/AgentSmith.Contracts/Commands/ContextKeys.Skill.cs	phase	1
 src/backend/AgentSmith.Contracts/Commands/RunBeat.cs	phases	1

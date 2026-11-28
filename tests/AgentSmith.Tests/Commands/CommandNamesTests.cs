@@ -41,11 +41,11 @@ public class CommandNamesTests
             CommandNames.LoadCodingPrinciples,
             CommandNames.LoadContext,
             CommandNames.AnalyzeCode,
-            CommandNames.Approval, CommandNames.AgenticExecute,
+            "ApprovalCommand", CommandNames.AgenticExecute,
             CommandNames.WriteRunResult,
             CommandNames.CommitAndPR, CommandNames.InitCommit,
-            CommandNames.GenerateTests, CommandNames.GenerateDocs,
-            CommandNames.Triage, CommandNames.SwitchSkill,
+            "GenerateTestsCommand", "GenerateDocsCommand",
+            CommandNames.Triage, "SwitchSkillCommand",
             CommandNames.SkillRound, CommandNames.ConvergenceCheck,
         };
 

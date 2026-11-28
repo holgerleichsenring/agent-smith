@@ -65,12 +65,12 @@ public sealed class CommandBeatsCoverageTests
         // p0394a: retired steps keep their beat by literal name — run records
         // persisted before the retirement still render on the storybar.
         Get("GeneratePlanCommand").Should().Be(RunBeat.Plan);
-        Get(CommandNames.Approval).Should().Be(RunBeat.Plan);
+        Get("ApprovalCommand").Should().Be(RunBeat.Plan);
         Get("PlanOpenQuestionsCommand").Should().Be(RunBeat.Plan);
         Get(CommandNames.AgenticMaster).Should().Be(RunBeat.Building);
         Get(CommandNames.AnalyzeCode).Should().Be(RunBeat.Building);
         Get(CommandNames.AgenticExecute).Should().Be(RunBeat.Building);
-        Get(CommandNames.RunVerifyPhase).Should().Be(RunBeat.Verify);
+        Get("RunVerifyPhaseCommand").Should().Be(RunBeat.Verify);
         Get(CommandNames.WriteRunResult).Should().Be(RunBeat.Outcome);
         Get(CommandNames.CommitAndPR).Should().Be(RunBeat.Outcome);
         Get(CommandNames.PrCrossLink).Should().Be(RunBeat.Outcome);

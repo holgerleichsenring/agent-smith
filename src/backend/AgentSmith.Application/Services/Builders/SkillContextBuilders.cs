@@ -7,15 +7,6 @@ using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Builders;
 
-public sealed class SwitchSkillContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-    {
-        var skillName = command.SkillName ?? string.Empty;
-        return new SwitchSkillContext(skillName, pipeline);
-    }
-}
-
 public sealed class BootstrapRoundContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)

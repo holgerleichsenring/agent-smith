@@ -26,7 +26,7 @@ public sealed class RunBeatsComputerTests
         var run = TerminalRun("code", "success", Steps(
             ("s", CommandNames.LoadCatalog), ("s", CommandNames.FetchTicket),
             ("s", CommandNames.CheckoutSource), ("s", CommandNames.AnalyzeCode),
-            ("s", "GeneratePlanCommand"), ("s", CommandNames.Approval),
+            ("s", "GeneratePlanCommand"), ("s", "ApprovalCommand"),
             ("s", CommandNames.AgenticMaster), ("s", CommandNames.WriteRunResult),
             ("s", CommandNames.CommitAndPR)));
 
@@ -160,7 +160,7 @@ public sealed class RunBeatsComputerTests
         var run = ActiveRun("code", Steps(
             ("s", CommandNames.LoadCatalog), ("s", CommandNames.FetchTicket),
             ("s", CommandNames.CheckoutSource), ("s", CommandNames.AnalyzeCode),
-            ("s", "GeneratePlanCommand"), ("s", CommandNames.Approval),
+            ("s", "GeneratePlanCommand"), ("s", "ApprovalCommand"),
             ("r", CommandNames.AgenticMaster)));
 
         var beats = RunBeatsComputer.Compute(run)!;

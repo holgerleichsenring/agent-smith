@@ -91,8 +91,6 @@ RunReviewPhase	anywhere	G2	triage / verify / final stage commands of the scan an
 RunReviewPhaseCommand	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
 RunVerifyPhase	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
 RunVerifyPhaseCommand	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
-RunVerifyPhaseContext	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
-RunVerifyPhaseContextBuilder	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
 SkillExecutionPhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
 StoreRewrite_LlmEventPhase_Untouched	anywhere	G2	test name about the execution stage an LLM event carries, which the store rewrite must leave alone
 Verify-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)

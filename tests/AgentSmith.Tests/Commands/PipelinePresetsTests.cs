@@ -121,8 +121,8 @@ public class PipelinePresetsTests
         // p0393: add-feature carried GenerateTests + GenerateDocs for every run whether the
         // work needed them or not. They are steps in the spec now — the decision moved
         // to where the work is described, instead of a preset name deciding it for everyone.
-        PipelinePresets.Code.Should().NotContain(CommandNames.GenerateTests);
-        PipelinePresets.Code.Should().NotContain(CommandNames.GenerateDocs);
+        PipelinePresets.Code.Should().NotContain("GenerateTestsCommand");
+        PipelinePresets.Code.Should().NotContain("GenerateDocsCommand");
     }
 
     [Theory]
@@ -166,7 +166,7 @@ public class PipelinePresetsTests
         // p0393: `code` runs VerifySpec, a DETERMINISTIC build+test gate. That is not the
         // retired RunVerifyPhase choreography step — it is the second opinion p0216 left
         // missing when it handed verification to the master as a responsibility.
-        PipelinePresets.Code.Should().NotContain(CommandNames.RunVerifyPhase);
+        PipelinePresets.Code.Should().NotContain("RunVerifyPhaseCommand");
         // p0393a: VerifySpec runs once per derived spec, spliced by SpecSequence.
         PipelinePresets.Effective(PipelinePresets.CodeName).Should().Contain(CommandNames.VerifySpec);
     }
@@ -174,10 +174,10 @@ public class PipelinePresetsTests
     [Fact]
     public void NonImplementationPresets_DoNotContainRunVerifyPhase()
     {
-        PipelinePresets.SecurityScan.Should().NotContain(CommandNames.RunVerifyPhase);
-        PipelinePresets.ApiSecurityScan.Should().NotContain(CommandNames.RunVerifyPhase);
-        PipelinePresets.MadDiscussion.Should().NotContain(CommandNames.RunVerifyPhase);
-        PipelinePresets.InitProject.Should().NotContain(CommandNames.RunVerifyPhase);
+        PipelinePresets.SecurityScan.Should().NotContain("RunVerifyPhaseCommand");
+        PipelinePresets.ApiSecurityScan.Should().NotContain("RunVerifyPhaseCommand");
+        PipelinePresets.MadDiscussion.Should().NotContain("RunVerifyPhaseCommand");
+        PipelinePresets.InitProject.Should().NotContain("RunVerifyPhaseCommand");
     }
 
     [Theory]

@@ -22,7 +22,7 @@ public static partial class CommandStepClasses
         [CommandNames.DeriveSpec] = Milestone,
         [CommandNames.ReviewSpecs] = Milestone,
         ["GeneratePlanCommand"] = Milestone,     // retired p0394a; old records still classify
-        [CommandNames.Approval] = Milestone,
+        ["ApprovalCommand"] = Milestone, // retired 2026-11-28-34d9c; old records still read
         [CommandNames.AgenticExecute] = Milestone,
         [CommandNames.AgenticMaster] = Milestone, [CommandNames.AdminAssistantTurn] = Milestone, [CommandNames.ApplyConfigChanges] = Milestone, [CommandNames.WriteSecret] = Milestone, // f3a8a, c, d
         [CommandNames.CommitSpecWork] = Milestone, // p0437
@@ -35,7 +35,7 @@ public static partial class CommandStepClasses
         [CommandNames.AmendTicket] = Milestone, [CommandNames.PostTicketComments] = Milestone, // 2026-11-17-e061c: the acts themselves
         [CommandNames.RetargetPullRequests] = Milestone, [CommandNames.DeployToEnvironment] = Milestone, [CommandNames.PocIntake] = Milestone, [CommandNames.PocCodeScan] = Milestone, [CommandNames.PocSourceCommit] = Milestone, [CommandNames.PocPipelineBuild] = Milestone, [CommandNames.PocTargetInstall] = Milestone, [CommandNames.WritePocVariables] = Milestone, [CommandNames.SealPocVariables] = Milestone, [CommandNames.GitOpsCommit] = Milestone, [CommandNames.PocRolloutFollow] = Milestone, [CommandNames.PocAct] = Milestone, [CommandNames.PocExtend] = Milestone, [CommandNames.PurgePocUploads] = Milestone, // 9a39c, 3863c, 933db, 933dc, 933dd, 933dg
         [CommandNames.InitCommit] = Milestone,
-        [CommandNames.GenerateTests] = Milestone, [CommandNames.GenerateDocs] = Milestone,
+        ["GenerateTestsCommand"] = Milestone, ["GenerateDocsCommand"] = Milestone, // retired 2026-11-28-34d9c; old records still read
         [CommandNames.Triage] = Milestone,
         [CommandNames.SkillRound] = Milestone,
         [CommandNames.FilterRound] = Milestone,
@@ -49,7 +49,7 @@ public static partial class CommandStepClasses
         [CommandNames.WriteTickets] = Milestone,
         [CommandNames.RunReviewPhase] = Milestone,
         [CommandNames.RunFinalPhase] = Milestone,
-        [CommandNames.RunVerifyPhase] = Milestone,
+        ["RunVerifyPhaseCommand"] = Milestone, // retired 2026-11-28-34d9c; old records still read
         [CommandNames.BootstrapDiscover] = Milestone,
         [CommandNames.BootstrapRound] = Milestone,
         [CommandNames.AnalyzePrDiff] = Milestone,
@@ -60,7 +60,7 @@ public static partial class CommandStepClasses
         [CommandNames.SpawnSpectral] = Milestone,
         [CommandNames.SpawnZap] = Milestone,
         [CommandNames.ApiSecuritySkillRound] = Milestone,
-        [CommandNames.CompileFindings] = Milestone,
+        ["CompileFindingsCommand"] = Milestone, // retired 2026-11-28-34d9c; old records still read
         [CommandNames.DeliverFindings] = Milestone,
         [CommandNames.SecuritySkillRound] = Milestone,
         [CommandNames.StaticPatternScan] = Milestone,
@@ -74,7 +74,7 @@ public static partial class CommandStepClasses
         [CommandNames.SpecGate] = Gate,       // ms validation — speaks only on a real problem
         [CommandNames.MasterOpenQuestions] = Gate, // speaks when the master parked a question
         ["PlanOpenQuestionsCommand"] = Gate,       // retired p0394a; old records still classify
-        [CommandNames.EmptyPlanCheck] = Gate,      // speaks when the run skipped on an empty plan
+        ["EmptyPlanCheckCommand"] = Gate,      // speaks when the run skipped on an empty plan
         [CommandNames.BootstrapCheck] = Gate,      // speaks when bootstrap files are missing
         [CommandNames.BootstrapGate] = Gate,       // speaks when a repo lacks its bootstrap files
         [CommandNames.RunPreflight] = Gate,        // p0428: speaks when a precondition does not hold
@@ -104,7 +104,7 @@ public static partial class CommandStepClasses
         [CommandNames.WriteRunResult] = Internal,        // run-artifact bookkeeping
         [CommandNames.PrCrossLink] = Internal,
         [CommandNames.CompletePullRequests] = Internal, [CommandNames.InitComplete] = Internal, [CommandNames.CleanupWorkBranches] = Internal, // 713ec, 023fa
-        [CommandNames.SwitchSkill] = Internal,
+        ["SwitchSkillCommand"] = Internal, // retired 2026-11-28-34d9c; old records still read
         [CommandNames.SessionSetup] = Internal,
         [CommandNames.PersistWorkBranch] = Internal,
         [CommandNames.PipelineNameInitializer] = Internal,
@@ -113,8 +113,8 @@ public static partial class CommandStepClasses
         [CommandNames.BootstrapRetire] = Internal,
         [CommandNames.CollectMasterFindings] = Internal,
         [CommandNames.MergeMasterFindings] = Internal,
-        [CommandNames.CompressApiScanFindings] = Internal,
-        [CommandNames.CompressSecurityFindings] = Internal,
+        ["CompressApiScanFindingsCommand"] = Internal, // retired 2026-11-28-34d9c; old records still read
+        ["CompressSecurityFindingsCommand"] = Internal, // retired 2026-11-28-34d9c; old records still read
         [CommandNames.SecuritySnapshotWrite] = Internal,
     };
 }
