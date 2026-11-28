@@ -53,6 +53,11 @@ public sealed class WorkCloneSet(
         }
     }
 
+    /// <summary>2026-11-28-2c06: readies <paramref name="clone"/> for <paramref name="command"/> — a package command finds
+    /// the project's feeds staged as the repository names them now, as a code run's run_command does (49d3b).</summary>
+    public Task BeforeCommandAsync(string repository, string command, ISandbox clone, CancellationToken ct) =>
+        opener.Feeds.BeforeCommandAsync(repository, command, clone, project.Registries, ct);
+
     /// <summary>Gives back every clone; one that throws stops none of the others, and the first failure is
     /// rethrown once all were tried.</summary>
     public async ValueTask DisposeAsync()

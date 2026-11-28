@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
@@ -9,9 +10,11 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
 using AgentSmith.Server.Services.Sandbox;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace AgentSmith.Tests.Sandbox;
@@ -56,7 +59,7 @@ public sealed class DesignWorkCloneTests
         }
     }
 
-    private static WorkCloneOpener Opener(Factory factory, string? runId = "run-9")
+    private static WorkCloneOpener Opener(ISandboxFactory factory, string? runId = "run-9")
     {
         var languages = new Mock<ISandboxLanguageResolver>();
         languages.Setup(l => l.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
@@ -64,8 +67,14 @@ public sealed class DesignWorkCloneTests
         var specs = new SandboxSpecBuilder(new StubSandboxResourceResolver(),
             Mock.Of<IAgentImageResolver>(r => r.Resolve(It.IsAny<ResolvedProject>()) == "agent:test"));
         return new WorkCloneOpener(factory, specs, languages.Object, TestGitCredentials.Resolver,
-            Mock.Of<IRunContextAccessor>(r => r.CurrentRunId == runId));
+            Mock.Of<IRunContextAccessor>(r => r.CurrentRunId == runId), Feeds());
     }
+
+    /// <summary>2026-11-28-2c06: the code run's staging over the real file reader; the fast paths need no generic applier.</summary>
+    internal static RegistryFeedRestage Feeds() => new(
+        new MidRunRegistryAuth(new SetupRegistryAuthHandler(
+            new SandboxFileReaderFactory(), null!, NullLogger<SetupRegistryAuthHandler>.Instance)),
+        NullLogger<RegistryFeedRestage>.Instance);
 
     private static Mock<ISourceScopeSandbox> Held(string sha = Sha)
     {
@@ -104,6 +113,52 @@ public sealed class DesignWorkCloneTests
         sandbox.Steps[1].Args.Should().Equal("checkout", "--detach", Sha);
         sandbox.Steps.Skip(1).Should().OnlyContain(s => s.Env == null || !s.Env.ContainsKey("GIT_TOKEN"));
         sandbox.Steps.Should().HaveCount(4, "one clone, one checkout, then the two commands in the same clone");
+    }
+
+    // 2026-11-28-2c06: the project's feeds are staged in user-level config after the checkout, before any model command,
+    // and again before a command that may restore — the code run's staging, never a file in the repository.
+    [Fact]
+    public async Task WorkClone_Registries_StagedAfterCheckout_RestagedBeforePackageCommand()
+    {
+        const string feed = "https://pkgs.dev.azure.com/o/_packaging/f/nuget/v3/index.json";
+        var project = Project with { Registries = [new RegistryConfig("pkgs.dev.azure.com", "any", "feed-token")] };
+        var factory = new StubSandboxFactory
+        {
+            ListedFiles = new(StringComparer.Ordinal)
+            {
+                ["nuget.config"] = $"<configuration><packageSources><add key=\"f\" value=\"{feed}\" /></packageSources></configuration>",
+            },
+        };
+        var clones = new WorkCloneSet(Opener(factory), project, [Repo]);
+        var tool = new DesignWorkToolGate(new SandboxContainerRuntime(true), Bus(shared: false))
+            .Tools(Turn(clones), NoRecords()).OfType<AIFunction>().Single(t => t.Name == "run_command");
+
+        await tool.InvokeAsync(new AIFunctionArguments { ["command"] = "git log -p", ["repo"] = "api" });
+        await tool.InvokeAsync(new AIFunctionArguments { ["command"] = "dotnet restore", ["repo"] = "api" });
+
+        var steps = factory.Spawned.Single().Sandbox.RanSteps;
+        bool Staged(Step s) => s.Kind == StepKind.WriteFile && s.Path == "/root/.nuget/NuGet/NuGet.Config"
+            && s.Content!.Contains("feed-token") && s.Content.Contains(feed);
+        int Shell(string line) => steps.FindIndex(s => s.Command == "/bin/sh" && s.Args?.LastOrDefault() == line);
+        var checkout = steps.FindIndex(s => s.Args?.Contains("checkout") == true);
+        var staged = steps.Select((s, i) => (s, i)).Where(x => Staged(x.s)).Select(x => x.i).ToList();
+        staged.Should().HaveCount(2, "once when the clone opens and once before the restore, not before git log");
+        staged[0].Should().BeGreaterThan(checkout).And.BeLessThan(Shell("git log -p"));
+        staged[1].Should().BeGreaterThan(Shell("git log -p")).And.BeLessThan(Shell("dotnet restore"));
+        steps.Where(s => s.Kind == StepKind.WriteFile).Should().OnlyContain(s => s.Path!.StartsWith("/root/"));
+        tool.Description.Should().Contain("private NuGet and npm feeds", "the model is told the feeds are staged for it")
+            .And.Contain("user-level config");
+    }
+
+    [Fact]
+    public async Task FeedStaging_NoRegistries_RunsNoStep()
+    {
+        var sandbox = new Recording();
+
+        await Feeds().StageAsync("api", sandbox, [], default);
+        await Feeds().BeforeCommandAsync("api", "dotnet restore", sandbox, [], default);
+
+        sandbox.Steps.Should().BeEmpty("a project without registries has nothing to stage");
     }
 
     [Fact]

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-2c06
+
+decisions:
+  - category: Architecture
+    chose: "A work clone stages its feeds through RegistryFeedRestage and MidRunRegistryAuth, which gained a pipeline-free overload over SetupRegistryAuthHandler.StageInSandboxAsync (project.Registries, the clone's own work directory as root)"
+    over: "Calling the pipeline overloads; a staging routine of the work clone's own"
+    reason: "decider: operator (2026-11-28) — 'no second path: code runs, the series check and work clones call the same code'. A design turn seeds no ProjectConfig and maps SandboxRepos to read-scope names, so the pipeline path would find no registries and look under /work/<name>, while the clone lives at /work. The overload keeps one staging implementation and one tolerant wrapper."
+  - category: Architecture
+    chose: "A work clone stages the NuGet and npm fast paths only, at open and again before a package command (49d3b)"
+    over: "Running the generic (LLM) path at open, as SetupRegistryAuth does at a code run's start"
+    reason: "decider: claude — the generic path persists a registry_auth template into the repository's .agentsmith/contexts/*/context.yaml (RegistryAuthTemplateStore), which would dirty the clone the model measures, calls a Scout model inside the turn's master call, and reports gaps to a decision record a design turn does not have. The reported failures are NuGet and npm; another ecosystem in a design turn is a spec of its own when one is seen."
+  - category: Security
+    chose: "Feed tokens sit in the clone's user-level config (/root) where the model's shell can read them, as in a code run's sandbox; the clone remains the only credentialed git step"
+    over: "Keeping work clones free of any credential"
+    reason: "decider: operator (2026-11-28) — a work clone stages registry credentials exactly as a code run's sandbox does, user-level only, never in the repo. run_command is offered only to a poster holding runs.control, on containers with a per-job bus, and the clone is destroyed when the turn ends."
+  - category: Security
+    chose: "No change to the secrets a work clone carries: it already gets the project's secrets.env and its own repository's repo_env, like a code run (since 4778 and 9992d)"
+    over: "Stripping sandbox secrets from work clones; adding more"
+    reason: "decider: claude — the brief asked to check and add nothing without a reason. They are already there, scoped to the clone's repository (DesignWorkCloneTests.WorkClone_CarriesOnlyItsRepositorysScopedSecrets_AndScopesItsSteps pins it), and measuring a build or test that needs one is what run_command is for. The poster already holds runs.control and could start a code run with the same secrets. Removing them would be a behaviour change this spec has no evidence for."
+  - category: Implementation
+    chose: "A staging failure in a work clone is logged and the clone or command goes on"
+    over: "Failing the clone open"
+    reason: "decider: claude — the code run's re-stage already tolerates a failure (RegistryFeedRestage); a restore without credentials still fails loudly with its 401, which the model reads."

@@ -88,7 +88,7 @@ public sealed class DesignWorkCloneReviewTests
         var specs = new SandboxSpecBuilder(new SizedByPipeline(),
             Mock.Of<IAgentImageResolver>(r => r.Resolve(It.IsAny<ResolvedProject>()) == "agent:test"));
         return new WorkCloneOpener(factory, specs, languages.Object, TestGitCredentials.Resolver,
-            Mock.Of<IRunContextAccessor>(r => r.CurrentRunId == "run-9"), observers);
+            Mock.Of<IRunContextAccessor>(r => r.CurrentRunId == "run-9"), DesignWorkCloneTests.Feeds(), observers);
     }
 
     private static IReadOnlyDictionary<string, ISandbox> Held(out Mock<ISourceScopeSandbox> scope)

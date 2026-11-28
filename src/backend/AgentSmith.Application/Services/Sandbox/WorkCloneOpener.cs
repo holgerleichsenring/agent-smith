@@ -15,14 +15,16 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// <summary>
 /// 2026-11-10-4778: a design turn's work clone of one repository — a fresh sandbox on the repository's root-first
 /// toolchain image with build sizing and the project's secrets, like a coding run, mounting no shared package cache,
-/// carrying the run id and no conversation id. Its ONE credentialed step is the clone, before any model command;
+/// carrying the run id and no conversation id. Its ONE credentialed git step is the clone, before any model command;
 /// the detached checkout of the commit the turn's reads show carries no credential. A commit the clone does not
 /// hold fails closed, so the model never runs on a different commit than it reads. The turn's scope observer is
 /// told the clone is opening and then ready (or failed), as for a read scope.
+/// 2026-11-28-2c06: the project's NuGet and npm feeds are staged in user-level config after the checkout, as in a code run.
 /// </summary>
 public sealed class WorkCloneOpener(
     ISandboxFactory factory, SandboxSpecBuilder specs, ISandboxLanguageResolver languages,
-    IGitTokenResolver credentials, IRunContextAccessor runContext, ISourceScopeObserverAccessor? observers = null)
+    IGitTokenResolver credentials, IRunContextAccessor runContext, RegistryFeedRestage feeds,
+    ISourceScopeObserverAccessor? observers = null)
 {
     public const int DefaultDepth = 50;
 
@@ -64,6 +66,7 @@ public sealed class WorkCloneOpener(
                     $"The commit your reads of '{repo.Name}' show ({sha}) is not in this clone"
                     + (fullHistory ? string.Empty : $" of the last {DefaultDepth} commits — ask for history: full")
                     + $"; nothing runs on a different commit. {Text(checkout)}");
+            await feeds.StageAsync(repo.Name, sandbox, project.Registries, ct); // 2026-11-28-2c06: before any model command
             return new SecretScopedSandbox(sandbox, repo.Name); // 2026-11-25-9992d: the model's commands speak for this repo
         }
         catch
@@ -72,6 +75,9 @@ public sealed class WorkCloneOpener(
             throw;
         }
     }
+
+    /// <summary>2026-11-28-2c06: the code run's feed staging, which a clone's package command re-stages with.</summary>
+    public RegistryFeedRestage Feeds => feeds;
 
     /// <summary>The root-first discovered toolchain through the chain (project overrides first), build-sized.</summary>
     public async Task<SandboxSpec> SpecAsync(ResolvedProject project, RepoConnection repo, CancellationToken ct)
