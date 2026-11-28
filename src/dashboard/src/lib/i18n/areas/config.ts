@@ -296,7 +296,6 @@ export const configMessages = {
   "config.polling.backendDefault": { en: "backend default applies", de: "Standard des Backends gilt" },
   "config.polling.configure": { en: "Configure polling", de: "Polling einrichten" },
   "config.polling.interval": { en: "poll interval (seconds)", de: "Polling-Intervall (Sekunden)" },
-  "config.polling.jitter": { en: "jitter (%)", de: "Jitter (%)" },
   "config.polling.remove": { en: "Remove polling override", de: "Polling-Überschreibung entfernen" },
 
   // --- sandbox: trusted image registries ---
@@ -890,7 +889,6 @@ export const configMessages = {
   },
   "config.tuning.compaction.add": { en: "Add compaction settings", de: "Compaction-Einstellungen hinzufügen" },
   "config.tuning.compaction.enabled": { en: "compaction", de: "Compaction" },
-  "config.tuning.compaction.threshold": { en: "threshold iterations", de: "Schwelle (Iterationen)" },
   "config.tuning.compaction.maxContext": { en: "max context tokens", de: "Max. Kontext-Tokens" },
   "config.tuning.compaction.keepRecent": { en: "keep recent iterations", de: "letzte Iterationen behalten" },
   "config.tuning.compaction.trigger.label": { en: "trigger ratio", de: "Auslöse-Anteil" },
@@ -1322,7 +1320,6 @@ export const configMessages = {
     en: "the sole backpressure knob for downstream pipeline execution",
     de: "der einzige Regler für den Gegendruck bei der nachgelagerten Pipeline-Ausführung",
   },
-  "config.queue.block": { en: "Consume block (seconds)", de: "Blockieren beim Lesen (Sekunden)" },
   "config.queue.shutdown": { en: "Shutdown grace (seconds)", de: "Schonfrist beim Herunterfahren (Sekunden)" },
   "config.queue.retry.label": { en: "Redis retry interval (seconds)", de: "Wiederholintervall für Redis (Sekunden)" },
   "config.queue.retry.help": {

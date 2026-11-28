@@ -146,7 +146,6 @@
 6	AgentSmith.Contracts/Memory/MemoryStandingWeights.cs
 3	AgentSmith.Contracts/Memory/ProjectMemoryRecord.cs
 1	AgentSmith.Contracts/Models/Configuration/BuildIdentity.cs
-1	AgentSmith.Contracts/Models/Configuration/CompactionConfig.cs
 1	AgentSmith.Contracts/Models/Configuration/ModelPricing.cs
 1	AgentSmith.Contracts/Models/Configuration/PreconditionsConfig.cs
 1	AgentSmith.Contracts/Models/Configuration/RoleMappingConfig.cs

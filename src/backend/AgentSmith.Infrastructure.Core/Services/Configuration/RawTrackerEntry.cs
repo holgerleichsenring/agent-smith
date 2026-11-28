@@ -49,7 +49,7 @@ public sealed class RawTrackerEntry
     /// <summary>p0140a: optional opt-in for zero-match comment on this tracker.</summary>
     public bool ZeroMatchComment { get; set; } = false;
 
-    /// <summary>p0140c: per-tracker polling block { enabled, interval_seconds, jitter_percent }.</summary>
+    /// <summary>p0140c: per-tracker polling block { enabled, interval_seconds }.</summary>
     public RawPollingEntry? Polling { get; set; }
 
     /// <summary>
@@ -109,5 +109,4 @@ public sealed class RawPollingEntry
 {
     public bool Enabled { get; set; } = false;
     public int IntervalSeconds { get; set; } = 60;
-    public int JitterPercent { get; set; } = 10;
 }

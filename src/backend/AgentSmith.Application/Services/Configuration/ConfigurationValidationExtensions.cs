@@ -13,8 +13,6 @@ public static class ConfigurationValidationExtensions
     {
         services.AddSingleton<SkillsConfigValidator>();
         services.AddSingleton<AgentSmithConfigValidator>();
-        services.AddSingleton<PollingConfigDeprecationWarner>();
-        services.AddSingleton<CompactionConfigDeprecationWarner>();
         return services;
     }
 }

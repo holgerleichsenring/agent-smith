@@ -57,7 +57,6 @@ public sealed class RawProjectEntry
     [YamlIgnore] [JsonIgnore] public WebhookTriggerConfig? GitlabTrigger { get; set; }
     [YamlIgnore] [JsonIgnore] public WebhookTriggerConfig? AzuredevopsTrigger { get; set; }
 
-    public PollingConfig Polling { get; set; } = new();
     public SandboxConfig? Sandbox { get; set; }
 
     /// <summary>2026-11-25-9992d: the private package feeds this project's runs authenticate against.</summary>

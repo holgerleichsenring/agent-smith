@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-34d9d
+
+decisions:
+  - category: Scope
+    chose: "Retire trackers.*.polling.jitter_percent rather than wire it"
+    over: "Wiring the value into the poller's sleep, as the brief recommended when it is one line"
+    reason: "decider: claude, within the operator's brief (remove, or wire if one line) — PollerHostedService sleeps once for every polling tracker, the shortest interval with a fixed ±10%, so a per-tracker share has no single sleep to apply to; picking one would be a new rule, and any file not at 10 would poll differently. Removing it changes nothing a run or a poll does."
+  - category: Architecture
+    chose: "Each of the four keys gets a RetiredConfigKeys row; the detector's advisory replaces the two deprecation warners"
+    over: "Keeping CompactionConfigDeprecationWarner and PollingConfigDeprecationWarner beside the rows"
+    reason: "decider: operator (an old config is still accepted with a notice) — the row is the one table the file and stored loaders read, so a second notice path would say the same thing twice. The startup log's legacy-polling clause goes with the project block it described."
+  - category: Implementation
+    chose: "Drop the keys from config/agentsmith.schema.json, the example config and the docs, as earlier retirements did"
+    over: "Keeping them declared deprecated in the closed schema"
+    reason: "decider: claude — ConfigSchemaCoverageTests keeps a deprecated declaration only for a retired root key; nested keys left the schema in every earlier retirement (9c1cc, 9992h)."
+  - category: Scope
+    chose: "Accept that a stored configuration reports the keys as advisories until each entity is saved once"
+    over: "A data migration that strips them from the stored documents"
+    reason: "decider: claude — stored documents serialise every property, so a stored queue, tracker with polling, agent and project each carry a key at its default; the advisory names the key and says saving the entity once clears it, the same as every earlier retirement of a defaulted key. A migration is a write to the operator's store and was not asked for."
+  - category: Review
+    chose: "A fresh reviewer challenged the key list before the change and a second reviewed the diff"
+    over: "Removing on the grep alone"
+    reason: "decider: operator (review is a step). Neither found a reader that changes a run, a poll, the queue or compaction. The challenge caught a positional record call that would have compiled with shifted arguments (StudioSettingsSweepTests, AgentCompactionSettings), fixed; the diff review flagged a stale TrackerConnection comment, fixed. Both named the stored-document advisories, recorded above. AgentSmith.Tests 14369 -> 14365: CompactionConfigDeprecationWarnerTests (2) and PollingConfigDeprecationWarnerTests (3) and StartupSummaryLoggerTests.Log_DeprecatedProjectLevelPolling_FlagsInline go with the code they tested; RetiredUnreadConfigKeysTests adds 2. Dashboard tests stay 2506."

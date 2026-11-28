@@ -110,7 +110,6 @@ trackers:
     polling:
       enabled: true
       interval_seconds: 60
-      jitter_percent: 10
 
 projects:
   azuredevops-todolist:
