@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// p0393a: the spec set rendered for the run detail — the cut, the accounting and
 /// the revision list with each revision's cause, so the viewer answers "what is this
 /// run working toward, what was left out, and what changed it" without leaving the
-/// dashboard. The content of record is still the branch; this is the viewer's copy.
+/// dashboard. 2026-11-28-db88a: the set is the one stored for the ticket; this is the viewer's copy.
 /// <para>
 /// p0395: done-criteria render as a titled "Definition of done" list, and each spec's
 /// markdown companion is part of the copy; a missing one names the path looked up.
@@ -35,7 +35,7 @@ public static class SpecMarkdown
         sb.AppendLine($"# Spec set {set.Key}");
         sb.AppendLine();
         sb.AppendLine(
-            $"`{ManifestOf(set)}` — revision {set.Current.Number} ({set.Current.Cause}), "
+            $"{SeriesOf(set)} — revision {set.Current.Number} ({set.Current.Cause}), "
             + $"source: {Describe(set)}");
 
         if (set.Handback is { } handback)
@@ -102,13 +102,13 @@ public static class SpecMarkdown
                 $"- **{revision.Number}** — {revision.Cause} ({revision.At:yyyy-MM-dd HH:mm} UTC)");
     }
 
-    // 2026-10-06-03c7d: the series' manifest, or the directory manifests lie in before it has one.
-    private static string ManifestOf(SpecSet set) =>
-        set.Series is { Length: > 0 } seriesBase ? SeriesPaths.Manifest(seriesBase) : SeriesPaths.SeriesRoot + "/";
+    // 2026-11-28-db88a: the series' base id — there is no manifest to name any more.
+    private static string SeriesOf(SpecSet set) =>
+        set.Series is { Length: > 0 } seriesBase ? $"Series `{seriesBase}`" : "A series not yet stamped";
 
     private static string Describe(SpecSet set) => set.Source switch
     {
-        SpecSource.BranchArtifact => "read back from the ticket branch",
+        SpecSource.BranchArtifact => "stored for the ticket",
         // 2026-09-17-0e79a: an approved set is not "derived from the ticket" — it names the
         // conversation a person approved it in. 2026-09-22-4d17: that is provenance, not a
         // destination — a change to an approved set is not made in the conversation.

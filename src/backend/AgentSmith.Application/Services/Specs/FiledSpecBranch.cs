@@ -97,7 +97,11 @@ public sealed class FiledSpecBranch(
         logger.LogInformation(
             "The approved set {Key} ({Specs} spec(s)) was written to the ticket branch of {Repos} as {Shas}",
             set.Key, set.Specs.Count, string.Join(", ", placement.Names), string.Join(", ", written.Shas.Values));
-        return BranchWriteResult.Ok(written.CommitSha!) with { Notes = ratified.Notes.Count > 0 ? ratified.Notes : null };
+        // 2026-11-28-db88a: a set with nothing planned anywhere (every spec ran) commits nothing; it is stored all the same,
+        // and the branch's last sha is the one the pointer already names.
+        var sha = !string.IsNullOrWhiteSpace(written.CommitSha) ? written.CommitSha!
+            : (await stored.GetAsync(project.Name, set.Key, ct))?.RevisionSha is { Length: > 0 } kept ? kept : "unchanged";
+        return BranchWriteResult.Ok(sha) with { Notes = ratified.Notes.Count > 0 ? ratified.Notes : null };
     }
 
     // 2026-10-06-03c7f: the manifest's goal and approval are the stored row's, carried on its set

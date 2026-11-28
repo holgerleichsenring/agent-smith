@@ -115,7 +115,7 @@ public sealed class SeriesIdentityTests
         var set = new SpecSet("jira-1", [.. filed.Drafts.Select(d => new DerivedSpec(d, "export", string.Empty, []))],
             SpecAccounting.Empty, [], SpecSource.Approved, Series: filed.Id);
 
-        var written = new SeriesFiles(new SeriesManifest()).Render(set).Single(f => f.Path.EndsWith(".yaml") && f.Path.Contains("planned"));
+        var written = new SeriesFiles().Render(set).Single(f => f.Path.EndsWith(".yaml") && f.Path.Contains("planned"));
         var read = new SpecDraftReader().Read(written.Content);
 
         ReviewedText.Covers(filed.ReviewedClean, read.SpecId, read.Yaml).Should().BeTrue(
@@ -123,14 +123,10 @@ public sealed class SeriesIdentityTests
     }
 
     [Fact]
-    public void SeriesFiles_Series_NamesTheManifest()
+    public void SeriesFiles_Series_WritesNoManifest()
     {
-        var files = new SeriesFiles(new SeriesManifest());
-
-        files.Render(Set("2026-10-06-0001"))[0].Path.Should().Be(".agentsmith/series/2026-10-06-0001.yaml",
-            "2026-10-06-03c7d: the base is the manifest's file name");
-        FluentActions.Invoking(() => files.Render(Set(null))).Should().Throw<InvalidOperationException>(
-            "a set without a series has no manifest to be written to");
+        new SeriesFiles().Render(Set("2026-10-06-0001")).Should().NotContain(f => f.Path.StartsWith(".agentsmith/series/"),
+            "2026-11-28-db88a: the set lives on the ticket's row; no manifest is written");
     }
 
     // 2026-11-19-6b0ba: the set a ticket with no spec gets — its ids follow the series as a cut's did.

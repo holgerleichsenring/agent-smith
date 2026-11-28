@@ -4,7 +4,8 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Architecture;
 
 /// <summary>
-/// 2026-11-17-a0b6c: the ticket branch is the only spec text. A backend file that reads an approval record and
+/// 2026-11-17-a0b6c: the ticket branch is the only spec text (2026-11-28-db88a: the set stored on the ticket's row,
+/// which TicketBranchSeries reads). A backend file that reads an approval record and
 /// touches its set's specs or goal is a second reader of a copy, unless it is the write that puts the set on a
 /// branch — those are listed with their reason in approval-set-readers-baseline.tsv. No file may join; a file that
 /// stops reading the set must leave.
@@ -20,7 +21,7 @@ public sealed partial class ApprovalSetReadersRatchetTests
         var offenders = Readers().Where(r => !baseline.ContainsKey(r)).ToList();
 
         offenders.Should().BeEmpty(
-            "spec text is read off the ticket branch through TicketBranchSpecs (server) or TicketBranchSeries "
+            "spec text is the ticket's stored set, read through TicketBranchSpecs (server) or TicketBranchSeries "
             + "(application), never out of the approval record; do not add a baseline row.\n  " + string.Join("\n  ", offenders));
     }
 

@@ -16,8 +16,8 @@ using AgentSmith.Application.Services.Persistence;
 namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
-/// p0161d: init-project runs fan out per RepoConnection. plan.md derives
-/// from DiscoveredComponents; result.md reaches parity with fix-bug
+/// p0161d: init-project runs discover per RepoConnection. The plan derives
+/// from DiscoveredComponents; the result reaches parity with fix-bug
 /// (cost + duration + trail + decisions + per-component bootstrap output).
 /// </summary>
 public sealed class WriteRunResultInitProjectTests
@@ -25,36 +25,12 @@ public sealed class WriteRunResultInitProjectTests
     private const string SampleRunId = "2026-05-25T22-27-43-8a3f";
 
     private readonly InMemoryDialogueTrail _dialogueTrail = new();
-    // (sandboxId, path) → content. Per-sandbox prefixes make multi-repo writes
-    // distinguishable even when they share a relative path under /work.
-    private readonly Dictionary<string, string> _written = new();
-    private readonly Dictionary<ISandbox, string> _sandboxIds = new();
+    private readonly InMemoryRunArtifactStore _store = new();
     private readonly WriteRunResultHandler _sut;
 
     public WriteRunResultInitProjectTests()
     {
-        var factory = new Mock<ISandboxFileReaderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<ISandbox>()))
-            .Returns<ISandbox>(sandbox =>
-            {
-                if (!_sandboxIds.TryGetValue(sandbox, out var id))
-                {
-                    id = $"sb{_sandboxIds.Count}";
-                    _sandboxIds[sandbox] = id;
-                }
-                var reader = new Mock<ISandboxFileReader>();
-                reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                    .Returns<string, CancellationToken>((p, _) =>
-                        _written.TryGetValue($"{id}::{p}", out var c)
-                            ? Task.FromResult<string?>(c) : Task.FromResult<string?>(null));
-                reader.Setup(r => r.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                    .Callback<string, string, CancellationToken>((p, c, _) => _written[$"{id}::{p}"] = c)
-                    .Returns(Task.CompletedTask);
-                return reader.Object;
-            });
-        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(),
-            new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
-            new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
+        _sut = new WriteRunResultHandler(_dialogueTrail, _store, new AgentSmith.Tests.Events.RecordingEventPublisher(), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
@@ -72,17 +48,17 @@ public sealed class WriteRunResultInitProjectTests
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var plan = _written.First(kv => kv.Key.EndsWith("plan.md")).Value;
+        var plan = await Plan();
         plan.Should().Contain("Discovered components");
         plan.Should().Contain("| server | `.` | csharp | `src/server/Program.cs` |");
         plan.Should().Contain("| client | `client` | typescript | `client/package.json` |");
     }
 
     [Fact]
-    public async Task WriteRunResult_InitProject_FansOutPerRepo()
+    public async Task WriteRunResult_InitProject_OneRecordJoinsEveryRepository()
     {
-        // Each RepoConnection gets its own runs/{runId}-init/plan.md +
-        // result.md. Same RunId, distinct sandbox writes via SandboxesForRepo.
+        // 2026-11-28-db88b: one plan and one result for the run, joining every repository's components —
+        // nothing written into a sandbox, and no repository's record overwriting another's.
         var pipeline = NewInitPipeline(
             repos: ["server", "client"],
             components: new()
@@ -95,13 +71,11 @@ public sealed class WriteRunResultInitProjectTests
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        // 2 plan.md + 2 result.md
-        _written.Keys.Count(k => k.EndsWith("plan.md")).Should().Be(2);
-        _written.Keys.Count(k => k.EndsWith("result.md")).Should().Be(2);
-        // Both plan.md files carry their own repo's section heading.
-        var planContents = _written.Where(kv => kv.Key.EndsWith("plan.md")).Select(kv => kv.Value).ToList();
-        planContents.Should().Contain(c => c.Contains("repo `server`"));
-        planContents.Should().Contain(c => c.Contains("repo `client`"));
+        var plan = await Plan();
+        plan.Should().Contain("repo `server`").And.Contain("repo `client`");
+        var resultMd = await Result();
+        resultMd.Should().Contain("## Repository `server`").And.Contain("## Repository `client`")
+            .And.Contain("| default | `.` | csharp | `Program.cs` |").And.Contain("| default | `.` | typescript | `package.json` |");
     }
 
     [Fact]
@@ -130,7 +104,7 @@ public sealed class WriteRunResultInitProjectTests
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var resultMd = _written.First(kv => kv.Key.EndsWith("result.md")).Value;
+        var resultMd = await Result();
         resultMd.Should().Contain("type: init");
         resultMd.Should().MatchRegex("duration_seconds: 4[23]\\b");
         resultMd.Should().Contain("Discovered components");
@@ -143,7 +117,7 @@ public sealed class WriteRunResultInitProjectTests
     [Fact]
     public async Task WriteRunResult_InitProject_CostAggregatedAndPerRepoAttributed()
     {
-        // For multi-repo init the per-repo result.md should carry the shared
+        // For multi-repo init the run's one result carries the shared
         // cost note (Discover is per-repo; BootstrapRound calls are tagged
         // per repo by PipelineCostTracker — p0158g).
         var pipeline = NewInitPipeline(
@@ -163,10 +137,7 @@ public sealed class WriteRunResultInitProjectTests
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var resultMds = _written.Where(kv => kv.Key.EndsWith("result.md")).Select(kv => kv.Value).ToList();
-        resultMds.Should().HaveCount(2);
-        resultMds.Should().AllSatisfy(md =>
-            md.Should().Contain("shared across 2 repos"));
+        (await Result()).Should().Contain("shared across 2 repos");
     }
 
     [Fact]
@@ -181,9 +152,13 @@ public sealed class WriteRunResultInitProjectTests
 
         await _sut.ExecuteAsync(new WriteRunResultContext(repo, Plan: null, ticket, Changes: [], pipeline), CancellationToken.None);
 
-        _written.First(kv => kv.Key.EndsWith("plan.md")).Value.Should().Contain("Discovered components",
+        (await Plan()).Should().Contain("Discovered components",
             "init mode is the run's InitMode flag, so a label-started init with its ticket fetched writes the init record");
     }
+
+    private async Task<string> Plan() => (await _store.ReadPlanMarkdownAsync(SampleRunId, CancellationToken.None))!;
+
+    private async Task<string> Result() => (await _store.ReadResultMarkdownAsync(SampleRunId, CancellationToken.None))!;
 
     private static PipelineContext NewInitPipeline(
         string[] repos, Dictionary<string, DiscoveredComponent[]> components)

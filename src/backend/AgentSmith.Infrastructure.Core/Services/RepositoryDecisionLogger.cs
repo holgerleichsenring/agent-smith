@@ -6,12 +6,12 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
-/// p0380: writes decisions as per-spec / per-run YAML files under
+/// p0380: writes decisions as per-spec YAML files under
 /// <c>.agentsmith/decisions/</c> — the SAME format + location the IDE-side
 /// plugin writes (decision.schema.json), retiring the legacy drifted
-/// <c>.agentsmith/decisions.md</c> append (p0100 format). Run decisions land
-/// in <c>decisions/&lt;runId&gt;.yaml</c> (the revived `run:` slot), parallel
-/// to spec decisions; each entry is mirrored into the per-run event stream (p0169e).
+/// <c>.agentsmith/decisions.md</c> append (p0100 format). 2026-11-28-db88d: a decision
+/// lands in <c>decisions/&lt;specId&gt;.yaml</c> of the spec the logging step works; one outside a
+/// spec is on the event stream only. Each entry is mirrored into the per-run event stream (p0169e).
 /// <para>
 /// 2026-09-19-c511a: the file goes through the REPOSITORY's surface, not the host's. The path this
 /// was given is the sandbox mount /work, so in a container every write went to the server process's
@@ -56,11 +56,11 @@ public sealed class RepositoryDecisionLogger : IDecisionLogger
                 category, decision);
             return DecisionLogOutcome.Recorded;
         }
-        var label = DecisionFileLabel.Resolve(sourceLabel, _runContext.CurrentRunId);
+        var label = DecisionFileLabel.Resolve(sourceLabel, _runContext.CurrentSpecId); // 2026-11-28-db88d
         if (label is null)
         {
             _logger.LogDebug(
-                "No spec label and no run scope — decision mirrored to the event stream only: "
+                "No spec label and no spec in scope — decision mirrored to the event stream only: "
                 + "[{Category}] {Decision}", category, decision);
             return DecisionLogOutcome.Recorded;
         }

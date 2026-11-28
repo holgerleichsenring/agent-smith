@@ -166,7 +166,7 @@ public sealed class ApprovedSetDeriveSpecTests
     }
 
     [Fact]
-    public async Task DeriveSpec_TheHandbackReason_NamesTheBranchPathTheSpecsBelongAt()
+    public async Task DeriveSpec_TheHandbackReason_SaysNoSetIsStoredForTheTicket()
     {
         var harness = Harness();
         var context = harness.Context(Filed());
@@ -174,8 +174,8 @@ public sealed class ApprovedSetDeriveSpecTests
         await harness.Handler().ExecuteAsync(context, default);
 
         context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Reason
-            .Should().Contain($"`{SeriesPaths.SeriesRoot}/`").And.Contain($"`{Key}`")
-            .And.Contain(SeriesPaths.SeriesRoot, "the operator is told where to put them");
+            .Should().Contain($"No spec set is stored for `{Key}`", "2026-11-28-db88a: the row is where a set comes from")
+            .And.NotContain(SeriesPaths.SeriesRoot, "no manifest is read or written");
     }
 
     /// <summary>

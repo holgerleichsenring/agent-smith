@@ -77,7 +77,7 @@ Two tools work on the store:
   is recorded as proposed and also shows up as a pending default on the ticket page, so
   someone learns the proposal exists.
 
-What a run remembers is committed with the rest of its run record and shows up in the
+What a run remembers is committed on the run branch and shows up in the
 pull request. Review it there: merge it and it holds for the next run, drop the file and
 it's gone. A `feedback` entry keeps its `status: proposed` marker until someone ratifies it; no run takes the marker off.
 

@@ -50,7 +50,7 @@ internal static class MasterHandlerFixture
             BuildScanPasses(loop),
             new AgentSmith.Application.Services.SpecExecutionPromptFactory(new AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader()),
             TurnFlow(),
-            new MasterTicketExtras(new NoOpTicketDocumentMaterializer()),
+            new MasterTicketExtras(new NoOpTicketDocumentMaterializer(), new AgentSmith.Application.Services.Sandbox.ReferenceGitExclusion(Mock.Of<ISandboxFileReaderFactory>())),
             // 2026-09-13-6f35: no template declared unless a test hands one in — the default
             // factory throws, so a run that reaches it by accident says so instead of passing.
             new AgentSmith.Application.Services.Handlers.MasterTemplateScopes(
@@ -179,6 +179,7 @@ internal static class MasterHandlerFixture
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             AgentSmith.Tests.TestHelpers.TestTreeSync.GateStage(),
             AgentSmith.Tests.TestHelpers.TestSanity.Wrapper(),
+            new AgentSmith.Application.Services.Persistence.InMemoryRunArtifactStore(),
             NullLogger<MasterToolComposition>.Instance);
 
     /// <summary>The series verification a design master's verify_series runs — no scope opened, no review taken,

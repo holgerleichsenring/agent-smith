@@ -51,7 +51,8 @@ public sealed class SpecHandbackRepeatTests
         var again = await RunAsync(publisher, handler, git, thread, Finalize(Contradiction(), first));
 
         parked.Message.Should().Contain("awaiting_user_input");
-        git.Commits.Should().Be(2, "every derivation commits a fresh timestamped revision");
+        git.Commits.Should().Be(0, "2026-11-28-db88a: a hand-back renders no spec file, so nothing is committed");
+        (await pointers.GetSetAsync(string.Empty, first.Key, default))!.IsHandedBack.Should().BeTrue("the row stores the hand-back");
         again.Message.Should().Contain("the loop ends here", "nobody said anything since the last hand-back");
         again.IsSuccess.Should().BeFalse("the loop ends as a failed step, never as a completion");
         tickets.Verify(t => t.FinalizeAsync(
@@ -106,7 +107,7 @@ public sealed class SpecHandbackRepeatTests
             new SpecRefusalReporter(Mock.Of<IEventPublisher>(), NullLogger<SpecRefusalReporter>.Instance),
             new SpecSetContextPublication(Mock.Of<IRunArtifactStore>(), NullLogger<SpecSetContextPublication>.Instance),
             new SpecSetAnnouncer(Mock.Of<IEventPublisher>(), NullLogger<SpecSetAnnouncer>.Instance),
-            NullLogger<SpecSetPublisher>.Instance);
+            pointers, NullLogger<SpecSetPublisher>.Instance);
     }
 
     private static SpecHandbackHandler Handler(Mock<ITicketProvider> tickets, ISpecSetPointerStore pointers)

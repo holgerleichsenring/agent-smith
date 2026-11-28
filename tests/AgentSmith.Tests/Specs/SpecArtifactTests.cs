@@ -33,7 +33,7 @@ public sealed class SpecArtifactTests
     // 2026-10-06-03c7d: one manifest under series/, the specs and companions in specs/planned/,
     // and nothing under a per-ticket directory.
     [Fact]
-    public async Task SeriesWriter_DerivedRun_WritesManifestAndPlannedSpecs()
+    public async Task SeriesWriter_DerivedRun_WritesPlannedSpecsAndNoManifest()
     {
         var files = new RecordingFileReader();
 
@@ -41,7 +41,6 @@ public sealed class SpecArtifactTests
 
         files.Written.Keys.Should().BeEquivalentTo(
         [
-            $".agentsmith/series/{Base}.yaml",
             $".agentsmith/specs/planned/{A}-first.yaml",
             $".agentsmith/specs/planned/{A}-first.md",
             $".agentsmith/specs/planned/{B}-second.yaml",

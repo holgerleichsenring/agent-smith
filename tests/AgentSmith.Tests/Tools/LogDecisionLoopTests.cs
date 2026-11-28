@@ -38,13 +38,14 @@ public sealed class LogDecisionLoopTests
         var host = new LogDecisionToolHost(
             Logger(), AgentSmith.Tests.TestHelpers.TestRepositories.One(new SandboxFileReaderFactory().Create(sandbox)));
         using var scope = _runContext.BeginScope(RunId);
+        using var step = _runContext.BeginStepScope(1, "2026-09-17-a3e2a");
 
         var answer = await RunLoopAsync(host, calls: 1);
 
         answer.Should().Be(Answer);
         sandbox.Written.Should().ContainSingle().Which.Should()
-            .Be($".agentsmith/decisions/{RunId}.yaml",
-                "the repository of a run lives in its sandbox, and that is where its decisions go");
+            .Be(".agentsmith/decisions/2026-09-17-a3e2a.yaml",
+                "the repository of a run lives in its sandbox, and a spec's decisions go to its file (2026-11-28-db88d)");
     }
 
     [Fact]

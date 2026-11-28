@@ -13,12 +13,17 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// cause is appended, and the set goes through <see cref="ISpecSetPublisher"/> under the spec record's scope.
 /// A revision the branch did not take FAILS: building from a reviewed text nobody can read back would build
 /// a contract the branch does not state.
+/// <para>
+/// 2026-11-28-db88a: "taken" is the publish recording the revision, not its sha moving — a revision whose spec files are
+/// unchanged (a series-wide change) commits nothing and is recorded all the same. One not taken leaves the stored set as
+/// the caller puts its own back: <paramref name="restore"/>, else the set before the revision.
+/// </para>
 /// </summary>
-public sealed class SpecReviewRevision(ISpecSetPublisher publisher)
+public sealed class SpecReviewRevision(ISpecSetPublisher publisher, ISpecSetPointerStore stored)
 {
     public async Task<CommandResult> PublishAsync(
         PipelineContext pipeline, IReadOnlyList<SpecDraft> replacements, string cause, CancellationToken ct,
-        SpecHandback? handback = null)
+        SpecHandback? handback = null, SpecSet? restore = null)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(replacements);
@@ -30,12 +35,14 @@ public sealed class SpecReviewRevision(ISpecSetPublisher publisher)
             Handback = handback ?? set.Handback,
         };
         var before = Sha(pipeline);
+        pipeline.Remove(ContextKeys.SpecRevisionSha); // set again by a publish that recorded the revision
         var result = await publisher.PublishAsync(pipeline, Project(pipeline), Scope(pipeline), revised, [], ct);
-        if (!result.IsSuccess || pipeline.Flag(ContextKeys.SpecDerivationPreview)) return result; // bdd0d: a preview writes no branch
-        return Sha(pipeline) is { } after && after != before
-            ? result
-            : CommandResult.Fail($"Spec {set.Key} revision {set.Revisions.Count + 1} ({cause}) was not written to "
-                + $"the ticket branch: {result.Message}");
+        var taken = pipeline.Has(ContextKeys.SpecRevisionSha);
+        if (!taken && before is not null) pipeline.Set(ContextKeys.SpecRevisionSha, before);
+        if (!result.IsSuccess || taken || pipeline.Flag(ContextKeys.SpecDerivationPreview)) return result; // bdd0d: a preview writes no branch
+        await stored.SaveSetAsync(Project(pipeline), restore ?? set, ct); // the in-memory continuation stored it
+        return CommandResult.Fail($"Spec {set.Key} revision {set.Revisions.Count + 1} ({cause}) was not written to "
+            + $"the ticket branch: {result.Message}");
     }
 
     private static DerivedSpec Replace(DerivedSpec spec, IReadOnlyList<SpecDraft> replacements) =>

@@ -42,19 +42,20 @@ public static class MissingSpecReason
     private static string Stamp(Ticket ticket, TicketLabelVocabulary vocabulary) =>
         (ticket.Labels ?? []).FirstOrDefault(vocabulary.IsApprovedSetStamp) ?? vocabulary.ApprovedSetStamp;
 
-    // 2026-10-06-03c7d: a series is found by the manifest naming the ticket key.
+    // 2026-11-28-db88a: a ticket's set is the one stored for it; only a ticket in flight at that deploy is read off its
+    // branch, once.
     private static string Branch(TicketKey key, SpecSetBranchState state) =>
         state == SpecSetBranchState.NothingAtThePath
-            ? $"No series manifest under `{SeriesPaths.SeriesRoot}/` on the ticket branch names `{key.Value}`."
-            : $"The ticket branch carries a series for `{key.Value}` under `{SeriesPaths.SeriesRoot}/` "
-              + $"and `{SeriesPaths.Planned}/` that this run could not read back as a specification.";
+            ? $"No spec set is stored for `{key.Value}`."
+            : $"No spec set is stored for `{key.Value}`, and the one its ticket branch carries from before sets were "
+              + "stored could not be read back as a specification.";
 
     private static string Approval(SpecApprovalRecord? record) =>
         record is null
             ? "No approval for this ticket reached the run either — neither on its initial "
               + "context nor in a store this process can read — so nobody approved it."
             : "An approval for this ticket exists, given in design conversation "
-              + $"{Conversation(record)}, so its specifications never reached the branch.";
+              + $"{Conversation(record)}, so its specifications were never stored for the ticket.";
 
     private static string Conversation(SpecApprovalRecord record) =>
         string.IsNullOrWhiteSpace(record.Approval?.Conversation)

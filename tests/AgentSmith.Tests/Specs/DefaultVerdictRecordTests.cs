@@ -78,17 +78,36 @@ public sealed class DefaultVerdictRecordTests
     }
 
     [Fact]
-    public async Task DefaultVerdictRecord_RowNamingNoSpecOfTheSet_GoesToTheRunsDecisionFile_InTheFirstSpecsRepository()
+    public async Task DefaultVerdictRecord_FirstSpecRetired_RowNamingNoSpecGoesToItsReplacement()
+    {
+        // 2026-11-28-db88d: a retired spec never runs again, so its file is not where a run-wide verdict belongs.
+        const string C = "2026-10-14-5678c";
+        var replacement = new DerivedSpec(new SpecDraft(C, $"Goal {C}", $"spec: {C}\n", []) { Repos = ["shop"], Supersedes = [A] },
+            C, string.Empty, []);
+        var set = new SpecSet("github-7", [Spec(A, "shop"), replacement, Spec(B, "web")], SpecAccounting.Empty,
+            [new SpecRevision(1, "initial derivation", At)], SpecSource.Derived);
+        var shop = new SpecBranchFiles();
+
+        var written = await Recorder(Row(3, null)).WriteAsync(
+            Pipeline(), shop, new SpecDoneRecord(Shop, set, replacement, "body", "line", MultiRepo: true), default);
+
+        written.Should().Equal($".agentsmith/decisions/{C}.yaml");
+    }
+
+    [Fact]
+    public async Task DefaultVerdictRecord_RowNamingNoSpecOfTheSet_GoesToTheFirstSpecsDecisionFile_InItsRepository()
     {
         var shop = new SpecBranchFiles();
         var web = new SpecBranchFiles();
         var recorder = Recorder(Row(3, null), Row(4, "2026-01-01-0000a"), Row(5, B));
 
-        (await recorder.WriteAsync(Pipeline(), shop, Record(Shop), default)).Should().Equal($".agentsmith/decisions/{RunId}.yaml");
+        // 2026-11-28-db88d: never a file named after the run that decided it.
+        (await recorder.WriteAsync(Pipeline(), shop, Record(Shop), default)).Should().Equal($".agentsmith/decisions/{A}.yaml");
         (await recorder.WriteAsync(Pipeline(), web, Record(Web), default)).Should().Equal($".agentsmith/decisions/{B}.yaml");
 
-        var run = await shop.ReadRequiredAsync($".agentsmith/decisions/{RunId}.yaml", default);
-        run.Should().StartWith($"run: {RunId}").And.Contain("[default #3]").And.Contain("[default #4]").And.NotContain("[default #5]");
+        shop.Paths.Should().NotContain(p => p.Contains(RunId));
+        var first = await shop.ReadRequiredAsync($".agentsmith/decisions/{A}.yaml", default);
+        first.Should().StartWith($"spec: {A}").And.Contain("[default #3]").And.Contain("[default #4]").And.NotContain("[default #5]");
         web.Paths.Should().ContainSingle("the second repository holds its own spec's row only");
     }
 

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
@@ -17,41 +16,22 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Writes run artifacts (plan.md + result.md) to
-/// <c>.agentsmith/runs/{RunId}-{slug}/</c>. Formatting is delegated to
-/// RunResultFormatter. RunId is generated once at pipeline start by
-/// ExecutePipelineUseCase and read from PipelineContext here.
-/// <para>p0287: the per-run <c>runs:</c> ledger that used to be appended to
-/// <c>.agentsmith/context.yaml</c> was dropped — the run record is the
-/// <c>runs/{runId}/</c> directory (plus the RunEvent/RunStep DB tables), and a
-/// duplicate ledger that shared the project-context filename added no value and
-/// conflated bookkeeping with the project context.</para>
-///
-/// p0161d: init-project runs fan out per <see cref="RepoConnection"/>: each
-/// repo's sandbox gets its own <c>runs/{runId}-init/{plan.md,result.md}</c>
-/// with that repo's slice of <see cref="ContextKeys.DiscoveredComponents"/>
-/// and <see cref="ContextKeys.BootstrapOutputs"/>. Same RunId across all
-/// repos. Ticket-driven runs keep the single-sandbox path.
+/// Renders a run's plan and result (RunResultFormatter) and stores them in the run artifact store, where the run page
+/// reads them. RunId is generated once at pipeline start by ExecutePipelineUseCase and read from PipelineContext here.
+/// <para>2026-11-28-db88b: the record lives with the run, in the database (the CLI's in-memory store), and nothing is
+/// written under <c>.agentsmith/runs/</c> in a sandbox any more — one run-wide result with every repository's changes,
+/// and on an init one result joining every repository's components. A plan the master recorded with record_plan is
+/// never overwritten. Earlier runs' <c>runs/</c> directories stay in their repositories.</para>
 /// </summary>
 public sealed class WriteRunResultHandler(
-    ISandboxFileReaderFactory readerFactory,
     IDialogueTrail dialogueTrail,
     IRunArtifactStore artifactStore,
     IEventPublisher events,
-    Memory.RunNarrativeMemoryWriter narrativeWriter, Memory.MemoryOutcomeRecorder outcomes, // p0380, 9324c: run-end memory
-    SandboxTargets sandboxTargets,
+    Memory.MemoryOutcomeRecorder outcomes, // 9324c: run-end memory standing
     RunResultChanges runResultChanges, // 2026-10-13-3890b: the branch is the record
     ILogger<WriteRunResultHandler> logger)
     : ICommandHandler<WriteRunResultContext>
 {
-    private const string AgentSmithDir = ".agentsmith";
-    private const string RunsDir = "runs";
-    // p0237: breadcrumb left at the loose <repo>/.agentsmith/plan.md after the
-    // plan is relocated into the run dir; also the guard that stops a later run
-    // from treating the breadcrumb as a real plan to relocate again.
-    private const string PlanPointerPrefix = "Plan moved to";
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-
     public async Task<CommandResult> ExecuteAsync(
         WriteRunResultContext context, CancellationToken cancellationToken)
     {
@@ -133,67 +113,19 @@ public sealed class WriteRunResultHandler(
         var perSkillBreakdown = ResolvePerSkillBreakdown(context.Pipeline);
         var topology = ResolveTopology(context.Pipeline, runId);
 
-        // p0234: write a run-record PER REPO. There is no "primary" repo — each
-        // repo gets its own .agentsmith/runs/{runId}/{plan,result}.md, scoped to
-        // ITSELF: cost via RunCostSummary.PerRepo[repo] (FormatResult's repoName
-        // arg), changes filtered by the repo prefix. So every repo carries a
-        // committable run-record and gets its own PR. Falls back to the legacy
-        // single-sandbox write when the run has no Repos list (CLI/one-off).
-
-        // p0380: the early verdict is computed ONCE here (it is pipeline-scoped,
-        // not per-repo) — WriteRepoRecordAsync renders it, and the green-run
-        // narrative twin below gates on it.
+        // p0380: the early verdict is computed ONCE here (it is pipeline-scoped) and the result renders it.
         var failureReason = ResolveFailureReason(context);
 
-        if (repos is null)
-        {
-            var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-            var reader = readerFactory.Create(sandbox);
-            await WriteRepoRecordAsync(
-                reader, sandbox.WorkDirectory(), context, runId, repoName: null, changeSet.For(null),
-                cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
-                failureReason, cacheResult: true, tryCachePlan: true, cancellationToken);
-            await narrativeWriter.TryWriteAsync(
-                reader, sandbox.WorkDirectory(), context.Ticket, runId,
-                failureReason, changeSet.For(null), decisions, cancellationToken);
-            logger.LogInformation("Written run result {RunId} (single sandbox)", RunIdGenerator.FormatForDisplay(runId));
-            return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded");
-        }
+        // 2026-11-28-db88b: one run-wide record — every repository's changes, the run's whole cost.
+        await StoreRunRecordAsync(context, runId, changeSet.All, cost, duration, trail, decisions, trend,
+            dialogueEntries, perSkillBreakdown, topology, failureReason, cancellationToken);
 
-        var written = 0;
-        var planCached = false;
-        var narratives = new List<(ISandboxFileReader Reader, string Root, IReadOnlyList<CodeChange> Changes)>();
-        foreach (var repo in repos)
-        {
-            var sandbox = ResolvePerRepoSandbox(context.Pipeline, repo);
-            if (sandbox is null)
-            {
-                logger.LogWarning("WriteRunResult: no sandbox for repo '{Repo}' — skipping run-doc", repo.Name);
-                continue;
-            }
-            var repoChanges = changeSet.For(repo.Name);
-            var repoReader = readerFactory.Create(sandbox);
-            // 2026-10-12-f5f7c: the narrative goes to each repository that changed, with its changes.
-            if (repos.Count == 1 || repoChanges.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString())))
-                narratives.Add((repoReader, sandbox.WorkDirectory(), repoChanges));
-            // cacheResult on the first repo; cache the first plan.md we find (the
-            // agent may write its plan.md only in the repo it edited, p0235).
-            planCached |= await WriteRepoRecordAsync(
-                repoReader, sandbox.WorkDirectory(), context, runId, repo.Name, repoChanges,
-                cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
-                failureReason, cacheResult: written == 0, tryCachePlan: !planCached, cancellationToken);
-            written++;
-            logger.LogInformation(
-                "WriteRunResult: repo {Repo} run-doc written ({RunId})", repo.Name, RunIdGenerator.FormatForDisplay(runId));
-        }
-        // p0380 / 2026-10-12-f5f7c: the curated project memory of a green ticket run, in every
-        // repository it changed — the store that repository's pull request carries.
-        foreach (var (reader, root, changes) in narratives)
-            await narrativeWriter.TryWriteAsync(
-                reader, root, context.Ticket, runId,
-                failureReason, changes, decisions, cancellationToken);
-        return CommandResult.Ok(
-            $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {written} repo(s)");
+        // 2026-11-28-db88c: no per-ticket memory file — the run's narrative is this record; memory/ holds what
+        // a master keeps with remember.
+        logger.LogInformation("Recorded run result {RunId}", RunIdGenerator.FormatForDisplay(runId));
+        return CommandResult.Ok(repos is null
+            ? $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded"
+            : $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded for {repos.Count} repo(s)");
     }
 
     // p0341: done-status honesty DIAGNOSTIC — a done ledger step whose EXPLICIT target is
@@ -222,163 +154,77 @@ public sealed class WriteRunResultHandler(
             ? fr
             : EarlyKeystoneFailure(context);
 
-    // p0234: write one repo's run-record (plan.md + result.md + context.yaml
-    // entry) scoped to that repo. Shared by the per-repo fan-out and the legacy
-    // single-sandbox fallback. Returns true when it cached a plan.md for the
-    // dashboard (p0235), so the per-repo loop caches the first one it finds.
-    private async Task<bool> WriteRepoRecordAsync(
-        ISandboxFileReader reader, string root, WriteRunResultContext context, string runId,
-        string? repoName, IReadOnlyList<CodeChange> repoChanges,
+    // The run's plan and result, stored for the run page. A structured preset's plan is rendered; a coding master's
+    // is what it recorded with record_plan, which this never overwrites.
+    private async Task StoreRunRecordAsync(
+        WriteRunResultContext context, string runId, IReadOnlyList<CodeChange> changes,
         RunCostSummary? cost, int duration, List<ExecutionTrailEntry>? trail,
         List<PlanDecision>? decisions, SecurityTrend? trend,
         IReadOnlyList<DialogTrailEntry> dialogueEntries, IReadOnlyList<CallCostRecord>? perSkillBreakdown,
-        RunMetaTopology topology, string? failureReason, bool cacheResult, bool tryCachePlan,
-        CancellationToken ct)
+        RunMetaTopology topology, string? failureReason, CancellationToken ct)
     {
-        var agentDir = Path.Combine(root, AgentSmithDir); // 2026-11-25-9992c: the sandbox's own root
-        var runDir = Path.Combine(agentDir, RunsDir, RunRecordPaths.DirName(runId));
-
-        // p0196: coding presets retire GeneratePlan (Plan null) → no rendered
-        // plan.md. p0235/p0237: in that case the plan is the agent's own
-        // <repo>/.agentsmith/plan.md (coding-agent-master writes it under "Validate the plan",
-        // before the run dir exists). RELOCATE it into the per-run record so it
-        // is preserved per run — the loose path is overwritten every run — and
-        // leave a one-line pointer breadcrumb there.
-        string? planMd = null;
         if (context.Plan is not null)
-        {
-            planMd = RunResultFormatter.FormatPlan(context.Ticket!, context.Plan);
-            await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, ct);
-        }
-        else
-        {
-            // p0244: coding-agent-master now writes its plan.md DIRECTLY into the
-            // per-run dir (it gets {RunRecordDir} in its prompt) — read it there.
-            // Fall back to the legacy loose <repo>/.agentsmith/plan.md + relocate
-            // for skills that predate the run-dir instruction.
-            var runDirPlan = Path.Combine(runDir, "plan.md");
-            planMd = await reader.TryReadAsync(runDirPlan, ct);
-            if (string.IsNullOrWhiteSpace(planMd))
-            {
-                var loosePlanPath = Path.Combine(agentDir, "plan.md");
-                var loosePlan = await reader.TryReadAsync(loosePlanPath, ct);
-                if (!string.IsNullOrWhiteSpace(loosePlan)
-                    && !loosePlan.StartsWith(PlanPointerPrefix, StringComparison.Ordinal))
-                {
-                    planMd = loosePlan;
-                    await reader.WriteAsync(runDirPlan, planMd, ct);
-                    await reader.WriteAsync(loosePlanPath,
-                        $"{PlanPointerPrefix} runs/{runId}/plan.md (per-run record).\n", ct);
-                }
-            }
-        }
-        await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, ct);
+            await TryStorePlanAsync(runId, RunResultFormatter.FormatPlan(context.Ticket!, context.Plan), ct);
 
-        // p0253: result.md is rendered BEFORE CommitAndPR runs the git-authoritative
-        // keystone, so a failing run used to render result:success. The verdict
-        // (failureReason) is computed once in WriteSingleAsync and passed in, so
-        // result.md never claims success for a run that changed no real source /
-        // failed verification — and the p0380 narrative twin gates on the same value.
+        // p0253: the result is rendered BEFORE CommitAndPR runs the git-authoritative keystone, so the verdict
+        // (failureReason) is computed once in WriteSingleAsync and passed in — the result never claims success for
+        // a run that changed no real source or failed verification.
         var ignoredInstructions = Specs.Reports.MasterReportFacts.Ignored(context.Pipeline) is { Count: > 0 } ii ? ii : null;
         var resultMd = RunResultFormatter.FormatResult(
-            context.Ticket!, context.Plan, repoChanges, runId, duration, cost, trail, decisions, trend,
-            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName, failureReason,
+            context.Ticket!, context.Plan, changes, runId, duration, cost, trail, decisions, trend,
+            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName: null, failureReason,
             ignoredInstructions,
             // p0429a: what the run — or the scan — accounted for, itemised beside the
             // findings instead of only inside the gate that read it.
             RunAccountSection.BuildForResult(context.Pipeline, failureReason), // 3890b: once
             VisualComparisonSection.Build(context.Pipeline)); // + 283di
-        await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, ct);
-        if (cacheResult) await TryStoreResultAsync(runId, resultMd, ct);
-
-        var planCached = false;
-        if (tryCachePlan && !string.IsNullOrWhiteSpace(planMd))
-        {
-            await TryStorePlanAsync(runId, planMd, ct);
-            planCached = true;
-        }
-        return planCached;
+        await TryStoreResultAsync(runId, resultMd, ct);
     }
 
+    // p0161d: an init discovers per repository; 2026-11-28-db88b: its record is ONE plan and ONE result that join
+    // every repository's components, not one per repository where the last overwrote the rest.
     private async Task<CommandResult> WriteInitFanOutAsync(
         WriteRunResultContext context, string runId, CancellationToken cancellationToken)
     {
         var pipeline = context.Pipeline;
         var repos = pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r)
             && r is { Count: > 0 } ? r : null;
+        var (cost, duration) = ResolveCostAndDuration(pipeline);
+        var trail = TryGet<List<ExecutionTrailEntry>>(pipeline, ContextKeys.ExecutionTrail);
+        var decisions = TryGet<List<PlanDecision>>(pipeline, ContextKeys.Decisions);
+        var dialogueEntries = dialogueTrail.GetAll();
+        var perSkillBreakdown = ResolvePerSkillBreakdown(pipeline);
         if (repos is null)
-            return await WriteInitSingleSandboxAsync(context, runId, cancellationToken);
+        {
+            await TryStoreResultAsync(runId, RunResultFormatter.FormatInitResult(
+                runId, duration, cost, trail, decisions,
+                dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown), cancellationToken);
+            return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded");
+        }
 
         var components = TryGet<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
             pipeline, ContextKeys.DiscoveredComponents);
         var outputs = TryGet<Dictionary<string, Dictionary<string, string>>>(
             pipeline, ContextKeys.BootstrapOutputs);
         var retired = TryGet<IReadOnlyDictionary<string, IReadOnlyList<string>>>(pipeline, ContextKeys.RetiredContexts);
-        var (cost, duration) = ResolveCostAndDuration(pipeline);
-        var trail = TryGet<List<ExecutionTrailEntry>>(pipeline, ContextKeys.ExecutionTrail);
-        var decisions = TryGet<List<PlanDecision>>(pipeline, ContextKeys.Decisions);
-        var dialogueEntries = dialogueTrail.GetAll();
-        var perSkillBreakdown = ResolvePerSkillBreakdown(pipeline);
+        var records = repos.Select(repo => new InitRepoRecord(
+            repo.Name,
+            components is not null && components.TryGetValue(repo.Name, out var rc) ? rc : null,
+            outputs is not null && outputs.TryGetValue(repo.Name, out var ro) ? ro : null,
+            retired?.GetValueOrDefault(repo.Name))).ToList(); // 2026-09-23-4711
         var sharedNote = repos.Count > 1
             ? $"Total run cost shared across {repos.Count} repos — Discover allocated to each repo equally; BootstrapRound calls already tagged per repo."
             : null;
 
-        var written = 0;
-        foreach (var repo in repos)
-        {
-            var sandbox = ResolvePerRepoSandbox(pipeline, repo);
-            if (sandbox is null)
-            {
-                logger.LogWarning("WriteRunResult: no sandbox for repo '{Repo}' — skipping init run-doc", repo.Name);
-                continue;
-            }
-            var reader = readerFactory.Create(sandbox);
-            var repoComponents = components is not null && components.TryGetValue(repo.Name, out var rc) ? rc : null;
-            var repoOutputs = outputs is not null && outputs.TryGetValue(repo.Name, out var ro) ? ro : null;
-            var runDir = Path.Combine(sandbox.WorkDirectory(), AgentSmithDir, RunsDir, $"{runId}-init");
-
-            var planMd = RunResultFormatter.FormatInitPlan(runId, repo.Name, repoComponents);
-            await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
-            if (written == 0) await TryStorePlanAsync(runId, planMd, cancellationToken);
-            await WriteOptionalArtifactsAsync(reader, runDir, pipeline, cancellationToken);
-            var resultMd = RunResultFormatter.FormatInitResult(
-                runId, duration, cost, trail, decisions,
-                dialogueEntries.Count > 0 ? dialogueEntries : null,
-                perSkillBreakdown,
-                repoName: repo.Name, components: repoComponents,
-                bootstrapOutputsByContext: repoOutputs,
-                sharedCostNote: sharedNote,
-                retiredContexts: retired?.GetValueOrDefault(repo.Name)); // 2026-09-23-4711
-            await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
-            await TryStoreResultAsync(runId, resultMd, cancellationToken);
-            written++;
-            logger.LogInformation(
-                "WriteRunResult: repo {Repo} init run-doc written to {Dir}", repo.Name, Path.GetFileName(runDir));
-        }
-
-        return CommandResult.Ok(
-            $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {written} repo(s)");
-    }
-
-    private async Task<CommandResult> WriteInitSingleSandboxAsync(
-        WriteRunResultContext context, string runId, CancellationToken cancellationToken)
-    {
-        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-        var reader = readerFactory.Create(sandbox);
-        var agentDir = Path.Combine(sandbox.WorkDirectory(), AgentSmithDir);
-        var runDir = Path.Combine(agentDir, RunsDir, $"{runId}-init");
-        await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, cancellationToken);
-        var (cost, duration) = ResolveCostAndDuration(context.Pipeline);
-        var trail = TryGet<List<ExecutionTrailEntry>>(context.Pipeline, ContextKeys.ExecutionTrail);
-        var decisions = TryGet<List<PlanDecision>>(context.Pipeline, ContextKeys.Decisions);
-        var dialogueEntries = dialogueTrail.GetAll();
-        var perSkillBreakdown = ResolvePerSkillBreakdown(context.Pipeline);
-        var resultMd = RunResultFormatter.FormatInitResult(
+        await TryStorePlanAsync(runId, string.Join("\n", records.Select(
+            record => RunResultFormatter.FormatInitPlan(runId, record.RepoName, record.Components))), cancellationToken);
+        await TryStoreResultAsync(runId, RunResultFormatter.FormatInitResult(
             runId, duration, cost, trail, decisions,
-            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown);
-        await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
-        await TryStoreResultAsync(runId, resultMd, cancellationToken);
-        return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {Path.GetFileName(runDir)}");
+            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, records, sharedNote), cancellationToken);
+        logger.LogInformation("Recorded init run result {RunId} ({Repos} repo(s))",
+            RunIdGenerator.FormatForDisplay(runId), repos.Count);
+        return CommandResult.Ok(
+            $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded for {repos.Count} repo(s)");
     }
 
     private async Task TryStoreResultAsync(string runId, string resultMd, CancellationToken ct)
@@ -389,9 +235,8 @@ public sealed class WriteRunResultHandler(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex,
-                "Failed to cache result.md for {RunId} in artifact store — disk write + PR remain authoritative",
-                runId);
+            // 2026-11-28-db88b: the store holds the run's only copy of its result.
+            logger.LogError(ex, "Failed to store the result of {RunId} in the artifact store", runId);
         }
     }
 
@@ -399,21 +244,14 @@ public sealed class WriteRunResultHandler(
     {
         try
         {
+            // 2026-11-28-db88b: a plan the master recorded with record_plan is the run's plan.
+            if (!string.IsNullOrWhiteSpace(await artifactStore.ReadPlanMarkdownAsync(runId, ct))) return;
             await artifactStore.WritePlanMarkdownAsync(runId, planMd, ct);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex,
-                "Failed to cache plan.md for {RunId} in artifact store — disk write + PR remain authoritative",
-                runId);
+            logger.LogWarning(ex, "Failed to store the plan of {RunId} in the artifact store", runId);
         }
-    }
-
-    private ISandbox? ResolvePerRepoSandbox(PipelineContext pipeline, RepoConnection repo)
-    {
-        var matches = sandboxTargets.SandboxesForRepo(pipeline, repo);
-        if (matches.Count > 0) return matches[0].Value;
-        return pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var legacy) ? legacy : null;
     }
 
     private static (RunCostSummary? Cost, int DurationSeconds) ResolveCostAndDuration(PipelineContext pipeline)
@@ -462,37 +300,6 @@ public sealed class WriteRunResultHandler(
             RepoMode: repoMode,
             SandboxCount: sandboxCount,
             Repos: repos);
-    }
-
-    /// <summary>
-    /// p0128a: persists the structured plan/diff/bootstrap artifacts alongside the
-    /// existing markdown when present. Source-of-truth for replay scenarios.
-    /// </summary>
-    private static async Task WriteOptionalArtifactsAsync(
-        ISandboxFileReader reader, string runDir, PipelineContext pipeline, CancellationToken ct)
-    {
-        if (pipeline.TryGet<string>(ContextKeys.PlanJson, out var planJson) && !string.IsNullOrEmpty(planJson))
-            await reader.WriteAsync(Path.Combine(runDir, "plan.json"), PrettyPrint(planJson), ct);
-
-        if (pipeline.TryGet<string>(ContextKeys.DiffJson, out var diffJson) && !string.IsNullOrEmpty(diffJson))
-            await reader.WriteAsync(Path.Combine(runDir, "diff.json"), PrettyPrint(diffJson), ct);
-
-        if (pipeline.TryGet<string>(ContextKeys.BootstrapMarkdown, out var bootstrapMd)
-            && !string.IsNullOrEmpty(bootstrapMd))
-            await reader.WriteAsync(Path.Combine(runDir, "bootstrap.md"), bootstrapMd, ct);
-    }
-
-    private static string PrettyPrint(string raw)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(raw);
-            return JsonSerializer.Serialize(doc.RootElement, JsonOptions);
-        }
-        catch (JsonException)
-        {
-            return raw;
-        }
     }
 
     // p0253: the run verdict for result.md, computed BEFORE CommitAndPR's

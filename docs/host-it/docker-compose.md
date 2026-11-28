@@ -136,7 +136,7 @@ Three volumes the deployment writes to:
 - The Redis volume — append-only log for in-flight state. Small.
 - The config bind-mount (`/app/config`) — read by the server, the migrate job, and ad-hoc CLI runs.
 
-Run directories land in the repos themselves (committed under `.agentsmith/runs/` on the run branch), so the why-record travels with the code.
+A run's plan and result live in the database with the run and are shown on its run page. The specs and decisions a run commits land in the repositories themselves, so that part of the why-record travels with the code.
 
 ## Logs
 

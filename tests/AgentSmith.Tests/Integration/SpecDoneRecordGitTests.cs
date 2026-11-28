@@ -46,7 +46,7 @@ public sealed class SpecDoneRecordGitTests
 
         result.IsSuccess.Should().BeTrue(result.Message);
         (await git.TrackedAsync()).Should().BeEquivalentTo(
-            SeriesPaths.Manifest(Base), Done("a-first.yaml"), Done("a-first.md"),
+            Done("a-first.yaml"), Done("a-first.md"),
             Planned("b-second.yaml"), Planned("b-second.md"), ".agentsmith/contexts/default/done.md"); // 462aa
         (await git.GitAsync("ls-files", ".gitattributes")).Trim().Should().Be(".gitattributes", "the union lines ride the record");
         var done = File.ReadAllText(Path.Combine(git.WorkDir, Done("a-first.yaml")));
@@ -80,7 +80,7 @@ public sealed class SpecDoneRecordGitTests
     }
 
     [Fact]
-    public async Task RecordOutcome_NextRun_DoesNotReadReviewerEdit()
+    public async Task RecordOutcome_NextRun_ReadsTheExecutedSetStored()
     {
         await using var git = await SeriesGitRepo.CreateAsync(Seed, Base);
         if (git is null) return;
@@ -89,11 +89,10 @@ public sealed class SpecDoneRecordGitTests
 
         await RecordAsync(git, git.Pipeline, set, [Primary], pointers);
 
-        var read = (await SeriesDoubles.Reader(git.Files, git.Ops)
-            .ReadAsync(git.Pipeline, Primary, [], new TicketKey(Ticket), default)).Read!;
-        read.LastCommitSha.Should().Be((await pointers.GetAsync(Project, Ticket, default))!.RevisionSha,
-            "the record is this system's own commit on the series' paths");
+        var read = await StoredAsync(pointers);
+        read.LastCommitSha.Should().Be(await git.HeadAsync(), "the record is this system's own commit, the pointer names it");
         read.Set.Executed.Should().Equal(A);
+        read.Set.Specs.Select(p => p.SpecId).Should().Equal(A, B);
     }
 
     [Fact]
@@ -102,10 +101,10 @@ public sealed class SpecDoneRecordGitTests
         await using var git = await SeriesGitRepo.CreateAsync(Seed, Base);
         if (git is null) return;
         var set = await PublishAsync(git, Set(("a", "first"), ("b", "second")));
-        await RecordAsync(git, git.Pipeline, set, [Primary], new InMemorySpecSetPointerStore());
+        var pointers = new InMemorySpecSetPointerStore();
+        await RecordAsync(git, git.Pipeline, set, [Primary], pointers);
         var before = File.ReadAllText(Path.Combine(git.WorkDir, Done("a-first.yaml")));
-        var read = (await SeriesDoubles.Reader(git.Files, git.Ops)
-            .ReadAsync(git.Pipeline, Primary, [], new TicketKey(Ticket), default)).Read!.Set;
+        var read = (await StoredAsync(pointers)).Set;
 
         await PublishAsync(git, read with { Specs = [read.Specs[0], Set(("b", "renamed")).Specs[0]] });
 
@@ -115,17 +114,17 @@ public sealed class SpecDoneRecordGitTests
     }
 
     [Fact]
-    public async Task SeriesReader_PartlyExecuted_ReadsDoneAndPlanned()
+    public async Task StoredSet_PartlyExecuted_NamesTheExecutedSpec()
     {
         await using var git = await SeriesGitRepo.CreateAsync(Seed, Base);
         if (git is null) return;
         var set = await PublishAsync(git, Set(("a", "first"), ("b", "second")));
-        await RecordAsync(git, git.Pipeline, set, [Primary], new InMemorySpecSetPointerStore());
-        // What a checkout-free amendment written before the record could leave beside it.
+        var pointers = new InMemorySpecSetPointerStore();
+        await RecordAsync(git, git.Pipeline, set, [Primary], pointers);
+        // What a checkout-free amendment written before the record could leave beside it — no input any more.
         await git.CommitFilesAsync(Planned("a-first.yaml"));
 
-        var read = (await SeriesDoubles.Reader(git.Files, git.Ops)
-            .ReadAsync(git.Pipeline, Primary, [], new TicketKey(Ticket), default)).Read!.Set;
+        var read = (await StoredAsync(pointers)).Set;
 
         read.Specs.Select(p => p.SpecId).Should().Equal(A, B);
         read.Executed.Should().Equal([A], "a spec in done/ ran, its planned leftover notwithstanding");
@@ -185,9 +184,11 @@ public sealed class SpecDoneRecordGitTests
         result.IsSuccess.Should().BeTrue(result.Message);
         (await git.GitAsync("rev-list", "--count", "HEAD")).Trim().Should().Be("3", "the copy rides the ONE series commit");
         (await git.GitAsync("show", "--name-only", "--format=", "HEAD")).Should()
-            .Contain($".agentsmith/decisions/{A}.yaml").And.Contain(".agentsmith/decisions/2026-10-05T09-00-00-0001.yaml");
+            .Contain($".agentsmith/decisions/{A}.yaml").And.NotContain(".agentsmith/decisions/2026-10-05T09-00-00-0001.yaml",
+                "2026-11-28-db88d: a row naming no spec goes to the set's first spec's file, not one named after its run");
         File.ReadAllText(Path.Combine(git.WorkDir, $".agentsmith/decisions/{A}.yaml"))
-            .Should().Contain("[default #11] overruled by ana").And.Contain("Which queue? -> polling; note: use the bus");
+            .Should().Contain("[default #11] overruled by ana").And.Contain("Which queue? -> polling; note: use the bus")
+            .And.Contain("[default #12] ratified by ben");
     }
 
     private static async Task<SpecSet> PublishAsync(SeriesGitRepo git, SpecSet set, RepoConnection? repo = null)
@@ -209,6 +210,10 @@ public sealed class SpecDoneRecordGitTests
         return SeriesDoubles.RecordHandler(git.Files, pointers, git.Ops, verdicts: verdicts).ExecuteAsync(
             new WriteSpecRecordContext(pipeline.Get<Repository>(ContextKeys.Repository), pipeline, repos), default);
     }
+
+    // 2026-11-28-db88a: what the next run reads — the set the record stored on the ticket's row.
+    private static async Task<SpecSetReadResult> StoredAsync(InMemorySpecSetPointerStore pointers) =>
+        AgentSmith.Application.Services.Specs.StoredSeries.Read((await pointers.GetSetAsync(Project, Ticket, default))!, await pointers.GetAsync(Project, Ticket, default));
 
     private static string Planned(string rest) => $"{SeriesPaths.Planned}/{Base}{rest}";
 

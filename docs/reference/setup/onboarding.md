@@ -137,9 +137,9 @@ Edit them in the PR before merging — see Step 4. Or re-run `init-project`: it 
 
 For language-detection misclassification specifically (e.g. a TypeScript monorepo bootstrapped as `generic`), check the [Bootstrap Skills](../skills/bootstrap.md) reference for the project_language enum and the per-language activation criteria.
 
-### Where do I read the result.md?
+### Where do I read the run's result?
 
-Each agent run produces a `result.md` under `.agentsmith/runs/<run>/`. The init run's result.md surfaces the bootstrap-skill output, cost breakdown, and any warnings. Failed runs leave the same artifact path with the failure details — useful when the PR doesn't appear.
+On the run page in the dashboard. The init run's result surfaces the bootstrap-skill output, cost breakdown, and any warnings, and joins the discovered components of every repository into one result. A failed run's result carries the failure details, which is useful when the PR doesn't appear.
 
 ## Bootstrapping a multi-repo project
 
@@ -200,7 +200,7 @@ The three runs do not coordinate — each one detects its own repo's stack, writ
 
 Once every repo has the `.agentsmith/` directory merged on its default branch, subsequent ticket triggers against the project (e.g. a `bug`-labelled Jira issue) fan out to all three repos and execute the `code` pipeline end-to-end against each.
 
-> **Pitfall**: a ticket on a partially-bootstrapped multi-repo project still spawns N pipeline runs. The runs against bootstrapped repos succeed; the runs against not-yet-bootstrapped repos abort fast with "Run init-project first" and produce a failed-run artefact under `.agentsmith/runs/<run-id>/`. This is noisy. Bootstrap every repo in the project before relying on ticket-triggered runs.
+> **Pitfall**: a ticket on a partially-bootstrapped multi-repo project still spawns N pipeline runs. The runs against bootstrapped repos succeed; the runs against not-yet-bootstrapped repos abort fast with "Run init-project first" and show up as failed runs in the dashboard. This is noisy. Bootstrap every repo in the project before relying on ticket-triggered runs.
 
 See [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) for the multi-repo project model.
 

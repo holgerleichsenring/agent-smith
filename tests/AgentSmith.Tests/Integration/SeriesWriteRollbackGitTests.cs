@@ -46,6 +46,8 @@ public sealed class SeriesWriteRollbackGitTests
         (await repos.TreeAsync("Server", revert)).Should().Be(await repos.TreeAsync("Server", before));
         var pointer = (await pointers.GetAsync(Project, SeriesRepoBranches.Key, default))!;
         pointer.RevisionNumber.Should().Be(1, "the stored revision is kept");
+        (await pointers.GetSetAsync(Project, SeriesRepoBranches.Key, default))!.Current.Number.Should().Be(1,
+            "2026-11-28-db88a: a write that fails the step stores no set");
         pointer.ShaByRepo["Server"].Should().Be(revert);
     }
 
@@ -124,8 +126,11 @@ public sealed class SeriesWriteRollbackGitTests
     internal static SpecSet Revision2()
     {
         var first = Revision1();
+        // 2026-11-28-db88a: the revision changes every member's spec file — with no manifest, a revision that changes
+        // none commits nothing anywhere.
         return first with
         {
+            Specs = [.. first.Specs.Select(s => s with { Draft = s.Draft with { Yaml = s.Draft.Yaml.TrimEnd() + "\n# revision 2\n" } })],
             Revisions = [.. first.Revisions, new SpecRevision(2, SpecRevisionCause.Comment, DateTimeOffset.UtcNow)],
         };
     }
@@ -142,7 +147,7 @@ public sealed class SeriesWriteRollbackGitTests
                 new SpecRefusalReporter(Mock.Of<IEventPublisher>(), NullLogger<SpecRefusalReporter>.Instance),
                 new SpecSetContextPublication(Mock.Of<IRunArtifactStore>(), NullLogger<SpecSetContextPublication>.Instance),
                 new SpecSetAnnouncer(Mock.Of<IEventPublisher>(), NullLogger<SpecSetAnnouncer>.Instance),
-                NullLogger<SpecSetPublisher>.Instance)
+                pointers, NullLogger<SpecSetPublisher>.Instance)
             .PublishAsync(repos.Pipeline(), Project, Scope(), set, [], default);
 
     private static SeriesScope Scope() => new([TwoRepoSeries.Server, TwoRepoSeries.Client], null, [], null);

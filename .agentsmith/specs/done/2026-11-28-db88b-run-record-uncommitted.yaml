@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-db88b
+goal: "A run's plan and result live in the database and on the run page only: nothing writes or commits .agentsmith/runs/, and the coding master records its plan with a tool."
+
+applies_to: "default (WriteRunResultHandler, AgenticMasterHandler, MasterPromptTokens, a record_plan tool) + skills catalog (coding-agent-master)"
+
+requires: [2026-11-26-462aa]
+
+facts:
+  - claim: "WriteRunResultHandler writes plan.md and result.md into <repo>/.agentsmith/runs/<runId>/ in the sandbox, and caches the first result and plan in the run artifact store, which the run page reads."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:229-300; src/backend/AgentSmith.Contracts/Persistence/IRunArtifactStore.cs:15,24; src/backend/AgentSmith.Server/Hubs/JobsHub.cs:119"
+  - claim: "The master is given {RunRecordDir} and the skill tells it to write <repo>/{RunRecordDir}/plan.md, committed with the change."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:104-107,191; observed: 2026-11-28, agent-smith-skills v5.47.0 skills/_masters/coding-agent-master/SKILL.md:91"
+  - claim: "A ticket's documents are materialised under the run record directory's attachments/ folder."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:349; src/backend/AgentSmith.Application/Services/Tickets/TicketDocumentMaterializer.cs:53"
+
+scope:
+  in: |
+    WriteRunResultHandler renders plan and result as today and stores them in the artifact store only — one run-wide result
+    (every repository's changes) on the single and per-repo paths, one result joining every component on the init path; no
+    file under .agentsmith/runs/ is written to a sandbox; the legacy loose plan.md relocation and the optional-artifact
+    writes go. A master tool record_plan(markdown) stores the plan in the artifact store, and the handler does not
+    overwrite a recorded plan. {RunRecordDir} leaves the master's prompt tokens and the skill's inputs; the skill describes
+    record_plan as how the plan reaches the run page. Texts that name a committed result.md (PrReviewCommentRenderer, the
+    Azure Repos truncation marker, docs) name the run page. Ticket documents go to .agentsmith/reference/documents,
+    which the clone's exclude keeps out of commits. A run that changed no code and recorded nothing else under
+    .agentsmith opens no pull request. Skills released and pinned.
+  out: "VisualComparisonRecorder's images under runs/<id>/compare (planned follow-up 2026-11-28-c3f1); runs/ already in repositories stays (decision); CompileKnowledgeHandler keeps reading what runs/ a repository has; a CLI run's record lives in its in-memory store only; a configured catalog older than the pin is not supported."
+
+steps:
+  - id: handler
+    action: "WriteRunResultHandler stores plan/result in IRunArtifactStore only; no sandbox write under runs/."
+  - id: tool
+    action: "RecordPlanToolHost (record_plan) writes IRunArtifactStore.WritePlanMarkdownAsync for the run; wired into the coding master's tools."
+  - id: prompt
+    action: "Remove RunRecordDir from MasterPromptTokens and AgenticMasterHandler."
+  - id: skill
+    action: "coding-agent-master: record the plan with record_plan; release the skills (conventional PR title) and pin SkillsCatalogVersion + SkillsCatalogSha256 with the tarball."
+  - id: documents
+    action: "MasterTicketExtras materialises ticket documents under .agentsmith/reference/documents and ensures the clone's exclude."
+  - id: tests
+    action: "Unit tests for the handler, the tool, the documents and a no-code CommitAndPR; a composition test that a coding run writes no path under .agentsmith/runs/."
+
+tests:
+  - "Harness_ACodingRun_WritesNothingUnderRuns"
+  - "RecordPlan_StoresThePlanForTheRunPage"
+  - "ExecuteAsync_APlanTheMasterRecorded_IsNotOverwritten"
+  - "WriteRunResult_InitProject_OneRecordJoinsEveryRepository"
+  - "CommitAndPR_ARunThatChangedNothing_OpensNoPullRequest"
+  - "Compose_TicketDocuments_LandInTheExcludedReferenceDirectory"
+
+done:
+  - "Apart from visual comparison images (2026-11-28-c3f1), the framework writes no file under .agentsmith/runs/ and no master prompt names that directory (composition test)."
+  - "The master's plan reaches the run page through record_plan (unit test)."
+  - "Skills released and pinned; the spec gate passes."

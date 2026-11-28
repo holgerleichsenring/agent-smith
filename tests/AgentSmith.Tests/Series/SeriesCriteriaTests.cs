@@ -150,16 +150,26 @@ public sealed class SeriesCriteriaTests
             NullLogger<SeriesCriteria>.Instance);
     }
 
-    // The ticket's set, filed onto its work branch as filing writes it.
-    private async Task FileAsync(params (string Id, string Repo)[] specs)
+    // 2026-11-28-db88a: the ticket's set as a ticket in flight at that deploy left it — on its work branch with the old
+    // writer's manifest, its row storing no set — so its landing is read where it landed, once.
+    private Task FileAsync(params (string Id, string Repo)[] specs) =>
+        TicketBranchSeriesTests.LegacyFiledAsync(_sources, _pointers,
+            TicketBranchSeriesTests.Record(TicketBranchSeriesTests.Specs(specs.Length > 0 ? specs : [("p9000a", "sample-api")])));
+
+    // 2026-11-28-db88a: a ticket whose row stores its set is read with every branch gone.
+    [Fact]
+    public async Task ReadAsync_AStoredSet_TicketBranchGoneAndNothingWhereItLanded_ReadsItsCriteria()
     {
-        var record = new SpecApprovalRecord(Key,
-            new SpecSet(Key, TicketBranchSeriesTests.Specs(specs.Length > 0 ? specs : [("p9000a", "sample-api")]), SpecAccounting.Empty, [],
-                SpecSource.Approved, Approval: new SpecApproval(DateTimeOffset.UnixEpoch, "job-1", "sample.user"), Series: "2026-11-17-0b0b"),
-            ["sample-api", "sample-web"], "sample-tracker", "sample-api");
-        var written = await ApprovedSetDoubles.Branch(_sources, _pointers)
-            .WriteAsync(TicketBranchSeriesTests.Project(), record, new TicketId("1"), TicketBranchSeriesTests.Stored(), default);
+        var written = await ApprovedSetDoubles.Branch(_sources, _pointers).WriteAsync(TicketBranchSeriesTests.Project(),
+            TicketBranchSeriesTests.Record(TicketBranchSeriesTests.Specs(("p9000a", "sample-api"))), new TicketId("1"),
+            TicketBranchSeriesTests.Stored(), default);
         written.Written.Should().BeTrue(written.Error);
+        _sources.ReadThrows = new HttpRequestException("503 from the host");
+
+        var (criteria, unread) = await Criteria().ReadAsync(Record(), TicketBranchSeriesTests.Project(), default);
+
+        unread.Should().BeEmpty();
+        criteria.Select(c => c.Text).Should().Equal("The set reads back.");
     }
 
     // The pull request merged into the target (main by default), and cleanup deleted the work branch.

@@ -1,6 +1,6 @@
 # Project knowledge base
 
-codeably can compile the run records it leaves in a repository into a readable wiki under `.agentsmith/wiki/`.
+codeably can compile the run records that older runs committed to a repository into a readable wiki under `.agentsmith/wiki/`. Runs no longer commit a record (it is on the run page), so new runs add nothing to compile.
 
 ## The principle
 
@@ -16,7 +16,7 @@ Everything is versioned in Git next to the code it describes.
 
 ```
 .agentsmith/
-  runs/                # source data: one directory per run, with plan.md and result.md
+  runs/                # source data: one directory per older run, with plan.md and result.md
   wiki/
     index.md           # table of contents linking every wiki page
     decisions.md       # architectural and design decisions across runs

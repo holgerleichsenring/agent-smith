@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-db88c
+goal: "A green run writes no per-ticket memory file: memory/ holds only facts written with remember, and a run's narrative stays in its run record."
+
+applies_to: "default (RunNarrativeMemoryWriter, RunNarrativeComposer, WriteRunResultHandler)"
+
+requires: [2026-11-28-db88b]
+
+facts:
+  - claim: "WriteRunResultHandler calls RunNarrativeMemoryWriter, which writes memory/ticket-<id>.md composed by RunNarrativeComposer after a green run."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:41,156,192; src/backend/AgentSmith.Application/Services/Memory/RunNarrativeComposer.cs:23"
+
+scope:
+  in: "The narrative writer and composer are deleted with their registration and tests; WriteRunResultHandler no longer calls them and loses its sandbox reader and targets. The run record (artifact store result) already carries what the narrative summarised. The hard-coded-limits baseline row and the limits inventory note for the composer go."
+  out: "ticket-*.md files and their index lines already in repositories stay (decision); remember and the memory index reader are unchanged."
+
+steps:
+  - id: remove
+    action: "Delete RunNarrativeMemoryWriter and RunNarrativeComposer and their call sites; keep MemoryOutcomeRecorder."
+  - id: tests
+    action: "Delete their tests and the RunNarrativeComposer row of the hard-coded-limits baseline; a composition test asserts a green run writes no memory/ticket-*.md."
+
+tests:
+  - "Harness_AGreenRun_WritesNoTicketMemoryFile"
+
+done:
+  - "A green run writes no memory/ticket-<id>.md (composition test)."
+  - "The spec gate passes."

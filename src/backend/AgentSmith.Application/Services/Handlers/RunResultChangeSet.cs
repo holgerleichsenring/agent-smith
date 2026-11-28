@@ -19,4 +19,8 @@ public sealed record RunResultChangeSet(
 
     public IReadOnlyList<CodeChange> For(string? repoName) =>
         PerRepository.TryGetValue(repoName ?? NoRepository, out var changes) ? changes : [];
+
+    /// <summary>2026-11-28-db88b: every repository's changes, as the run-wide result lists them — a multi-repository
+    /// run's paths already carry their repository, a single repository's do not.</summary>
+    public IReadOnlyList<CodeChange> All => [.. PerRepository.Values.SelectMany(changes => changes)];
 }

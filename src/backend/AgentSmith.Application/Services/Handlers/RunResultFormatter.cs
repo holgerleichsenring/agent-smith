@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Formats run artifacts (plan.md and result.md) as markdown strings.
 /// Pure formatting — no I/O, no state.
 /// </summary>
-public static class RunResultFormatter
+public static partial class RunResultFormatter
 {
     public static string FormatPlan(Ticket ticket, Plan plan)
     {

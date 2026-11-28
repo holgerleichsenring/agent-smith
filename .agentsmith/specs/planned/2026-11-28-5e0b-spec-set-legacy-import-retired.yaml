@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-5e0b
+goal: "Once no TicketSeries row lacks a stored set, the one-time branch import of 2026-11-28-db88a and every manifest-reading class are deleted."
+
+applies_to: "default (StoredSeriesReader, TicketBranchSeries, SeriesReader and the manifest classes)"
+
+requires: [2026-11-28-db88a]
+
+facts:
+  - claim: "A run imports the set of a row with no stored set once through the manifest reader SeriesReader."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/StoredSeriesReader.cs:20-45"
+  - claim: "The host readers import a row with no stored set once through the branch read of TicketBranchSeries."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TicketBranchSeries.cs:51-75"
+  - claim: "A row stores no set while TicketSeries.SetJson is null."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSeries.cs; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/TicketSeriesRepository.cs"
+
+scope:
+  in: "A count of TicketSeries rows with SetJson null reads zero on the live store (or the remaining rows are tickets nobody will run again and are imported by a data migration); then the import arms, SeriesReader, SubSeriesReader/Files, SeriesComposer, SeriesJoin, SeriesManifest* and BranchFiles go with their tests."
+  out: "Removing manifests from branches."
+
+steps:
+  - id: count
+    action: "Count rows with SetJson null; import or close the rest."
+  - id: delete
+    action: "Delete the import arms and the manifest-reading classes and their tests."
+
+done:
+  - "No code reads .agentsmith/series/ (grep)."

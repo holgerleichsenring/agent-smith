@@ -119,9 +119,7 @@ The CLI exits with code zero if the PR opened and the ticket got updated. Non-ze
 
 ### What ended up on disk
 
-The run record lands in the repository, under `.agentsmith/runs/<run>/`, and is committed on the run branch so it travels with the PR. `result.md` holds what got done, the PR URL, the cost, the decisions the run logged, and the account of every done criterion.
-
-Run directories accumulate over time. The [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles them into a wiki you can grep when something feels familiar — "didn't we already debate this trade-off once?" usually has an answer in there.
+The run's record is not committed: a CLI run keeps its plan and result in memory for that process only, and a server run shows them on the run page. The result holds what got done, the PR URL, the cost, the decisions the run logged, and the account of every done criterion. What the branch carries is the code, the executed specs and the decision files.
 
 ### What ended up on the tracker
 

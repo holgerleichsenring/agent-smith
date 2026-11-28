@@ -8,18 +8,15 @@ namespace AgentSmith.Contracts.Persistence;
 public interface IRunArtifactStore
 {
     /// <summary>
-    /// Stores the rendered result.md so the dashboard can read it server-side
-    /// (the on-disk write inside the sandbox / target repo is not reachable
-    /// from the server). Operators read it AFTER WriteRunResult, not during the pipeline.
+    /// Stores the rendered result so the run page can show it. 2026-11-28-db88b: this is the run's record — no
+    /// result.md is written into a repository. Operators read it AFTER WriteRunResult, not during the pipeline.
     /// </summary>
     Task WriteResultMarkdownAsync(string runId, string resultMd, CancellationToken cancellationToken);
     Task<string?> ReadResultMarkdownAsync(string runId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// p0235: caches the run's plan.md so the dashboard can show it alongside
-    /// result.md. For coding presets the plan is the agent's own
-    /// <c>&lt;repo&gt;/.agentsmith/plan.md</c> (read back from the sandbox at
-    /// run-finish); for structured presets it is the rendered plan.
+    /// p0235: the run's plan, shown on the run page beside the result. 2026-11-28-db88b: for a coding master it is
+    /// what the master recorded with record_plan; for structured presets it is the rendered plan.
     /// </summary>
     Task WritePlanMarkdownAsync(string runId, string planMd, CancellationToken cancellationToken);
     Task<string?> ReadPlanMarkdownAsync(string runId, CancellationToken cancellationToken);

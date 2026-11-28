@@ -25,15 +25,10 @@ Every project that codeably works on gets an `.agentsmith/` directory:
 │   ├── patterns.md       # Conventions the runs established
 │   └── ...               # Further topic pages where the content warrants them
 ├── security/             # SARIF snapshots for trend analysis
-└── runs/
-    ├── 2026-05-20T22-27-43-8a3f/
-    │   ├── plan.md       # The master's working plan, when it wrote one
-    │   └── result.md     # Outcome with account and cost data
-    └── 2026-05-20T22-29-11-4c19/
-        └── result.md
+└── runs/                 # Only in repositories older runs committed to; new runs add none
 ```
 
-The `wiki/` directory is maintained by the [Project Knowledge Base](knowledge-base.md) -- an LLM-compiled wiki. The `compile-wiki` command reads each run's `plan.md` and `result.md` under `runs/`, plus the wiki as it stands, and asks the model to update the pages. It does not read `decisions/` or `security/`.
+The `wiki/` directory is maintained by the [Project Knowledge Base](knowledge-base.md) -- an LLM-compiled wiki. The `compile-wiki` command reads each run's `plan.md` and `result.md` under `runs/` (committed by older runs), plus the wiki as it stands, and asks the model to update the pages. It does not read `decisions/` or `security/`.
 
 ## Specs
 
@@ -131,15 +126,15 @@ A [`code` run](../pipelines/fix-and-feature.md) works the same way on your repos
 
 ## Runs
 
-A **run** is a single execution of a pipeline against a ticket or task. Each run produces artifacts:
+A **run** is a single execution of a pipeline against a ticket or task. Each run produces a plan and a result, stored with the run and shown on its run page in the dashboard. Neither is written into a repository; a CLI run keeps them in memory for that process only.
 
-### plan.md
+### The plan
 
-The coding master's own working plan, written into the run directory when it made one. The plan that the run is held to is the specification, not this file.
+The coding master's own working plan, recorded with the `record_plan` tool when it made one. The plan that the run is held to is the specification, not this one.
 
-### result.md
+### The result
 
-The outcome of the run. Contains YAML frontmatter with machine-readable data:
+The outcome of the run, one per run, also when the run spans several repositories. Contains YAML frontmatter with machine-readable data:
 
 ```yaml
 ---
@@ -186,23 +181,15 @@ Choices made during execution.
 What ran, step by step.
 ```
 
-A failed run's `result.md` says `result: failed` and opens with an `## Outcome` section that states why.
+A failed run's result says `result: failed` and opens with an `## Outcome` section that states why.
 
 ### Run Numbering
 
-Run identifiers are an **ISO-8601 UTC timestamp** plus a 4-hex collision suffix — `{yyyy-MM-ddTHH-mm-ss}-{4hex}` — and the run directory is named after the id alone. Lexicographically sortable, filesystem-safe across every OS, readable in `ls`, and collision-resistant when a batch of tickets queues in the same second.
+Run identifiers are an **ISO-8601 UTC timestamp** plus a 4-hex collision suffix — `{yyyy-MM-ddTHH-mm-ss}-{4hex}`. Lexicographically sortable, filesystem-safe across every OS, and collision-resistant when a batch of tickets queues in the same second. The `runs/` directories that older runs committed are named after the id alone.
 
-```
-runs/
-├── 2026-05-20T22-27-43-8a3f/
-├── 2026-05-20T22-29-11-4c19/
-├── 2026-05-20T23-04-02-b7d1/
-└── 2026-05-21T08-17-55-2e09/
-```
+What the run was about lives inside its result, not in the id, and the run history itself is in the server's database; `context.yaml` carries no run index.
 
-What the run was about lives inside `result.md`, not in the directory name, and the run history itself is in the server's database; `context.yaml` carries no run index.
-
-Display sites render the timestamp with seconds plus the suffix (`Run 2026-05-20 22:27:43 UTC (8a3f)`) so the operator can map a header back to a directory at a glance.
+Display sites render the timestamp with seconds plus the suffix (`Run 2026-05-20 22:27:43 UTC (8a3f)`) so the operator can map a header back to a run at a glance.
 
 Directories in the old `r{NN}` format are invisible to wiki compilation; document them in `CHANGELOG.md` if you have any.
 
@@ -251,7 +238,7 @@ When codeably processes a ticket:
 1. **Specify** — the series on the ticket branch, or the coding master writes the spec first from a stand-in
 2. **Execute** — works one spec at a time; the master reads the code the spec touches and finds out whether its premises hold
 3. **Verify** — runs the repository's declared verify stages and takes the [delivery account](../../how-it-works/delivery-account.md) per spec
-4. **Record** — writes the spec record, then `result.md` with the account, cost and decision data
+4. **Record** — writes the spec record, then the run's result with the account, cost and decision data
 5. **PR** — commits everything and finalizes one PR per repository
 
 The PR reviewer sees not just the code changes but also:

@@ -46,7 +46,6 @@
 1	AgentSmith.Application/Services/Lifecycle/RunHeartbeatPump.cs
 3	AgentSmith.Application/Services/Loop/SubAgentAnswer.cs
 1	AgentSmith.Application/Services/Memory/RunMemoryProvenance.cs
-2	AgentSmith.Application/Services/Memory/RunNarrativeComposer.cs
 1	AgentSmith.Application/Services/Persistence/InMemoryRunArtifactStore.cs
 1	AgentSmith.Application/Services/PipelineCostTracker.cs
 1	AgentSmith.Application/Services/Polling/ApprovedTicketAdmission.cs

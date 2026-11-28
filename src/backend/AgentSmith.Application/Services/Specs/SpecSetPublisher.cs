@@ -30,6 +30,7 @@ public sealed class SpecSetPublisher(
     SpecRefusalReporter refusals,
     SpecSetContextPublication context,
     SpecSetAnnouncer announcer,
+    ISpecSetPointerStore stored,
     ILogger<SpecSetPublisher> logger) : ISpecSetPublisher
 {
     public async Task<CommandResult> PublishAsync(
@@ -87,9 +88,12 @@ public sealed class SpecSetPublisher(
         var key = placement.Set.Key;
         logger.LogWarning("Spec set {Key} could not be committed: {Error}", key, write.Error);
         await pointer.RecordShasAsync(project, key, write.RevertShas, ct);
-        return write.IsRefused || write.IsRolledBack || placement.Members.Count > 1
-            ? CommandResult.Fail($"Spec {key} cannot be written: {write.Error}")
-            : CommandResult.Ok($"Spec derived but not committed ({write.Error}) — the run continues from it in-memory");
+        if (write.IsRefused || write.IsRolledBack || placement.Members.Count > 1)
+            return CommandResult.Fail($"Spec {key} cannot be written: {write.Error}");
+        // 2026-11-28-db88a: a set the run continues from in memory is stored all the same — the row is the set the run
+        // works from; a write that fails the step stores nothing, so the row keeps the set before it.
+        await stored.SaveSetAsync(project, placement.Set, ct);
+        return CommandResult.Ok($"Spec derived but not committed ({write.Error}) — the run continues from it in-memory");
     }
 
     private static string Describe(SpecSet set) =>

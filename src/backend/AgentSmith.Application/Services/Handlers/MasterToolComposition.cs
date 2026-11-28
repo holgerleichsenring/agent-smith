@@ -35,6 +35,7 @@ public sealed partial class MasterToolComposition(
     TurnActivityTools reportingTools,
     GateStageToolHost gateStage,
     Loop.Sanity.ToolResultSanityWrapper sanity,
+    Contracts.Persistence.IRunArtifactStore artifacts, // 2026-11-28-db88b: record_plan
     ILogger<MasterToolComposition> logger)
 {
     // 2026-11-18-9c1cd: the surfaces are built in MasterToolComposition.Surfaces.cs, over these.
@@ -46,6 +47,7 @@ public sealed partial class MasterToolComposition(
     private readonly TicketActToolsFactory _acts = ticketActs;
     private readonly DesignWorkToolGate _work = designWork;
     private readonly ILogger _logger = logger;
+    private readonly Contracts.Persistence.IRunArtifactStore _artifacts = artifacts;
     // Children share the master's filesystem and base surface, never spawn_agents. A design turn fans out under its
     // own count and child ceiling and is kept off the escalation valve (a writable sandbox) and the ledger.
     // 2026-11-18-9c1cd: at most 20 tools per master composed here (the series master is outside it, 2026-11-27-3532c),

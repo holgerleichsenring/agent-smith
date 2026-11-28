@@ -86,6 +86,6 @@ context the derivation no longer produces is moved to
 - **The principles carry no delta for your language**: the catalog has none for it
   yet. The core still applies; add the mechanisms under Project Specifics, or
   contribute a delta to the [skills repository](https://github.com/holgerleichsenring/agent-smith-skills).
-- **The run failed before any round**: open the init run's `result.md` under
-  `.agentsmith/runs/<run>/`, or the run in the dashboard. A missing primary language
+- **The run failed before any round**: open the init run in the dashboard and
+  read its result. A missing primary language
   or a missing `project-bootstrap` master in the resolved catalog is named there.

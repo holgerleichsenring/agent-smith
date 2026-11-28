@@ -244,8 +244,11 @@ public sealed class PipelineRunner(IServiceProvider services)
             pipeline.Set(ContextKeys.InlineTicket, InlineTicket);
             return;
         }
-        pipeline.Set(ContextKeys.TicketId, new TicketId("1"));
+        pipeline.Set(ContextKeys.TicketId, new TicketId(TicketIdOverride ?? "1"));
     }
+
+    /// <summary>2026-11-28-db88a: the ticket the run works — "1" unless a test runs several tickets of a series.</summary>
+    public string? TicketIdOverride { get; set; }
 
     // p0199f: passive mode pre-seeds Repository (with a real scratch dir
     // FilesystemToolHost can write into) and leaves SourcePath unset so

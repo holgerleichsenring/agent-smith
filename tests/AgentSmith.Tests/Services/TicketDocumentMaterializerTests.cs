@@ -12,16 +12,16 @@ using Moq;
 namespace AgentSmith.Tests.Services;
 
 /// <summary>
-/// p0317: text-like ticket documents land under {RunRecordDir}/attachments/ so
+/// p0317: text-like ticket documents land under {DocumentDir}/attachments/ so
 /// the master can read_file them — pdf/docx through in-sandbox markitdown,
 /// txt/md as-is; a failed conversion is fail-soft (logged + skipped).
 /// </summary>
 public sealed class TicketDocumentMaterializerTests
 {
-    private const string RunRecordDir = ".agentsmith/runs/run-1";
+    private const string DocumentDir = ".agentsmith/reference/documents";
 
     [Fact]
-    public async Task FetchTicket_DocxAttachment_ConvertedIntoRunRecordDir()
+    public async Task FetchTicket_DocxAttachment_ConvertedIntoDocumentDir()
     {
         var (factory, writes) = BuildFileReader();
         var sandbox = new StubSandbox(); // exit 0 + one stdout line per run step
@@ -33,16 +33,16 @@ public sealed class TicketDocumentMaterializerTests
             [0x50, 0x4B, 0x03, 0x04]);
 
         var result = await sut.MaterializeAsync(
-            sandbox, RunRecordDir, [docx], CancellationToken.None);
+            sandbox, DocumentDir, [docx], CancellationToken.None);
 
         result.Should().ContainSingle();
-        result[0].Path.Should().Be($"{RunRecordDir}/attachments/spec.docx.md");
+        result[0].Path.Should().Be($"{DocumentDir}/attachments/spec.docx.md");
         result[0].OriginFileName.Should().Be("spec.docx");
         // 2026-10-08-e8b9j: the document goes in as bytes (a WriteBytes step), not a .b64 file.
-        writes.Should().NotContainKey($"{RunRecordDir}/attachments/spec.docx.b64");
+        writes.Should().NotContainKey($"{DocumentDir}/attachments/spec.docx.b64");
         sandbox.RanSteps.Should().Contain(s => s.Kind == StepKind.WriteBytes
-            && s.RenameTo == $"{RunRecordDir}/attachments/spec.docx");
-        writes[$"{RunRecordDir}/attachments/spec.docx.md"].Should().NotBeNullOrWhiteSpace();
+            && s.RenameTo == $"{DocumentDir}/attachments/spec.docx");
+        writes[$"{DocumentDir}/attachments/spec.docx.md"].Should().NotBeNullOrWhiteSpace();
         sandbox.RanSteps.Should().Contain(s =>
             s.Args != null && s.Args.Any(a => a.Contains("markitdown")));
     }
@@ -59,11 +59,11 @@ public sealed class TicketDocumentMaterializerTests
             System.Text.Encoding.UTF8.GetBytes("plain requirement notes"));
 
         var result = await sut.MaterializeAsync(
-            sandbox, RunRecordDir, [txt], CancellationToken.None);
+            sandbox, DocumentDir, [txt], CancellationToken.None);
 
         result.Should().ContainSingle();
-        result[0].Path.Should().Be($"{RunRecordDir}/attachments/notes.txt");
-        writes[$"{RunRecordDir}/attachments/notes.txt"].Should().Be("plain requirement notes");
+        result[0].Path.Should().Be($"{DocumentDir}/attachments/notes.txt");
+        writes[$"{DocumentDir}/attachments/notes.txt"].Should().Be("plain requirement notes");
         sandbox.RanSteps.Should().BeEmpty("txt needs no in-sandbox conversion");
     }
 
@@ -85,7 +85,7 @@ public sealed class TicketDocumentMaterializerTests
             new AttachmentRef("https://x/spec.pdf", "spec.pdf", "application/pdf"), [1, 2, 3]);
 
         var result = await sut.MaterializeAsync(
-            sandbox.Object, RunRecordDir, [pdf], CancellationToken.None);
+            sandbox.Object, DocumentDir, [pdf], CancellationToken.None);
 
         result.Should().BeEmpty("a document that cannot be converted never sinks the run");
     }

@@ -24,8 +24,9 @@ namespace AgentSmith.Tests.Services;
 public sealed class RepositoryDecisionLoggerTests
 {
     private const string SampleRunId = "2026-05-20T22-27-43-8a3f";
+    private const string SampleSpecId = "2026-05-20-8a3fa";
     private const string DecisionsDir = ".agentsmith/decisions";
-    private static string RunFile => $"{DecisionsDir}/{SampleRunId}.yaml";
+    private static string SpecFile => $"{DecisionsDir}/{SampleSpecId}.yaml";
 
     private readonly AsyncLocalRunContextAccessor _runContext = new();
     private readonly RecordingEventPublisher _events = new();
@@ -45,26 +46,28 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_WithARepositorySurface_WritesTheYamlThroughTheSandboxNotTheHostFilesystem()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
         var outcome = await _sut.LogAsync(_repository, DecisionCategory.Architecture,
             "Redis Streams: fan-out to multiple consumers required");
 
         outcome.Should().Be(DecisionLogOutcome.Recorded);
-        _repository.Files.Keys.Should().ContainSingle().Which.Should().Be(RunFile,
+        _repository.Files.Keys.Should().ContainSingle().Which.Should().Be(SpecFile,
             "the decision is written where the repository is — inside the run's sandbox");
-        File.Exists(Path.Combine("/work", RunFile)).Should().BeFalse(
+        File.Exists(Path.Combine("/work", SpecFile)).Should().BeFalse(
             "nothing may write the sandbox mount on the machine running this process — which, inside a sandbox, "
             + "is the clone's own /work");
     }
 
     [Fact]
-    public async Task DecisionLog_RunScoped_WritesDecisionsRunIdYamlAtTheRepositoryRoot()
+    public async Task DecisionLog_StepOfASpec_WritesDecisionsSpecIdYamlAtTheRepositoryRoot()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
-        await _sut.LogAsync(_repository, DecisionCategory.Architecture, "run-scoped choice");
+        await _sut.LogAsync(_repository, DecisionCategory.Architecture, "spec-scoped choice");
 
-        _repository.Files[RunFile].Should().StartWith($"run: {SampleRunId}")
+        _repository.Files[SpecFile].Should().StartWith($"spec: {SampleSpecId}")
             .And.Contain("decisions:").And.Contain("- category: Architecture");
         _repository.Files.Should().NotContainKey($"{DecisionsDir}/decisions.md",
             "the legacy p0100 append log is retired");
@@ -74,12 +77,13 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_SpecLabelled_WritesDecisionsSpecYaml()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
         await _sut.LogAsync(_repository, DecisionCategory.Implementation, "run-scoped choice");
         await _sut.LogAsync(_repository, DecisionCategory.Tooling, "spec-scoped choice",
             sourceLabel: "p0380");
 
-        _repository.Files[RunFile].Should().StartWith($"run: {SampleRunId}");
+        _repository.Files[SpecFile].Should().StartWith($"spec: {SampleSpecId}");
         _repository.Files[$"{DecisionsDir}/p0380.yaml"].Should().StartWith("spec: p0380");
     }
 
@@ -87,12 +91,13 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_SecondDecisionOnOneLabel_AppendsToTheFileItReadBack()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
         await _sut.LogAsync(_repository, DecisionCategory.Architecture, "first");
         await _sut.LogAsync(_repository, DecisionCategory.TradeOff, "second");
 
-        var yaml = _repository.Files[RunFile];
-        yaml.Split("run:").Length.Should().Be(2, "one file per run, decisions array inside");
+        var yaml = _repository.Files[SpecFile];
+        yaml.Split("spec:").Length.Should().Be(2, "one file per spec, decisions array inside");
         yaml.Should().Contain("- category: Architecture").And.Contain("- category: TradeOff");
     }
 
@@ -100,17 +105,19 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_FileNotListed_StartsItFromTheHeader()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
         await _sut.LogAsync(_repository, DecisionCategory.Architecture, "first");
 
-        _repository.Files[RunFile].Should().StartWith($"run: {SampleRunId}\ndecisions:\n");
+        _repository.Files[SpecFile].Should().StartWith($"spec: {SampleSpecId}\ndecisions:\n");
     }
 
     [Fact]
     public async Task DecisionLog_FileListedButUnreadable_LeavesItAloneAndSaysSo()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
-        var repository = new UnreadableFile(RunFile);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
+        var repository = new UnreadableFile(SpecFile);
 
         var outcome = await _sut.LogAsync(repository, DecisionCategory.Architecture, "would be lost");
 
@@ -131,14 +138,15 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_ListingInTheSandboxsAbsoluteShape_IsRecognisedAsTheSameFile()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
         var repository = new ListingOnly(
-            [$"/work/{DecisionsDir}/{SampleRunId}.yaml"], readsBack: "run: x\ndecisions:\n");
+            [$"/work/{DecisionsDir}/{SampleSpecId}.yaml"], readsBack: "spec: x\ndecisions:\n");
 
         var outcome = await _sut.LogAsync(repository, DecisionCategory.Architecture, "appended");
 
         outcome.Should().Be(DecisionLogOutcome.Recorded);
         repository.Written.Should().ContainSingle().Which.Value.Should()
-            .StartWith("run: x").And.Contain("appended");
+            .StartWith("spec: x").And.Contain("appended");
     }
 
     /// <summary>
@@ -151,6 +159,7 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_ListingAtTheEntryCap_IsInconclusiveAndWritesNothing()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
         var capped = Enumerable.Range(0, 1000)
             .Select(i => $"/work/{DecisionsDir}/other-{i}.yaml").ToList();
         var repository = new ListingOnly(capped, readsBack: null);
@@ -165,6 +174,7 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_ListingBelowTheEntryCap_StillStartsAnAbsentFile()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
         var repository = new ListingOnly(
             [$"/work/{DecisionsDir}/someone-else.yaml"], readsBack: null);
 
@@ -172,13 +182,14 @@ public sealed class RepositoryDecisionLoggerTests
 
         outcome.Should().Be(DecisionLogOutcome.Recorded);
         repository.Written.Should().ContainSingle().Which.Value.Should()
-            .StartWith($"run: {SampleRunId}");
+            .StartWith($"spec: {SampleSpecId}");
     }
 
     [Fact]
     public async Task DecisionLog_WithNoSurface_MirrorsToTheEventStreamAndWritesNothing()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
         var outcome = await _sut.LogAsync(null, DecisionCategory.Architecture, "no repository here");
 
@@ -201,6 +212,7 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_EveryDecision_ReachesTheEventStreamWhateverTheSurface()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
         await _sut.LogAsync(_repository, DecisionCategory.Architecture, "with a repository");
         await _sut.LogAsync(null, DecisionCategory.Tooling, "without one");
@@ -216,18 +228,41 @@ public sealed class RepositoryDecisionLoggerTests
         var second = new InMemorySandboxFileReader();
 
         await Task.WhenAll(
-            LogInOwnRunScope("2026-05-20T22-27-43-aaaa", first, "first run's choice"),
-            LogInOwnRunScope("2026-05-20T22-27-43-bbbb", second, "second run's choice"));
+            LogInOwnRunScope("2026-05-20T22-27-43-aaaa", "2026-05-20-aaaaa", first, "first run's choice"),
+            LogInOwnRunScope("2026-05-20T22-27-43-bbbb", "2026-05-20-bbbba", second, "second run's choice"));
 
-        first.Files.Should().ContainKey($"{DecisionsDir}/2026-05-20T22-27-43-aaaa.yaml");
+        first.Files.Should().ContainKey($"{DecisionsDir}/2026-05-20-aaaaa.yaml");
         first.Files.Values.Should().NotContain(v => v.Contains("second run's choice"));
-        second.Files.Should().ContainKey($"{DecisionsDir}/2026-05-20T22-27-43-bbbb.yaml");
+        second.Files.Should().ContainKey($"{DecisionsDir}/2026-05-20-bbbba.yaml");
         second.Files.Values.Should().NotContain(v => v.Contains("first run's choice"));
     }
 
-    private async Task LogInOwnRunScope(string runId, ISandboxFileReader repository, string decision)
+    [Fact]
+    public async Task DecisionLog_TwoRunsOfOneSpec_AppendToOneFile()
+    {
+        await LogInOwnRunScope("2026-05-20T22-27-43-aaaa", SampleSpecId, _repository, "first run's choice");
+        await LogInOwnRunScope("2026-05-20T22-27-43-bbbb", SampleSpecId, _repository, "second run's choice");
+
+        _repository.Files.Keys.Should().Equal(SpecFile);
+        _repository.Files[SpecFile].Should().Contain("first run's choice").And.Contain("second run's choice");
+    }
+
+    [Fact]
+    public async Task DecisionLog_RunScopeWithoutASpec_WritesNoRunNamedFile()
+    {
+        using var scope = _runContext.BeginScope(SampleRunId);
+
+        var outcome = await _sut.LogAsync(_repository, DecisionCategory.Architecture, "outside any spec");
+
+        outcome.Should().Be(DecisionLogOutcome.Recorded);
+        _events.Events.Should().ContainSingle("the decision is on the run's event stream");
+        _repository.Files.Should().BeEmpty("2026-11-28-db88d: no decisions/<runId>.yaml is written");
+    }
+
+    private async Task LogInOwnRunScope(string runId, string specId, ISandboxFileReader repository, string decision)
     {
         using var scope = _runContext.BeginScope(runId);
+        using var step = _runContext.BeginStepScope(1, specId);
         await _sut.LogAsync(repository, DecisionCategory.Implementation, decision);
     }
 
@@ -235,34 +270,37 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_DecisionWithNewlinesAndQuotes_StaysOneYamlScalar()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
         await _sut.LogAsync(_repository, DecisionCategory.Implementation,
             "chose \"X\" over Y\nbecause Z");
 
-        _repository.Files[RunFile].Should().Contain("chose: \"chose \\\"X\\\" over Y\\nbecause Z\"");
+        _repository.Files[SpecFile].Should().Contain("chose: \"chose \\\"X\\\" over Y\\nbecause Z\"");
     }
 
     [Fact]
     public async Task DecisionLog_ConcurrentWrites_AllDecisionsPresent()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
         await Task.WhenAll(Enumerable.Range(1, 10)
             .Select(i => _sut.LogAsync(_repository, DecisionCategory.Implementation, $"decision {i}")));
 
         for (var i = 1; i <= 10; i++)
-            _repository.Files[RunFile].Should().Contain($"decision {i}");
+            _repository.Files[SpecFile].Should().Contain($"decision {i}");
     }
 
     [Fact]
-    public async Task DecisionLog_TicketHashLabel_IsNotASpec_FallsBackToRunFile()
+    public async Task DecisionLog_TicketHashLabel_IsNotASpec_FallsBackToSpecFile()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
         await _sut.LogAsync(_repository, DecisionCategory.Implementation, "ticket-labelled",
             sourceLabel: "#42");
 
-        _repository.Files.Should().ContainKey(RunFile)
+        _repository.Files.Should().ContainKey(SpecFile)
             .And.NotContainKey($"{DecisionsDir}/#42.yaml");
     }
 
@@ -272,6 +310,7 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_RepositoryWriteThrows_DoesNotThrow()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
         var act = async () => await _sut.LogAsync(
             new ThrowingSurface(), DecisionCategory.Architecture, "the work this describes is done");
@@ -284,6 +323,7 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_RepositoryWriteThrows_LogsAWarningNamingTheLabelAndTheReason()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
         var log = new CapturingLogger<RepositoryDecisionLogger>();
         var sut = new RepositoryDecisionLogger(
             _runContext, new DecisionEventMirror(_events, _runContext), log);
@@ -291,13 +331,14 @@ public sealed class RepositoryDecisionLoggerTests
         await sut.LogAsync(new ThrowingSurface(), DecisionCategory.Architecture, "a choice");
 
         log.Warnings.Should().ContainSingle()
-            .Which.Should().Contain($"{SampleRunId}.yaml").And.Contain("sandbox is gone");
+            .Which.Should().Contain($"{SampleSpecId}.yaml").And.Contain("sandbox is gone");
     }
 
     [Fact]
     public async Task DecisionLog_RepositoryWriteThrows_TheDecisionStillReachesTheEventStream()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
 
         var outcome = await _sut.LogAsync(
             new ThrowingSurface(), DecisionCategory.Architecture, "a choice");
@@ -310,6 +351,7 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_EventMirrorThrows_DoesNotThrowAndTheRunGoesOn()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
         var sut = Logger(new ThrowingEventPublisher());
 
         var act = async () => await sut.LogAsync(_repository, DecisionCategory.Architecture, "a choice");
@@ -321,6 +363,7 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_EventMirrorThrows_ReportsTheDecisionAsRecordedNowhere()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
         var sut = Logger(new ThrowingEventPublisher());
 
         var outcome = await sut.LogAsync(_repository, DecisionCategory.Architecture, "a choice");
@@ -334,6 +377,7 @@ public sealed class RepositoryDecisionLoggerTests
     public async Task DecisionLog_TokenCancelled_StillPropagatesTheCancellation()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
+        using var step = _runContext.BeginStepScope(1, SampleSpecId); // 2026-11-28-db88d: the step's spec names the file
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 

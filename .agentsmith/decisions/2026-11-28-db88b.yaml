@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-db88b
+
+decisions:
+  - category: Architecture
+    chose: "Processing information lives in the database: a run's plan and result are stored in the run artifact store and shown on the run page, and no run writes or commits .agentsmith/runs/<id>/plan.md or result.md; the repository keeps specs, memory written with remember, and decisions"
+    over: "Committing a run record directory per run and repository beside the change (p0234, p0244)"
+    reason: "decider: operator, 2026-11-28 — a run's bookkeeping in every pull request is noise for the reviewer and duplicates what the run page already shows."
+  - category: Scope
+    chose: "The runs/ directories earlier runs committed stay in their repositories; nothing deletes them, and the path checks that recognise them (IsUnderRunsDir, IsRunRecordPath) stay for trees still carrying one"
+    over: "A migration that removes .agentsmith/runs/ from repositories"
+    reason: "decider: operator, 2026-11-28 — the live system runs well; nothing may break a running series or an in-flight run, and compile-wiki still reads the runs/ a repository has."
+  - category: Implementation
+    chose: "A run with no code change and nothing else recorded under .agentsmith opens no pull request; the carrier logic stays for a run whose .agentsmith carries decisions or a spec record, and the step result says the record is on the run page"
+    over: "Keeping a record-only pull request by writing something into the repository; deleting the carrier logic"
+    reason: "decider: claude, flagged for the operator — consistent with 2026-11-27-ecf2c, where a record-only repository gets no pull request; the carrier is not dead while decisions and spec records are written there."
+  - category: Implementation
+    chose: "One run-wide result per run (repoName null, every repository's changes) on the single and multi-repository paths; one init plan and one init result joining every repository's components (InitRepoRecord)"
+    over: "One result per repository as before, of which only the first (code) or the last (init) reached the store"
+    reason: "decider: claude, from the spec review — the store has one result slot per run; per-repository results meant repos 2..N were never shown, and the init fan-out let the last repository overwrite the rest. The per-repository repo_cost block goes with them; the run's whole cost is shown."
+  - category: Implementation
+    chose: "record_plan(markdown) on the coding master's surface writes IRunArtifactStore.WritePlanMarkdownAsync; WriteRunResult stores a rendered plan only when the plan slot is empty"
+    over: "Reading a plan.md back from the sandbox; tracking a recorded plan on the pipeline context"
+    reason: "decider: claude — the slot itself is the truth across a resume, and a structured preset's rendered plan never replaces what a master recorded. The run page fetches the plan once when it opens (usePlanMarkdown.ts); it is not pushed live."
+  - category: Implementation
+    chose: "A ticket's documents are materialised under .agentsmith/reference/documents, beside the uploaded images, with ReferenceGitExclusion keeping the directory out of every commit"
+    over: "Leaving them under runs/<id>/attachments, committed with the change; a follow-up spec"
+    reason: "decider: claude — they were the one other run input committed under runs/, and the reference directory is the existing uncommitted home for run inputs (no second path)."
+  - category: Scope
+    chose: "Visual comparison images stay under runs/<id>/compare until the planned follow-up 2026-11-28-c3f1 stores them with the run"
+    over: "Moving them in this spec"
+    reason: "decider: claude — they need an artifact slot for binary images the store does not have; split, not deferred."
+  - category: Implementation
+    chose: "WriteOptionalArtifactsAsync (plan.json, diff.json, bootstrap.md) and the loose plan.md relocation with its breadcrumb are deleted"
+    over: "Keeping them pointed at another location"
+    reason: "decider: claude — nothing sets PlanJson, DiffJson or BootstrapMarkdown, and a loose plan.md is now the repository's own file."
+  - category: Scope
+    chose: "A CLI run's record lives only in its process's InMemoryRunArtifactStore (LoopRuntimeExtensions binds it) and is gone when the process ends"
+    over: "Keeping a file write for CLI runs"
+    reason: "decider: claude — the CLI is a dev tool; a second write path for it would be a second record."
+  - category: Scope
+    chose: "Only the pinned skills catalog (v5.48.0, coding-agent-master 3.8.0) is supported; a configured older catalog would show {RunRecordDir} literally, since the token left MasterPromptTokens"
+    over: "Keeping the token filled for older catalogs"
+    reason: "decider: claude — a filled token would tell an old master to commit a plan.md the run no longer reads. A run whose master started under the old skill may still write and commit its plan.md; that file is harmless and its run page shows no plan."
+  - category: Implementation
+    chose: "On a run that works several specs, record_plan replaces only its spec's section ('## Plan for spec <id>'), so every spec's plan stays on the run page; without a spec it replaces the whole plan"
+    over: "One plan per run that the next spec's master overwrites"
+    reason: "decider: claude, from the diff review — the committed plan.md was overwritten per spec too, but each version survived in a checkpoint commit; the store keeps one slot, so the sections keep them."
+  - category: Implementation
+    chose: "A failed result store is logged as an error and the step still succeeds; the no-change force-stage diagnostic logs at information"
+    over: "Failing WriteRunResult when the store refuses; keeping the warning"
+    reason: "decider: claude, from the diff review — WriteRunResult runs before CommitAndPR, so failing it would cost a delivered change its pull request; with no result written into the repository, an empty stage is the normal no-change path, not an anomaly."

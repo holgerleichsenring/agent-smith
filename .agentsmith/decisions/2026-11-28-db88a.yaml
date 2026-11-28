@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-db88a
+
+decisions:
+  - category: Architecture
+    chose: "One path, truth in the DB: a run and every host reader take a ticket's spec set from its TicketSeries row (SetJson, the set as last published); the spec yaml files under .agentsmith/specs/ stay in the repository as the record a run writes, never the source it reads its set from"
+    over: "Reading the set off the ticket branch (the series manifest and the spec files) while the processing information also lives in the database"
+    reason: "decider: operator, 2026-11-28 — reading it from git AND having it in the DB is a second path; the approval record already reaches the run at claim (QueueHeadClaim/ApprovedSpecSetCarrier, 2026-11-27-3532a)."
+  - category: Scope
+    chose: "No .agentsmith/series/ manifest is written any more (SeriesFiles renders planned specs and companions only, the record step writes the done files only, SeriesManifest.Serialize is deleted); manifests already on branches stay and the next record does not delete them"
+    over: "A migration or a record step that removes existing manifests"
+    reason: "decider: operator, 2026-11-28 — the live system works well and must not break a running series; SeriesPaths.SeriesRoot stays so SourceFileEnumerator keeps old manifests out of scans."
+  - category: Architecture
+    chose: "A row WITHOUT a stored set is a ticket in flight at the deploy: its set is imported ONCE through the existing branch readers (StoredSeriesReader through SeriesReader in a run, TicketBranchSeries' branch read on the host), stored with SaveSetAsync(onlyIfAbsent: true), and from then on only the row is read — a later edit of the manifest changes nothing. A branch read that did not answer cleanly (nothing, unreadable, out of step) is answered as before and stores nothing"
+    over: "Ignoring the manifest of a ticket in flight and rebuilding its set from the DB alone (approval record plus executed ids)"
+    reason: "decider: claude, FLAGGED FOR THE OPERATOR — the operator said 'its manifest simply ignored'; the review showed the DB alone cannot rebuild revised sets, hand-backs waiting for an answer, master-written stand-ins (revise_spec), continuations, multi-repository out-of-step series or tickets without an approval record, and those would break or re-run finished work. A one-time import per legacy row keeps them correct and the branch is never read again for that ticket. Follow-up 2026-11-28-5e0b deletes the import and the manifest readers once no row lacks a stored set."
+  - category: Implementation
+    chose: "ISpecSetPointerStore gains GetSetAsync and SaveSetAsync(onlyIfAbsent); SaveAsync never writes SetJson (EF writes only changed columns) and GetAsync projects the pointer columns without loading it; onlyIfAbsent is one conditional UPDATE … WHERE SetJson IS NULL"
+    over: "Folding the set into SpecSetPointer and its SaveAsync"
+    reason: "decider: claude — TicketReopener and SpecHandbackHandler read-modify-write the pointer; a set riding on it would be written back stale and lose a revision a run stored meanwhile. The conditional update keeps an import racing a run's own save from overwriting it."
+  - category: Implementation
+    chose: "SaveSetAsync on a project/key with no row creates the row (pointer columns empty, the series id from the set); the in-memory store creates an empty pointer the same way"
+    over: "Refusing or skipping a set without a row"
+    reason: "decider: claude — the recorder always saves the pointer first, so the row normally exists; the one path without it is a first publish whose write failed and continues in memory, and that set must be what the next run reads. An empty pointer reads as this system's own revision (empty shas compare equal), not as a reviewer's edit."
+  - category: Implementation
+    chose: "SpecSetJson (Contracts/Specs, JsonSerializerDefaults.Web) is the one serializer configuration; a hollow or unreadable value reads as no set"
+    over: "A second serializer setup inside the repository"
+    reason: "decider: claude — like SpecApprovalJson, one configuration for writing and reading, so a stored set always reads back; the round trip is tested with every field populated."
+  - category: Implementation
+    chose: "Writers of the stored set: SpecSetPointerRecorder.RecordAsync saves the whole set it is given (publish, filing, record step); SpecSetPublisher saves the set of a write that failed and continues in memory (not one that fails the step); SpecReviewRevision (revise_spec, retire, re-ground) counts a revision as taken when the publish recorded it, and one continued only in memory is reported failed and the stored set is put back to the caller's set"
+    over: "Saving only from the recorder; keeping 'the revision sha moved' as the taken test"
+    reason: "decider: claude — every writer must end with the stored set equal to what the run works from. Without the manifest, a revision whose spec files are unchanged (a stand-in removed with the same yaml) commits nothing, so its sha does not move although the revision is recorded."
+  - category: Implementation
+    chose: "ForceStagePathsAsync with no paths stages nothing; SeriesMemberCommit stages only rendered paths (none for an empty render) and its revision sha is the last commit on the series' spec files; FiledSeriesWrite sends nothing for a member with no planned spec"
+    over: "Guarding only the series callers"
+    reason: "decider: claude — an empty pathspec list leaves ':(exclude).agentsmith/references' alone, which git reads as the whole tree; safety in the API, so a hand-back, a sub-series whose specs all ran, an all-retired set or a filing amendment over executed specs commits nothing and still returns its last sha."
+  - category: Implementation
+    chose: "SpecSetUnchanged compares the two sets as stored (SpecSetJson, revisions aside)"
+    over: "Comparing rendered files"
+    reason: "decider: claude — with no manifest the files carry no series-wide field; a stand-in, contract, goal, approval, fingerprint or accounting change would read as unchanged and KeepAsync would skip storing it."
+  - category: Scope
+    chose: "SpecRevisionCause.ReviewerEdit becomes unreachable from a stored read (the read carries the row's own shas); the lagging/out-of-step code (SeriesJoin, SeriesOutOfStepComment, OutOfStepPrevious) stays because the one-time import can still meet an out-of-step legacy branch"
+    over: "Deleting the reviewer-edit cause and the out-of-step arms now"
+    reason: "decider: claude — neither is trivially dead while legacy rows exist; 2026-11-28-5e0b removes them with the import."
+  - category: Scope
+    chose: "The new column is written in current names only; no spec-rename surface is added for SetJson. SeriesTakenIds keeps listing done/ file names"
+    over: "Rewriting stored sets on a spec rename; taking ids only from the stored set"
+    reason: "decider: claude — ids are frozen and file names are pointers (CLAUDE.md), so a stored set names ids that never change; done/ names keep a new id from colliding with a spec recorded on the branch."
+  - category: Implementation
+    chose: "Hand-back, missing-set, PR-body, kept-notice and ticket-body texts name the stored set and say an edit of a spec file on the branch is not read back; a spec changes by talking to the agent in the ticket's conversation"
+    over: "Keeping the texts that invite editing specs on the branch"
+    reason: "decider: claude — the operator saw 'No series manifest under .agentsmith/series/ on the ticket branch names …'; with the row as the source such advice would lose the edit silently."
+  - category: Implementation
+    chose: "The series manifest writer moved to the test helper LegacySeriesManifest, which arranges what a ticket in flight carries on its branch; the in-flight composition fixture holds files captured from a run of the old writer (f6bf9abba)"
+    over: "Keeping SeriesManifest.Serialize in production for tests"
+    reason: "decider: claude — production writes no manifest; the import tests need the shape the old writer left, exactly."
+  - category: Scope
+    chose: "A rolling deploy with an old and a new replica side by side is not made safe for one ticket worked by both: an old replica updates the manifest and the pointer, never SetJson, so a set the new replica stored can be older than the branch"
+    over: "Reading the branch whenever its sha is newer than the row's"
+    reason: "decider: claude, flagged for the operator — that check is the second path this spec removes; a deploy that replaces all replicas before claiming again avoids it."
+  - category: Implementation
+    chose: "From the diff review: the recorder saves the set BEFORE the pointer that names it; a stored value that does not read back throws (InvalidDataException) and the readers answer Unreadable instead of importing or handing a copy over it; the import run answers with the shas it read off the branch, so an edit made there before the deploy is still named as the revision's cause once; a filing with nothing planned anywhere reports the pointer's sha instead of an empty one"
+    over: "Pointer first; reading an unreadable value as no set; the row's shas on the import run; an empty sha that reads as not written"
+    reason: "decider: claude — a pointer saved over a failed set save would name a revision the row does not hold, and the next revision would write the older set over it; the other three keep 6ad7 (present but unreadable is handed back), the reviewer-edit report of a ticket in flight, and the amendment's 'written' answer."
+  - category: Scope
+    chose: "A first-run hand-back whose set has no specs pushes no commit, so its ticket branch may not exist remotely and no hand-back heads are stored; the foreign-commit expiry (3a36b) cannot fire for that hand-back"
+    over: "Writing a placeholder file to create the branch"
+    reason: "decider: claude, flagged for the operator — a placeholder would be the manifest again under another name; somebody's commit on a branch nobody pushed creates the branch, and a comment or approval still restarts the ticket."

@@ -47,7 +47,7 @@ public sealed class SpecSupersessionTests
     [Fact]
     public void Render_ARetiredSpec_StaysInPlanned()
     {
-        var files = new SeriesFiles(new SeriesManifest()).Render(Set(Retired(), executed: ["x"]));
+        var files = new SeriesFiles().Render(Set(Retired(), executed: ["x"]));
 
         files.Select(f => f.Path).Should().Contain(SeriesPaths.Spec(SeriesPaths.Planned, "a-label"),
             "the retired spec's text stays on the branch beside its replacement");

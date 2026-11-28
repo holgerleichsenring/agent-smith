@@ -80,11 +80,9 @@ public sealed class MasterAskHumanParkTests
         park.Comment.Should().Contain("Which export format is authoritative, CSV or XLSX?");
 
         // The run ENDS: a parked feature run ships nothing — no generated tests, no docs, no PR.
-        harness.StubSandboxFactory!.Spawned
-            .SelectMany(s => s.Sandbox.RanSteps)
-            .Should().NotContain(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
-                && s.Path != null && s.Path.Contains("result.md", StringComparison.Ordinal),
-                "a run parked for clarification must not write a run record or open a PR");
+        (await harness.Services.GetRequiredService<AgentSmith.Contracts.Persistence.IRunArtifactStore>()
+            .ReadResultMarkdownAsync(runner.LastRunId!, CancellationToken.None))
+            .Should().BeNull("a run parked for clarification must not write a run record or open a PR");
     }
 
     /// <summary>2026-11-23-31dch: a question without its answerer is refused once with the values, the retry posts, and a

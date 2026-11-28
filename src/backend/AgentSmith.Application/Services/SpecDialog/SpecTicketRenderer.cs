@@ -65,16 +65,14 @@ public sealed class SpecTicketRenderer
     /// <summary>The heading the specification pointer is filed under.</summary>
     public const string SpecificationHeading = "## Specification";
 
-    /// <summary>
-    /// The pointer every WORK ticket carries: the body is not the spec, the approved record is,
-    /// and this is where the run reads it from.
-    /// </summary>
+    /// <summary>The pointer every WORK ticket carries: the body is not the spec, the stored set is.</summary>
     private static void AppendSpecification(StringBuilder sb, string? conversation)
     {
         sb.AppendLine(SpecificationHeading);
         sb.AppendLine(
-            "The approved specification is what the run works from; it is published to "
-            + "the ticket branch under `" + Contracts.Specs.SeriesPaths.Planned + "/`."
+            "The approved specification is what the run works from; it is stored for the ticket and written to the ticket "
+            + "branch under `" + Contracts.Specs.SeriesPaths.Planned + "/` as its record, which is not read back: a spec "
+            + "changes by saying what should change in the ticket's conversation."
             + (string.IsNullOrWhiteSpace(conversation)
                 ? string.Empty
                 : $" Approved in design conversation `{conversation}`."));

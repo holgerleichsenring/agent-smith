@@ -26,6 +26,8 @@ public sealed class TicketSeriesRepositoryTests : IDisposable
         MigratedStoreTemplate.CopyInto(_context);
     }
 
+    private TicketSeriesSetRepository Sets => new(_context);
+
     public void Dispose()
     {
         _context.Dispose();
@@ -118,4 +120,79 @@ public sealed class TicketSeriesRepositoryTests : IDisposable
         old.ExecutedIdsOf(stored).Should().Equal("2026-10-12-0a0aa");
         kept.ExecutedIdsOf(stored).Should().Equal("2026-10-12-0a0ab");
     }
+
+    /// <summary>2026-11-28-db88a: a reopen or a hand-back counter reads the pointer and saves it back; the set a run stored
+    /// meanwhile stays.</summary>
+    [Fact]
+    public async Task SaveAsync_APointerSave_NeverTouchesTheStoredSet()
+    {
+        var repository = new TicketSeriesRepository(_context);
+        var key = TicketKey.For("jira", "6").Value;
+        await repository.SaveAsync("alpha", new SpecSetPointer(key, "api", "sha-1", 1), default);
+        _context.ChangeTracker.Clear();
+        var read = (await repository.GetAsync("alpha", key, default))!;
+        await Sets.SaveSetAsync("alpha", Set(key, "Revision two"), default);
+        _context.ChangeTracker.Clear();
+
+        await repository.SaveAsync("alpha", read with { RepeatedHandbackCount = 3 }, default);
+        _context.ChangeTracker.Clear();
+
+        (await Sets.GetSetAsync("alpha", key, default))!.Goal.Should().Be("Revision two");
+        (await repository.GetAsync("alpha", key, default))!.RepeatedHandbackCount.Should().Be(3);
+    }
+
+    /// <summary>2026-11-28-db88a: the one-time import of a ticket in flight stores only into a row with no set.</summary>
+    [Fact]
+    public async Task SaveSetAsync_OnlyIfAbsent_KeepsANewerSet()
+    {
+        var repository = new TicketSeriesRepository(_context);
+        var key = TicketKey.For("jira", "7").Value;
+        await repository.SaveAsync("alpha", new SpecSetPointer(key, "api", "sha-1", 1), default);
+        _context.ChangeTracker.Clear();
+        (await Sets.GetSetAsync("alpha", key, default)).Should().BeNull("a row from before sets were stored");
+
+        await Sets.SaveSetAsync("alpha", Set(key, "Imported"), default, onlyIfAbsent: true);
+        _context.ChangeTracker.Clear();
+        await Sets.SaveSetAsync("alpha", Set(key, "Imported again"), default, onlyIfAbsent: true);
+        _context.ChangeTracker.Clear();
+        (await Sets.GetSetAsync("alpha", key, default))!.Goal.Should().Be("Imported");
+
+        await Sets.SaveSetAsync("alpha", Set(key, "Published"), default);
+        _context.ChangeTracker.Clear();
+        (await Sets.GetSetAsync("alpha", key, default))!.Goal.Should().Be("Published");
+    }
+
+    [Fact]
+    public async Task SaveSetAsync_NoRow_CreatesTheRowWithTheSet()
+    {
+        var repository = new TicketSeriesRepository(_context);
+        var key = TicketKey.For("jira", "8").Value;
+
+        await Sets.SaveSetAsync("alpha", Set(key, "First"), default, onlyIfAbsent: true);
+        _context.ChangeTracker.Clear();
+
+        (await Sets.GetSetAsync("alpha", key, default))!.Goal.Should().Be("First");
+        (await repository.GetAsync("alpha", key, default))!.SeriesId.Should().Be("2026-11-28-0a0a");
+        (await _context.TicketSeries.CountAsync(t => t.TicketKey == key)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetSetAsync_AStoredValueThatDoesNotReadBack_Throws()
+    {
+        var repository = new TicketSeriesRepository(_context);
+        var key = TicketKey.For("jira", "9").Value;
+        await Sets.SaveSetAsync("alpha", Set(key, "First"), default);
+        var row = await _context.TicketSeries.SingleAsync(t => t.TicketKey == key);
+        row.SetJson = "{\"key\":";
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await FluentActions.Awaiting(() => Sets.GetSetAsync("alpha", key, default))
+            .Should().ThrowAsync<InvalidDataException>("something present and unreadable is never read as nothing");
+    }
+
+    private static SpecSet Set(string key, string goal) =>
+        new(key, [new DerivedSpec(new Contracts.Models.SpecDraft("2026-11-28-0a0aa", "g", "spec: x", []), "a", string.Empty, [])],
+            SpecAccounting.Empty, [new SpecRevision(1, "initial", DateTimeOffset.UnixEpoch)], SpecSource.Approved,
+            Series: "2026-11-28-0a0a") { Goal = goal };
 }

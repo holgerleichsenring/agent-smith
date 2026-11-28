@@ -1,12 +1,10 @@
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// p0244: the single source of truth for the per-run record directory name, so
-/// the coding master (which writes plan.md/decisions.md there, via the
-/// {RunRecordDir} prompt variable) and WriteRunResultHandler (which writes
-/// result.md there and reads the master's plan.md back) agree on the EXACT path
-/// by construction. A mismatch would mean the master writes to dir A while the
-/// framework reads dir B — the plan would be silently lost.
+/// p0244: the per-run record directory a run used to write under <c>.agentsmith/runs/</c>. 2026-11-28-db88b: no run
+/// writes plan.md or result.md there any more — the record lives with the run — but repositories keep the
+/// directories earlier runs committed, and a run started before the change may still carry one, so the path
+/// checks below stay.
 /// </summary>
 public static class RunRecordPaths
 {

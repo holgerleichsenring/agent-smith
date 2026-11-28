@@ -152,7 +152,6 @@ All of these are **debt**, except where marked **config**.
   - DesignReferenceSection 10.
 - `Sandbox/ToolchainCapabilityLine` 12. `Scans/CitedCodeWindow` 12 lines.
 - `Validation/SchemaValidator.MaxClauses` 10.
-- `Memory/RunNarrativeComposer`: 5 / 3 / 80 / 160.
 - `Scope/RepoScopeEvaluator.ConfidenceFloor` 0.7.
 - Citation matching heuristics:
   - `Specs/Review/SpecAttackPrompt` quote words 4.

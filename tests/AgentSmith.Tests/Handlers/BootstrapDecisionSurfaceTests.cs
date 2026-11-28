@@ -24,7 +24,7 @@ public sealed class BootstrapDecisionSurfaceTests
     private const string RunId = "2026-09-19T08-00-00-c511";
 
     [Fact]
-    public async Task BootstrapRound_LogDecision_WritesIntoTheRoundsSandboxTree()
+    public async Task BootstrapRound_LogDecision_IsRecordedOnTheRunWithoutARunNamedFile()
     {
         var sandbox = new RecordingSandbox();
         var runContext = new AsyncLocalRunContextAccessor();
@@ -52,8 +52,8 @@ public sealed class BootstrapDecisionSurfaceTests
             },
             CancellationToken.None);
 
-        sandbox.Written.Should().ContainSingle().Which.Should()
-            .Be($".agentsmith/decisions/{RunId}.yaml");
+        // 2026-11-28-db88d: a bootstrap round works no spec — its decision is on the run, not in decisions/<runId>.yaml.
+        sandbox.Written.Should().BeEmpty();
         bundle.GetDecisions().Should().ContainSingle();
     }
 

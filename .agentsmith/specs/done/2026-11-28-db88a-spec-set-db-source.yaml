@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-28-db88a
+goal: "A run and every host reader take a ticket's spec set from the database row; no series manifest is written or read, and the spec yaml files on the branch are only the written record."
+
+applies_to: "default (SpecSetPointer/TicketSeries row, DeriveSpec's set read, TicketBranchSeries, SeriesWriter/FiledSeriesWrite/SpecDoneRecorder, manifest code)"
+
+requires: [2026-11-27-3532a, 2026-11-27-ecf2d]
+
+
+facts:
+  - claim: "DeriveSpec reads the set off the checked-out ticket branch through ISpecSetReader (SeriesReader), which finds the series by the manifest under .agentsmith/series/ naming the ticket key."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:59; src/backend/AgentSmith.Application/Services/Specs/SpecDerivationRegistrations.cs:24; src/backend/AgentSmith.Application/Services/Specs/SeriesManifestFinder.cs"
+  - claim: "The approval record reaches the run at claim (queue head, spawn funnel) and is resolved again from the store; it hands its set over only when the branch holds nothing."
+    evidence: "src/backend/AgentSmith.Server/Services/QueueHeadClaim.cs:28; src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs; src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:101"
+  - claim: "Every writer of a revision, of filing and of the record step records the pointer through SpecSetPointerRecorder.RecordAsync with the whole set."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:58; src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:96; src/backend/AgentSmith.Application/Services/SpecExecution/SeriesRecordCommit.cs:35"
+  - claim: "The manifest is written by SeriesFiles.Render (revision and filing) and by SpecDoneRecorder (record step)."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesFiles.cs:24; src/backend/AgentSmith.Application/Services/SpecExecution/SpecDoneRecorder.cs:64"
+  - claim: "Host readers (series check, final report, ticket page, text-edit notice, approved-set divergence, continuation state) read the set through TicketBranchSeries, which reads the manifest on the branch through the source provider."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TicketBranchSeries.cs; src/backend/AgentSmith.Application/Services/Series/SeriesCriteria.cs:37"
+  - claim: "Coding runs of tracker and series tickets execute in the server, which binds DbSpecSetPointerStore and DbSpecApprovalStore; the CLI binds the in-memory stores."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:126; src/backend/AgentSmith.Application/Services/Specs/SpecDerivationRegistrations.cs:72"
+
+scope:
+  in: |
+    The TicketSeries row stores the whole set as last published (SetJson), written only by a dedicated store call
+    (SaveSetAsync) from SpecSetPointerRecorder and from a revision whose branch write failed; pointer saves never touch it,
+    so a reopen or a hand-back counter cannot write an older set back. ISpecSetReader and TicketBranchSeries read that row:
+    Answered with the row's shas and executed ids overlaid, MemberNotCheckedOut for a series repository outside the run's
+    checkout, Nothing for a ticket without a row. A row WITHOUT a stored set is a ticket in flight at deploy: its set is
+    imported once from its branch by the existing branch readers and stored only if the row still has none; every later
+    read is the row's, so its manifest is never read again. No manifest is written: SeriesFiles renders planned specs and
+    companions only, the record step writes the done files, an empty render commits nothing. SpecSetUnchanged compares the
+    sets, not rendered files. Hand-back, missing-set and PR-body texts name the stored set; a reviewer's edit of a spec file
+    on the branch is no input any more.
+  out: "Deleting the branch readers kept for the one-time import (follow-up 2026-11-28-5e0b, once no row lacks a stored set); removing series manifests already on branches (decision: they stay); SeriesTakenIds keeps reading done/ file names so a new id never collides with a recorded one; the CLI keeps its in-memory stores, so a CLI run does not continue a series across processes."
+
+steps:
+  - id: pin
+    action: "Composition tests over the real server composition that arrange only through production writers and run green on the old code first: claim, retry after a failed spec, multi-repo series, series check, landed final read, in-flight ticket with a manifest on its branch."
+  - id: row
+    action: "TicketSeries.SetJson with migrations for SqlServer and Postgresql; ISpecSetPointerStore.GetSetAsync/SaveSetAsync(onlyIfAbsent) in the Db and in-memory stores; SpecSetJson holds the one serializer configuration."
+  - id: record
+    action: "SpecSetPointerRecorder.RecordAsync saves the set it is given; SpecSetPublisher saves the set of a write that failed and continues in memory."
+  - id: read
+    action: "StoredSeriesReader implements ISpecSetReader from the row, importing a legacy row once through SeriesReader; TicketBranchSeries reads the row first and imports a legacy row once through its branch read."
+  - id: write
+    action: "SeriesFiles drops the manifest; SpecDoneRecorder writes none; SeriesMemberCommit and FiledSeriesWrite commit nothing for an empty render; revision paths are the spec files."
+  - id: unchanged
+    action: "SpecSetUnchanged compares the two sets as stored, revisions aside."
+  - id: texts
+    action: "Reword MissingSpecReason, ApprovedSetHandoff's continuation failure, SpecMarkdown, SpecPrBody, ApprovedSetKept and SpecTicketRenderer."
+  - id: tests
+    action: "Unit tests for the row round-trip, the reader, the import and the recorder; unit harnesses that seeded a manifest as a run's state arrange the stored set; the pin tests stay green."
+
+tests:
+  - "Claim_AFiledTicketWithNothingOnItsBranch_BuildsTheApprovedSetFromTheDatabase"
+  - "Retry_AfterTheFirstSpecWasRecorded_BuildsOnlyTheNextSpec"
+  - "Claim_ATicketInFlightWithAManifestOnItsBranch_ImportsItOnceAndThenReadsOnlyTheDatabase"
+  - "MultiRepo_ASeriesOverTwoRepositories_ReadsOneSetInIdOrder"
+  - "SeriesCheck_ReadsEveryTicketsCriteriaFromTheStoredSet"
+  - "SeriesCheck_TicketBranchesDeleted_ReadsTheStoredSet"
+  - "Delivered_NoBranchCarriesASeriesManifest"
+  - "SaveAsync_APointerSave_NeverTouchesTheStoredSet"
+  - "SaveSetAsync_OnlyIfAbsent_KeepsANewerSet"
+
+done:
+  - "A run claims and builds with no manifest on its branch, taking its set from the database (composition test)."
+  - "A ticket in flight (manifest on its branch, row without a stored set) builds its next unexecuted spec; its set is imported once and a changed manifest afterwards changes nothing (composition test)."
+  - "No writer puts a file under .agentsmith/series/ (composition test over a delivered branch)."
+  - "The pin tests written before the switch are green before and after it."
+  - "dotnet build and the affected tests are green; the spec gate passes."

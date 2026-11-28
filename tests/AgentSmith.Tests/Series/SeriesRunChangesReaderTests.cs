@@ -79,7 +79,8 @@ public sealed class SeriesRunChangesReaderTests : IDisposable
     }
 
     [Fact]
-    public async Task ReadAsync_ABranchThatCannotBeRead_IsNamedNotDropped()
+    // 2026-11-28-db88a: the changes are the stored set's revisions; a branch the host cannot read hides none of them.
+    public async Task ReadAsync_ABranchThatCannotBeRead_StillShowsTheStoredRevisions()
     {
         await OpenAsync("1");
         await FileAsync("1");
@@ -88,8 +89,8 @@ public sealed class SeriesRunChangesReaderTests : IDisposable
 
         var view = (await ReadAsync("sr-1"))!;
 
-        view.Changes.Should().BeEmpty();
-        view.Unread.Should().ContainSingle().Which.Should().Match<SeriesRunUnreadBranchView>(u => u.TicketId == "1" && u.Why.Contains("503"));
+        view.Changes.Should().ContainSingle().Which.TicketId.Should().Be("1");
+        view.Unread.Should().BeEmpty();
     }
 
     [Fact]
@@ -150,7 +151,7 @@ public sealed class SeriesRunChangesReaderTests : IDisposable
             .Callback<AgentSmith.Contracts.Commands.PipelineContext, string, SeriesScope, SpecSet, IReadOnlyList<IgnoredInstruction>, CancellationToken>(
                 (ctx, _, _, revised, _, _) => { published = revised; ctx.Set(AgentSmith.Contracts.Commands.ContextKeys.SpecRevisionSha, "sha-2"); })
             .Returns(Task.FromResult(CommandResult.Ok("published")));
-        var revision = new AgentSmith.Application.Services.Specs.Review.SpecReviewRevision(publisher.Object);
+        var revision = new AgentSmith.Application.Services.Specs.Review.SpecReviewRevision(publisher.Object, new AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore());
         var result = await revision.PublishAsync(pipeline, [set.Specs[0].Draft],
             AgentSmith.Application.Services.Specs.Revision.SpecRevisionWriter.Cause(pipeline, reason), default);
         result.IsSuccess.Should().BeTrue(result.Message);
@@ -163,18 +164,11 @@ public sealed class SeriesRunChangesReaderTests : IDisposable
         return (await scope.ServiceProvider.GetRequiredService<TicketBranchSpecs>().ReadAsync("alpha", ticketId, default)).Set!;
     }
 
-    // The revised manifest lands on the branch where the ticket's set lives, as the run's publish leaves it.
+    // 2026-11-28-db88a: the revised set is stored on the ticket's row, as the run's publish leaves it; its new spec files
+    // are the branch's record.
     private void Put(SpecSet before, SpecSet after, params AgentSmith.Contracts.Providers.RepoFile[] specFiles)
     {
-        var manifest = _h.Branches.Writes.Last(w => w.Paths.Any(p => IsManifestOf(w, p, before.Key)));
-        var path = manifest.Paths.First(p => IsManifestOf(manifest, p, before.Key));
-        _h.Branches.Writes.Add(manifest with
-        {
-            Files = [new AgentSmith.Contracts.Providers.RepoFile(path, new SeriesManifest().Serialize(after)), .. specFiles],
-        });
+        _h.Pointers.SaveSetAsync("alpha", after, default).GetAwaiter().GetResult();
+        if (specFiles.Length > 0) _h.Branches.Seed("api", "agent-smith/" + before.Key.Split('-')[^1], specFiles);
     }
-
-    private static bool IsManifestOf(RecordingBranchSources.BranchWrite write, string path, string key) =>
-        write.ContentOf(path) is { } content && content.Contains("revisions:", StringComparison.Ordinal)
-        && content.Contains($"ticket: {key}", StringComparison.Ordinal);
 }

@@ -7,10 +7,12 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-10-12-f5f7f: writes, stages, commits and pushes ONE member's sub-series — what the series
-/// writer did per member until a write could fail half-way. The series' manifest and its planned
-/// specs are written, every planned file of the series the render left behind is removed with git rm,
-/// and only the written paths are force-staged (2026-10-06-03c7d). A member whose sub-series is
-/// unchanged gets no commit: its sha is the last commit on the series' paths and nothing is pushed.
+/// writer did per member until a write could fail half-way. Its planned specs are written, every planned file of the
+/// series the render left behind is removed with git rm, and only the written paths are force-staged (2026-10-06-03c7d).
+/// A member whose sub-series is unchanged gets no commit: its sha is the last commit on the series' spec files and
+/// nothing is pushed.
+/// <para>2026-11-28-db88a: no manifest is written. A member with nothing planned (a hand-back, a sub-series whose specs all
+/// ran, a set whose specs all retired) writes nothing, stages nothing and commits only what a stale removal took out.</para>
 /// </summary>
 public sealed class SeriesMemberCommit(
     ISandboxFileReaderFactory readerFactory,
@@ -32,10 +34,9 @@ public sealed class SeriesMemberCommit(
         await gitOps.ForceStagePathsAsync(sandbox, [.. rendered.Select(f => f.Path)], ct);
         if (!await gitOps.HasStagedChangesAsync(sandbox, ct))
         {
-            // The sha the next run's reader compares the pointer against: the last commit on the
-            // series' paths, never a coding commit at HEAD.
+            // The last commit on the series' spec files, never a coding commit at HEAD.
             logger.LogInformation("Series {Base} is unchanged in {Repo} — no revision commit", set.Series, repo.Name);
-            return (await gitOps.GetLastCommitForPathsAsync(sandbox, SeriesReader.RevisionPaths(set.Series!), ct), false);
+            return (await gitOps.GetLastCommitForPathsAsync(sandbox, RevisionPaths(set.Series!), ct), false);
         }
         await gitOps.CommitAndPushStagedAsync(sandbox, branch, SeriesWriter.MessageFor(set), repo, ct, plain);
         var sha = await gitOps.GetHeadCommitAsync(sandbox, ct);
@@ -47,6 +48,9 @@ public sealed class SeriesMemberCommit(
 
     /// <summary>The paths a write of <paramref name="set"/> puts in a checkout.</summary>
     public IReadOnlyList<string> PathsOf(SpecSet set) => [.. files.Render(set).Select(f => f.Path)];
+
+    /// <summary>2026-11-28-db88a: the paths whose last commit is a series' revision sha — its spec files.</summary>
+    public static IReadOnlyList<string> RevisionPaths(string seriesBase) => [SeriesPaths.SpecFilesPathspec(seriesBase)];
 
     private async Task RemoveStaleAsync(
         ISandbox sandbox, ISandboxFileReader reader, SpecSet set, IReadOnlyList<SpecSetFile> rendered,

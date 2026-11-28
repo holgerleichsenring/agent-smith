@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.Specs;
 /// </summary>
 public sealed class SpecSetUnchangedTests
 {
-    private static readonly SpecSetUnchanged Unchanged = new(new SeriesFiles(new SeriesManifest()));
+    private static readonly SpecSetUnchanged Unchanged = new();
     private static readonly SpecRevision Filed = new(1, "approved in design conversation session-1", ApprovedSets.Noon);
 
     [Fact]

@@ -20,25 +20,12 @@ public sealed class WriteRunResultTopologyTests
 {
     private const string SampleRunId = "2026-05-20T22-27-43-8a3f";
     private readonly InMemoryDialogueTrail _dialogueTrail = new();
-    private readonly Dictionary<string, string> _written = new();
+    private readonly InMemoryRunArtifactStore _store = new();
     private readonly WriteRunResultHandler _sut;
 
     public WriteRunResultTopologyTests()
     {
-        var reader = new Mock<ISandboxFileReader>();
-        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns<string, CancellationToken>((p, _) =>
-                _written.TryGetValue(p, out var c) ? Task.FromResult<string?>(c) : Task.FromResult<string?>(null));
-        reader.Setup(r => r.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((p, c, _) => _written[p] = c)
-            .Returns(Task.CompletedTask);
-
-        var factory = new Mock<ISandboxFileReaderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
-
-        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(),
-            new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
-            new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
+        _sut = new WriteRunResultHandler(_dialogueTrail, _store, new AgentSmith.Tests.Events.RecordingEventPublisher(), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
@@ -113,9 +100,9 @@ public sealed class WriteRunResultTopologyTests
 
     private string ResultContent()
     {
-        var entry = _written.FirstOrDefault(kv => kv.Key.EndsWith("result.md"));
-        entry.Key.Should().NotBeNull();
-        return entry.Value;
+        var result = _store.ReadResultMarkdownAsync(SampleRunId, CancellationToken.None).GetAwaiter().GetResult();
+        result.Should().NotBeNull();
+        return result!;
     }
 
     private PipelineContext NewPipelineWithSandbox()

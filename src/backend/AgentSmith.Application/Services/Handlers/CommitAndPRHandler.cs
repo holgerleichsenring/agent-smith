@@ -45,8 +45,8 @@ public sealed class CommitAndPRHandler(
     LandedRungTarget? rungs = null) // 2026-11-26-5201f
     : ICommandHandler<CommitAndPRContext>
 {
-    // p0234: the run record (plan.md / result.md / decisions.md / context.yaml)
-    // lives under this dir; force-staged so a .gitignore can't drop it.
+    // p0234: what a run records in the repository (decisions, the spec record) lives under this dir;
+    // force-staged so a .gitignore can't drop it. 2026-11-28-db88b: the run's plan and result are not among it.
     private const string AgentSmithRunRecordPath = ".agentsmith";
 
     public async Task<CommandResult> ExecuteAsync(
@@ -61,10 +61,10 @@ public sealed class CommitAndPRHandler(
             return CommandResult.Fail("CommitAndPR requires Sandboxes published by PipelineSandboxCoordinator.");
 
         // p0235: stage every repo first and detect which carry a REAL code
-        // change (staged paths outside .agentsmith) vs only the run-record. Open
-        // a PR for each changed repo; if NONE changed, open exactly ONE record
-        // PR (the first repo) carrying result.md — never empty per-repo PRs. The
-        // operator's rule: at least one PR (≥ result.md), no obscure splitting.
+        // change (staged paths outside .agentsmith) vs only .agentsmith records. Open
+        // a PR for each changed repo; if NONE changed, the first repo carries what the
+        // run recorded under .agentsmith — never empty per-repo PRs. 2026-11-28-db88b: the
+        // run's result is on its run page, so a run that changed nothing opens no PR.
         var stagedRepos = new List<(RepoConnection Repo, string Key, ISandbox Sandbox, bool HasCode)>();
         var opened = new List<OpenedPullRequest>(context.Configs.Count);
         var bodies = new Dictionary<string, string>(context.Configs.Count, StringComparer.Ordinal);
@@ -186,9 +186,9 @@ public sealed class CommitAndPRHandler(
 
         // p0241 keystone: a fix/feature run that shipped no code, or whose
         // build/tests are not verified green, must NOT be reported as success and
-        // must NOT mark the ticket resolved. The record PR (result.md) is already
-        // opened above (as a draft when red), so the agent's reasoning is preserved
-        // either way. Keystone was evaluated before the PR loop — reused here.
+        // must NOT mark the ticket resolved. Any PR is already opened above (as a draft
+        // when red), and the run's result is on its run page either way.
+        // Keystone was evaluated before the PR loop — reused here.
         if (!keystone.Satisfied)
         {
             // p0273: the work is NOT lost — the PR(s) are open above, before this gate.
@@ -244,31 +244,24 @@ public sealed class CommitAndPRHandler(
         try
         {
             await gitOps.StageAllAsync(sandbox, ct);
-            // p0234: force-stage the run-record so EVERY repo commits + gets a
-            // PR — WriteRunResult wrote .agentsmith/runs/{runId}/{plan,result}.md
-            // (+ the agent's plan.md/decisions.md) into this repo, and a target
-            // repo that .gitignores .agentsmith would otherwise have `git add -A`
-            // silently skip it, leaving "nothing to commit" → no PR. The run
-            // record must always be pushed.
+            // p0234: force-stage .agentsmith — a target repo that .gitignores it would otherwise
+            // have `git add -A` silently skip the decisions and spec record the run wrote there.
             await gitOps.ForceStageAsync(sandbox, AgentSmithRunRecordPath, ct);
-            // p0228: a repo with neither source changes NOR a run-record has
+            // p0228: a repo with neither source changes NOR an .agentsmith record has
             // nothing to commit; skip the doomed `git commit` (which exits 1).
-            // With the force-stage above this is now rare — but the agent dir
-            // can legitimately be empty for a repo, so the guard stays.
+            // 2026-11-28-db88b: no run result is written here, so a run that changed nothing lands here.
             var stagedDiff = await gitOps.GetStagedDiffAsync(sandbox, ct);
             if (string.IsNullOrEmpty(stagedDiff))
             {
                 if (!RunWorkCheckpointer.WasCheckpointed(context.Pipeline, repo.Name))
                 {
-                    // p0256: a spent run that opens no PR is a real loss. The run record
-                    // under .agentsmith was force-staged just above yet git sees nothing
-                    // staged — dump what git actually sees so the next real run pins the
-                    // root cause instead of this staying a silent skip.
+                    // p0256: dump what git sees under .agentsmith, so a record that should have
+                    // been staged and was not is named rather than a silent skip.
                     try
                     {
                         var diag = await gitOps.DescribeRunRecordStateAsync(sandbox, ct);
-                        logger.LogWarning(
-                            "{Repo}: nothing staged after force-staging the run record — no PR. Diagnostics:\n{Diag}",
+                        logger.LogInformation(
+                            "{Repo}: nothing staged after force-staging .agentsmith — no PR. Diagnostics:\n{Diag}",
                             repo.Name, diag);
                     }
                     catch (Exception dex)
