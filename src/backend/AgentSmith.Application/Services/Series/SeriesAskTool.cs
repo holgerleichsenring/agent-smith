@@ -7,14 +7,15 @@ using Microsoft.Extensions.AI;
 namespace AgentSmith.Application.Services.Series;
 
 /// <summary>2026-11-17-0207c: the series master's ask_human — one question in the conversation at a time; with a
-/// recommendation the series takes it after dialogue.question_default_minutes, without one it waits for the operator.
+/// recommendation the series takes it after dialogue.question_default_minutes (2026-11-28-d1ffb: unless dialogue.question_default_enabled
+/// is off), without one it waits for the operator.
 /// The series goes on meanwhile; the answer reaches the master in a later beat.
 /// <para>2026-11-25-96aea: a merge question (mergeOf) always offers "Merge it" and "Look at the pull request first" as buttons
 /// with the pull requests' links and is never taken by default — the person decides every merge in the dashboard. A series
 /// without a conversation asks nothing.</para>
 /// <para>2026-11-27-3532b: with forTicket it carries a ticket's run question to the operator in the master's words; the answer
 /// names that ticket, whose run the master then answers with tell_ticket.</para></summary>
-public sealed class SeriesAskTool(SeriesBeat beat, ISeriesRunStore store, int defaultMinutes)
+public sealed class SeriesAskTool(SeriesBeat beat, ISeriesRunStore store, int? defaultMinutes)
 {
     public const string Name = "ask_human";
     public const string MergeIt = "Merge it";
@@ -22,7 +23,7 @@ public sealed class SeriesAskTool(SeriesBeat beat, ISeriesRunStore store, int de
 
     public AIFunction GetTool() => AIFunctionFactory.Create(AskHumanAsync, Name);
 
-    [Description("Asks the operator, in the conversation, one decision only they can make. Recommend a choice where you can: it is taken by default at the deadline if nobody answers — only for a choice you can carry out yourself, such as an order or a plan. A question about something only a person or the environment can do (a secret, a database, quota, a credential, access, a host approval) has no default: set onlyAPerson, and a ticket's environment question carried with forTicket never has one; it waits for the operator's answer. With mergeOf (a ticket or 'final') it is a merge question: the choices 'Merge it' and 'Look at the pull request first' and the pull requests' links are added, and it waits for the person. With forTicket (a ticket's key or id) it carries that ticket's run question: its answer reaches you to answer the run with tell_ticket. The series goes on meanwhile and the answer reaches you in a later beat.")]
+    [Description("Asks the operator, in the conversation, one decision only they can make. Recommend a choice where you can: where the series takes defaults (the answer says), it is taken at the deadline if nobody answers — only for a choice you can carry out yourself, such as an order or a plan. A question about something only a person or the environment can do (a secret, a database, quota, a credential, access, a host approval) has no default: set onlyAPerson, and a ticket's environment question carried with forTicket never has one; it waits for the operator's answer. With mergeOf (a ticket or 'final') it is a merge question: the choices 'Merge it' and 'Look at the pull request first' and the pull requests' links are added, and it waits for the person. With forTicket (a ticket's key or id) it carries that ticket's run question: its answer reaches you to answer the run with tell_ticket. The series goes on meanwhile and the answer reaches you in a later beat.")]
     public async Task<string> AskHumanAsync(
         [Description("The question.")] string question,
         [Description("The choices, each {label, description?}.")] IReadOnlyList<HumanToolHost.AskHumanChoice>? choices = null,

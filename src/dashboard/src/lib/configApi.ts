@@ -1104,6 +1104,8 @@ export interface DialogueSetting {
   /** 2026-11-25-96aec: how long the oldest event waits so events arriving together are one master turn; 0 wakes it at once. */
   seriesWakeSettleSeconds?: number;
   questionDefaultMinutes: number;
+  /** 2026-11-28-d1ffb: whether a recommended series question is taken by default at all; absent reads as on. */
+  questionDefaultEnabled?: boolean;
 }
 
 export interface DeploymentSetting {

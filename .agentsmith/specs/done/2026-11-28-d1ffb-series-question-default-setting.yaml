@@ -39,7 +39,7 @@ steps:
   - id: config
     action: "DialogueGlobalConfig.QuestionDefaultEnabled; config/agentsmith.schema.json; docs in agentsmith-yml.md and series-run.md (table and prose)."
   - id: backend
-    action: "SeriesQuestions.Ask with int? minutes; SeriesQuestions takes AgentSmithConfig (as ReadSeriesHandler and SeriesBudgetQuestion do) and clears a stored deadline when off; SeriesMasterSurface passes null minutes when off; SeriesPolicy and SeriesQuestionText follow. Test constructors: SeriesWakeBeatRig, SeriesMasterLineTests, SeriesQuestionsStaleTests, SeriesQuestionsTests, SeriesDeliveryBeatTests."
+    action: "SeriesQuestions.Ask with int? minutes; SeriesQuestions, SeriesMasterHandler/SeriesMasterSurface and SeriesRunViewReader read the registered DialogueGlobalConfig (in the server the config store's current dialogue: block, so a dashboard change reaches the next beat without a restart); SeriesQuestions clears a stored deadline when off; SeriesMasterSurface passes null minutes when off; SeriesPolicy and SeriesQuestionText follow. Test constructors: SeriesWakeBeatRig, SeriesMasterLineTests, SeriesQuestionsStaleTests, SeriesQuestionsTests, SeriesDeliveryBeatTests."
   - id: dashboard
     action: "DialogueSetting.questionDefaultEnabled (absent reads as on); a CheckField before the minutes field; help texts for both fields in en and de."
   - id: tests
@@ -50,6 +50,7 @@ tests:
   - "SeriesQuestionsTests.RecommendedQuestion_DefaultOff_HasNoDeadline_AndSaysItWaits"
   - "SeriesQuestionsTests.StoredDeadline_DefaultOff_IsNotTaken_AndClearsTheDeadline"
   - "SeriesReportTests: the policy line says questions wait when off"
+  - "SeriesQuestionDefaultCompositionTests.DefaultsOff_RecommendedQuestion_WaitsWithoutADeadline"
   - "DialogueSettingsForm.test.tsx: the question-default toggle patches questionDefaultEnabled; both help texts name value, reason and key"
 
 done:

@@ -71,7 +71,7 @@ The head of the conversation reads **series running**, **· 1 question for you**
 
 Write in the same conversation. A message from someone holding `runs.control` goes to the master of the running beat, or the next one.
 
-When the master asks a question with a recommended answer, or a ticket's run parks on a question with one, the question appears in the conversation. Answer it there. If nobody answers within `dialogue.question_default_minutes` (default 120), the series takes the recommendation, posts *Taken by default at HH:mm: …* and hands the answer on: to the master, or to the parked run, which resumes. A question without a recommendation waits for you.
+When the master asks a question with a recommended answer, or a ticket's run parks on a question with one, the question appears in the conversation. Answer it there. If nobody answers within `dialogue.question_default_minutes` (default 120), the series takes the recommendation, posts *Taken by default at HH:mm: …* and hands the answer on: to the master, or to the parked run, which resumes. A question without a recommendation waits for you. With `dialogue.question_default_enabled` off (it is on by default), no question is taken by default: every one waits for you, and a question already waiting loses its deadline at the next beat.
 
 ## When you look: review
 
@@ -108,6 +108,7 @@ Once every ticket has landed, a `series-verify` run checks out the series branch
 | `dialogue.series_wake_settle_seconds` | 60 | How long the oldest event may wait so events that arrive together are one master turn; 0 wakes it at once |
 | `dialogue.series_status_minutes` | 15 | How long the master's events wait after its loop failed before it is tried again |
 | `dialogue.question_default_minutes` | 120 | When a recommended answer is taken by default |
+| `dialogue.question_default_enabled` | true | Whether a recommended answer is taken by default at all; off, every question waits |
 | `dialogue.series_master_budget_usd` | 20 | The series master's own spend |
 | `dialogue.series_master_budget_ask_usd` | 2 | At or below this much left, the series asks to raise the budget or stop |
 | `dialogue.series_master_thread_max_chars` | 60000 | Past this size the master's older beats become its notes; 0 turns it off |

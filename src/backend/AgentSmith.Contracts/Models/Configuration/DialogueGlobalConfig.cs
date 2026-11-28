@@ -79,4 +79,9 @@ public sealed class DialogueGlobalConfig
     /// <summary>2026-11-17-0207c: how long a series waits on a question that names a recommendation before it takes the
     /// recommendation, in minutes — the operator's policy; a question without one waits for the operator.</summary>
     public int QuestionDefaultMinutes { get; set; } = 120;
+
+    /// <summary>2026-11-28-d1ffb: whether a series question that names a recommendation is taken by default at all, after
+    /// <see cref="QuestionDefaultMinutes"/> — the operator's policy. Off, every series question waits for the operator.
+    /// Default on, as before the setting existed.</summary>
+    public bool QuestionDefaultEnabled { get; set; } = true;
 }

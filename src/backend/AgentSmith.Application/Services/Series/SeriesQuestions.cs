@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Series;
 using AgentSmith.Domain.Models;
 
@@ -14,7 +15,8 @@ namespace AgentSmith.Application.Services.Series;
 /// slot frees, every run question still parked that the master neither answered nor carried since is raised again. A ticket's
 /// question relayed into the chat before is dropped at the next beat, unanswered — the master is asked it instead.</para>
 /// </summary>
-public sealed class SeriesQuestions(ISeriesRunStore store, SeriesBudgetQuestion budget) // 2026-11-25-9992g
+public sealed class SeriesQuestions(ISeriesRunStore store, SeriesBudgetQuestion budget, // 2026-11-25-9992g
+    DialogueGlobalConfig dialogue) // 2026-11-28-d1ffb: the store's current dialogue: block, so a dashboard change reaches the next beat
 {
     private const string TellTool = "tell_ticket";
 
@@ -31,13 +33,13 @@ public sealed class SeriesQuestions(ISeriesRunStore store, SeriesBudgetQuestion 
 
     /// <summary>A new question; with a recommendation it is taken by default after the configured minutes — unless
     /// <paramref name="noDefault"/> (2026-11-28-b1db: only a person or the environment can carry it out), when it keeps its
-    /// recommendation for the reader and has no deadline.</summary>
-    public static SeriesQuestion Ask(string text, IReadOnlyList<string> choices, int? recommended, DateTimeOffset now, int defaultMinutes,
+    /// recommendation for the reader and has no deadline. 2026-11-28-d1ffb: null minutes — defaults are off — gives none either.</summary>
+    public static SeriesQuestion Ask(string text, IReadOnlyList<string> choices, int? recommended, DateTimeOffset now, int? defaultMinutes,
         bool noDefault = false)
     {
         var valid = recommended is { } i && i >= 0 && i < choices.Count ? recommended : null;
         return new SeriesQuestion(Guid.NewGuid().ToString("N"), text, choices, valid, now,
-            valid is null || noDefault ? null : now.AddMinutes(defaultMinutes)) { NoDefault = noDefault };
+            valid is null || noDefault || defaultMinutes is not { } minutes ? null : now.AddMinutes(minutes)) { NoDefault = noDefault };
     }
 
     /// <summary>2026-11-28-b1db: the question carries a ticket's run question only the environment can answer.</summary>
@@ -80,6 +82,13 @@ public sealed class SeriesQuestions(ISeriesRunStore store, SeriesBudgetQuestion 
             answered = waiting with { Answer = beat.Messages[0].Text, AnsweredAt = beat.Messages[0].At, AnsweredBy = beat.Messages[0].Author };
             if (waiting.Budget && await budget.SettledAsync(beat, answered, ct)) return;
         }
+        else if (waiting.DeadlineAt is not null && !dialogue.QuestionDefaultEnabled)
+        {
+            // 2026-11-28-d1ffb: asked with a deadline before defaults were turned off — it waits for the operator, and says so.
+            await KeepAsync(beat, waiting with { DeadlineAt = null }, ct);
+            beat.Said.Add(SeriesQuestionText.DefaultsOff(waiting));
+            return;
+        }
         else if (!waiting.NoDefault && waiting.DeadlineAt is not null && beat.Facts.Any(f => CarriesEnvironment(waiting, f)))
         {
             // 2026-11-28-b1db: stored with a deadline before — only the environment can do it, so it waits for the operator.
@@ -100,12 +109,7 @@ public sealed class SeriesQuestions(ISeriesRunStore store, SeriesBudgetQuestion 
     private static void Hand(SeriesBeat beat, SeriesQuestion answered)
     {
         beat.MasterAnswered = true;
-        var run = answered.ForTicket is { } ticket ? $" (for {ticket}'s run {answered.ForRunId}, question id {answered.ForQuestionId})" : string.Empty;
-        beat.Reasons.Add($"Your question \"{answered.Text}\"{run} is answered{(answered.ByDefault ? " by default" : string.Empty)}: "
-            + answered.Answer + (answered.ForTicket is { } key
-                ? $" — answer {key}'s run with tell_ticket (questionId {answered.ForQuestionId})"
-                    + (answered.ByDefault ? ": nobody replied, so tell it only the choice, never that anything was set up or granted." : ".")
-                : string.Empty));
+        beat.Reasons.Add(SeriesQuestionText.Handed(answered));
     }
 
     private async Task KeepAsync(SeriesBeat beat, SeriesQuestion? question, CancellationToken ct)
