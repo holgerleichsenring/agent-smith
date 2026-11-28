@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.234.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.234.0...v0.234.1) (2026-11-28)
+
+
+### Bug Fixes
+
+* **cleanup:** delete dead code no run reaches — dashboard modules, backend types, unrun pipeline steps, unread config keys (2026-11-28-34d9) ([70689e0](https://github.com/holgerleichsenring/agent-smith/commit/70689e0d7d8ec1a1463c39b78b6bc340ae98456b))
+* **cleanup:** delete dead code no run reaches — dashboard modules, backend types, unrun pipeline steps, unread config keys (2026-11-28-34d9) ([70689e0](https://github.com/holgerleichsenring/agent-smith/commit/70689e0d7d8ec1a1463c39b78b6bc340ae98456b))
+
 ## [0.234.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.2...v0.234.0) (2026-11-28)
 
 
