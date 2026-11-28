@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.233.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.1...v0.233.2) (2026-11-28)
+
+
+### Bug Fixes
+
+* **series:** a question only a person or the environment can act on is never taken by default (2026-11-28-b1db) ([6d7acc9](https://github.com/holgerleichsenring/agent-smith/commit/6d7acc9755b4662396366ed8233cc1c19b4fd6ed))
+* **series:** a question only a person or the environment can act on is never taken by default; the parked run is told nothing until the operator replies (2026-11-28-b1db) ([6602d25](https://github.com/holgerleichsenring/agent-smith/commit/6602d257c17a4a461931cf1a791dcb68311c3831))
+
 ## [0.233.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.233.0...v0.233.1) (2026-11-27)
 
 
