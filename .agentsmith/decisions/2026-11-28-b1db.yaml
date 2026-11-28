@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-28-b1db
+
+decisions:
+  - category: Architecture
+    chose: "A question the master carries for a run whose question names the environment as answerer is NoDefault with no deadline, read from the parked run's answerers"
+    over: "Classifying the question's text (secret, database, quota) by keywords; keeping the deadline and only changing what the master is told"
+    reason: "decider: operator (2026-11-28, from the night loop on a series ticket) — a structural rule over a heuristic: only the environment can carry out such an answer, so a default taken at the deadline is a claim nobody made. The answerer is already on the run's question (QuestionAnswerers.Environment)."
+  - category: Architecture
+    chose: "An explicit ask_human flag onlyAPerson that the master sets for anything only a person or the environment can do; the question keeps its recommendation for the reader but has no deadline"
+    over: "Relying on 'ask without a recommendation' for no default"
+    reason: "decider: operator — the master's own questions about a credential, access or a host approval have no run answerer to read; dropping the recommendation would hide the master's advice from the operator. NoDefault already exists (merge and budget questions), so this adds an entry point to the existing state, not a second path."
+  - category: Implementation
+    chose: "A waiting question stored with a deadline that carries an environment question (matched on the beat's facts by run and question id) is made NoDefault with its deadline cleared at the next beat"
+    over: "Leaving in-flight questions to default once; answering them by hand"
+    reason: "decider: operator — the fix must hold for a question already waiting when it deploys. Clearing DeadlineAt too keeps SeriesBeatDue from starting a beat on every sweep (it reads the deadline, not NoDefault). A question whose run no longer waits on it is not matched and behaves as before."
+  - category: Implementation
+    chose: "A default taken on a carried question tells the master to pass the run only the choice, never that anything was set up; the prompt says the same"
+    over: "No wording change on the default path"
+    reason: "decider: operator — 'the approved environment decision should let the validation resume' was a false done relay; a plan choice still defaults, but the master must not report a change nobody confirmed."
+  - category: Scope
+    chose: "No dashboard change: an unanswered master question already stands in the series questions block; the chat line of a deadline question already says when it is taken; a NoDefault question with a recommendation now says it waits"
+    over: "A new pinned card or a Needs-you count for the master's question"
+    reason: "decider: claude — the block and the deadline line exist (SeriesQuestionBlock, SeriesQuestionText.Asked); only the no-default case lacked a sentence."
